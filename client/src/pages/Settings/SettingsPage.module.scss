@@ -1,0 +1,183 @@
+@use '@/styles/abstracts' as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 840px;
+  padding-bottom: var(--space-12);
+}
+
+.sectionsStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.sectionCard {
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+  }
+}
+
+.cardHeaderContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+
+  .headerIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .headerText {
+    display: flex;
+    flex-direction: column;
+
+    .cardTitle {
+      font-size: var(--text-md);
+      font-weight: var(--weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+
+    .cardSubtitle {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      margin: 0;
+      margin-top: 2px;
+    }
+  }
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+    padding-bottom: var(--space-4);
+  }
+}
+
+.settingInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+
+  .settingLabel {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .settingDesc {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-top: 2px;
+    line-height: var(--leading-normal);
+  }
+}
+
+.selectWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.quotaTelemetryGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+
+  @include up(sm) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.quotaMetricBox {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+
+  .metricLabel {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-1);
+  }
+
+  .metricValue {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+
+    &.accent {
+      color: var(--color-accent);
+    }
+  }
+
+  .metricSub {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+}
+
+.accountDetailRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+
+  .accountLabel {
+    color: var(--color-text-muted);
+  }
+
+  .accountValue {
+    font-weight: var(--weight-medium);
+    color: var(--color-text-primary);
+  }
+
+  &:not(:last-child) {
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  }
+}
+
+.viewWalletBtn {
+  margin-top: var(--space-2);
+  align-self: flex-start;
+}

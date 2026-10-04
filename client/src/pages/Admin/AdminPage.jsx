@@ -28,7 +28,6 @@ export default function AdminPage() {
     usageData,
     systemConfig,
     telemetry,
-    isUpdatingConfig,
     range,
     transactions,
     errors,
@@ -39,7 +38,6 @@ export default function AdminPage() {
     fetchOverview,
     fetchTransactions,
     fetchErrors,
-    updateBillingMode,
     setRange,
   } = useAdminStore();
 
@@ -60,34 +58,22 @@ export default function AdminPage() {
     }
   };
 
-  const isQuotaFree = (systemConfig?.billingEnforcementMode || 'quota_free') === 'quota_free';
-
   return (
     <div className={styles.container}>
       <PageHeader
         title="Admin Analytics & Telemetry"
-        description="Live LLM token consumption metrics, model usage distribution, recharge transactions, and error logs."
+        description="Live AI token consumption metrics, feature usage distribution, recharge transactions, and error logs."
         actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Button
-              variant={isQuotaFree ? 'secondary' : 'primary'}
-              size="sm"
-              onClick={() => updateBillingMode(isQuotaFree ? 'credit_strict' : 'quota_free')}
-              loading={isUpdatingConfig}
-            >
-              {isQuotaFree ? 'Switch to Credit-Strict SaaS' : 'Switch to Quota-Free Demo'}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleRefresh}
-              loading={isLoading}
-              disabled={isLoading}
-            >
-              <RefreshCw size={14} style={{ marginRight: 6 }} />
-              Refresh Data
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRefresh}
+            loading={isLoading}
+            disabled={isLoading}
+          >
+            <RefreshCw size={14} style={{ marginRight: 6 }} />
+            Refresh Data
+          </Button>
         }
       />
 
@@ -114,7 +100,7 @@ export default function AdminPage() {
             <StatCard
               title="Total Tokens Consumed"
               value={Number(stats?.totalTokens || 0).toLocaleString()}
-              subtitle={`${Number(stats?.totalCreditsDeducted || 0).toLocaleString()} credits debited`}
+              subtitle={`${Number(stats?.usageCallCount || 0).toLocaleString()} AI calls completed`}
               icon={<Zap size={18} />}
               tone="accent"
             />
@@ -143,13 +129,11 @@ export default function AdminPage() {
         )}
       </section>
 
-      {/* Live Gemini API Quota Telemetry & Governance Switch */}
+      {/* Live Gemini API Quota Telemetry (1,500 RPD • 15 RPM • 1M TPM) */}
       <section className={styles.telemetrySection}>
         <QuotaTelemetryCard
           telemetry={telemetry}
           config={systemConfig}
-          onModeToggle={updateBillingMode}
-          isUpdating={isUpdatingConfig}
         />
       </section>
 
@@ -163,6 +147,7 @@ export default function AdminPage() {
               data={usageData?.timeSeries || []}
               range={range}
               onRangeChange={setRange}
+              modelName={usageData?.activeModel || telemetry?.activeModel || 'gemini-3.5-flash-lite'}
             />
           )}
         </div>
@@ -173,6 +158,7 @@ export default function AdminPage() {
             <ModelSplitChart
               data={usageData?.modelSplit || []}
               featureSplit={usageData?.featureSplit || []}
+              activeModel={usageData?.activeModel || telemetry?.activeModel || 'gemini-3.5-flash-lite'}
             />
           )}
         </div>

@@ -54,7 +54,6 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const greeting = getGreetingContext(user);
 
   const {
-    insufficientCredits,
     isStreaming,
     isSimulation,
     toggleSimulation,
@@ -132,7 +131,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const handleSubmit = (e) => {
     e?.preventDefault();
     const trimmed = input.trim();
-    if ((!trimmed && !attachedContext) || isStreaming || (insufficientCredits && !isSimulation)) {
+    if ((!trimmed && !attachedContext) || isStreaming) {
       return;
     }
 
@@ -235,7 +234,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
   };
 
   const handleSelectChip = (promptText) => {
-    if (isStreaming || (insufficientCredits && !isSimulation)) return;
+    if (isStreaming) return;
     if (onSendPrompt) {
       onSendPrompt(promptText);
     } else {
@@ -289,13 +288,10 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={insufficientCredits && !isSimulation}
                 placeholder={
-                  insufficientCredits && !isSimulation
-                    ? 'Recharge your credits to send messages...'
-                    : isSimulation
-                      ? 'Simulation Mode (0 tokens) — Ask anything...'
-                      : 'Ask NexAI anything...'
+                  isSimulation
+                    ? 'Simulation Mode (0 tokens) — Ask anything...'
+                    : 'Ask NexAI anything...'
                 }
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"
@@ -398,7 +394,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     label="Send prompt"
                     variant="primary"
                     size="sm"
-                    disabled={!hasContent || (insufficientCredits && !isSimulation)}
+                    disabled={!hasContent}
                     className={styles.sendBtn}
                   />
                 )}

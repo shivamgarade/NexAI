@@ -28,13 +28,11 @@ function CustomTooltip({ active, payload, label }) {
   return null;
 }
 
-export function UsageChart({ data = [], range = '7d', onRangeChange }) {
+export function UsageChart({ data = [], range = '7d', onRangeChange, modelName = 'gemini-3.5-flash-lite' }) {
   const chartData = data.map((d) => ({
     date: d.date,
     label: d.date.slice(5), // MM-DD
-    'Gemini Flash': d.flashTokens,
-    'Gemini Pro': d.proTokens,
-    'Total Tokens': d.totalTokens,
+    'Tokens Consumed': d.totalTokens,
   }));
 
   return (
@@ -42,7 +40,7 @@ export function UsageChart({ data = [], range = '7d', onRangeChange }) {
       <div className={styles.header}>
         <div>
           <h3 className={styles.title}>Token Consumption</h3>
-          <p className={styles.subtitle}>Daily LLM token consumption across Flash and Pro models</p>
+          <p className={styles.subtitle}>Daily AI token consumption ({modelName})</p>
         </div>
         {onRangeChange && (
           <div className={styles.rangeTabs}>
@@ -71,13 +69,9 @@ export function UsageChart({ data = [], range = '7d', onRangeChange }) {
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorFlash" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                </linearGradient>
-                <linearGradient id="colorPro" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -97,18 +91,10 @@ export function UsageChart({ data = [], range = '7d', onRangeChange }) {
               <Legend verticalAlign="top" height={36} />
               <Area
                 type="monotone"
-                dataKey="Gemini Flash"
+                dataKey="Tokens Consumed"
                 stroke="#10b981"
                 fillOpacity={1}
-                fill="url(#colorFlash)"
-                strokeWidth={2}
-              />
-              <Area
-                type="monotone"
-                dataKey="Gemini Pro"
-                stroke="#8b5cf6"
-                fillOpacity={1}
-                fill="url(#colorPro)"
+                fill="url(#colorTokens)"
                 strokeWidth={2}
               />
             </AreaChart>
@@ -118,3 +104,4 @@ export function UsageChart({ data = [], range = '7d', onRangeChange }) {
     </Card>
   );
 }
+

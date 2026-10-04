@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { chatApi } from '@/lib/api/chat.api.js';
 import { streamChatMessage, sanitizeErrorMessage } from '@/lib/sse.js';
 import { useAuthStore } from './authStore.js';
+import { useWalletStore } from './walletStore.js';
 import { toast } from './uiStore.js';
 
 export const useChatStore = create((set, get) => ({
@@ -244,11 +245,6 @@ export const useChatStore = create((set, get) => ({
       return;
     }
 
-    if (get().insufficientCredits && !get().isSimulation) {
-      toast.error('Insufficient credits. Recharge to continue.');
-      return;
-    }
-
     let targetChatId = get().activeChatId;
 
     // Auto-create chat session if none is selected
@@ -367,9 +363,18 @@ export const useChatStore = create((set, get) => ({
             };
           });
 
-          // Sync credit balance reactively to authStore
+          // Sync credit balance and live quota governance reactively across stores
           if (typeof doneData.creditsRemaining === 'number') {
             useAuthStore.getState().updateCredits(doneData.creditsRemaining);
+            const currentWallet = useWalletStore.getState().wallet;
+            if (currentWallet) {
+              useWalletStore.setState({
+                wallet: { ...currentWallet, creditsRemaining: doneData.creditsRemaining },
+              });
+            }
+          }
+          if (doneData.governance) {
+            useWalletStore.getState().setGovernance(doneData.governance);
           }
         },
         onError: (err) => {
@@ -396,9 +401,7 @@ export const useChatStore = create((set, get) => ({
             };
           });
 
-          if (is402) {
-            toast.error('Insufficient credits. Recharge to continue.');
-          } else if (err.name !== 'AbortError') {
+          if (err.name !== 'AbortError') {
             toast.error(cleanMessage);
           }
         },
@@ -423,9 +426,7 @@ export const useChatStore = create((set, get) => ({
           };
         });
 
-        if (!is402) {
-          toast.error(cleanMessage);
-        }
+        toast.error(cleanMessage);
       }
     }
   },

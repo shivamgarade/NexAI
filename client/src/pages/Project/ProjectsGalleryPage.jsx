@@ -142,6 +142,7 @@ export default function ProjectsGalleryPage() {
                       },
                     ]}
                     align="right"
+                    portal
                   />
                 </div>
               </div>

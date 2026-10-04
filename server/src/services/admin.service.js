@@ -2,6 +2,7 @@ import { UsageLog } from '../models/UsageLog.js';
 import { User } from '../models/User.js';
 import { Transaction } from '../models/Transaction.js';
 import { ErrorLog } from '../models/ErrorLog.js';
+import { env } from '../config/env.js';
 
 export const adminService = {
   /**
@@ -182,6 +183,7 @@ export const adminService = {
 
     return {
       range,
+      activeModel: env.GEMINI_FLASH_MODEL || 'gemini-3.5-flash-lite',
       timeSeries,
       modelSplit,
       featureSplit,

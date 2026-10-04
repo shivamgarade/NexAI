@@ -7,7 +7,6 @@ import {
   FileText,
   Bookmark,
   FileCode,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import styles from './AttachedContextPreview.module.scss';

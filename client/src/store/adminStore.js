@@ -51,9 +51,10 @@ export const useAdminStore = create((set, get) => ({
         isLoading: false,
       };
 
-      if (configRes?.data?.data) {
-        updates.systemConfig = configRes.data.data.config;
-        updates.telemetry = configRes.data.data.telemetry;
+      const configPayload = configRes?.data?.data || configRes?.data || configRes || {};
+      if (configPayload.config || configPayload.telemetry) {
+        updates.systemConfig = configPayload.config || null;
+        updates.telemetry = configPayload.telemetry || null;
       }
 
       set(updates);

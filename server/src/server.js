@@ -3,10 +3,13 @@ import { env } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { logger } from './utils/logger.js';
 
+import { systemConfigService } from './services/systemConfig.service.js';
+
 let server;
 
 async function startServer() {
   await connectDB();
+  await systemConfigService.getConfig();
 
   server = app.listen(env.PORT, () => {
     logger.info(`🚀 NexAI Server running in ${env.NODE_ENV} mode on port ${env.PORT}`);

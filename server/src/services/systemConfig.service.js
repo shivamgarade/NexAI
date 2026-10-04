@@ -11,10 +11,14 @@ function getDefaultMode() {
   return env.CREDIT_ENFORCEMENT_MODE || 'quota_free';
 }
 
+function getDefaultQuota() {
+  return 1500;
+}
+
 // In-memory cache for ultra-fast, zero-latency synchronous checks in middleware
 let cachedConfig = {
   billingEnforcementMode: getDefaultMode(),
-  dailyGeminiQuotaLimit: 1500,
+  dailyGeminiQuotaLimit: getDefaultQuota(),
   updatedBy: null,
   updatedAt: new Date(),
 };
@@ -39,13 +43,13 @@ export const systemConfigService = {
         config = await SystemConfig.create({
           _id: 'global_config',
           billingEnforcementMode: getDefaultMode(),
-          dailyGeminiQuotaLimit: 1500,
+          dailyGeminiQuotaLimit: getDefaultQuota(),
         });
       }
 
       cachedConfig = {
-        billingEnforcementMode: config.billingEnforcementMode,
-        dailyGeminiQuotaLimit: config.dailyGeminiQuotaLimit || 1500,
+        billingEnforcementMode: config.billingEnforcementMode || 'quota_free',
+        dailyGeminiQuotaLimit: config.dailyGeminiQuotaLimit || getDefaultQuota(),
         updatedBy: config.updatedBy || null,
         updatedAt: config.updatedAt || new Date(),
       };
@@ -92,8 +96,8 @@ export const systemConfigService = {
     ).lean();
 
     cachedConfig = {
-      billingEnforcementMode: config.billingEnforcementMode,
-      dailyGeminiQuotaLimit: config.dailyGeminiQuotaLimit || 1500,
+      billingEnforcementMode: config.billingEnforcementMode || 'quota_free',
+      dailyGeminiQuotaLimit: config.dailyGeminiQuotaLimit || getDefaultQuota(),
       updatedBy: config.updatedBy || null,
       updatedAt: config.updatedAt || new Date(),
     };
@@ -127,7 +131,7 @@ export const systemConfigService = {
    */
   async checkDailyQuota() {
     const todayStart = getTodayStartUTC();
-    const limit = cachedConfig.dailyGeminiQuotaLimit || 1500;
+    const limit = cachedConfig.dailyGeminiQuotaLimit || getDefaultQuota();
 
     const requestsToday = await UsageLog.countDocuments({
       createdAt: { $gte: todayStart },
@@ -205,12 +209,15 @@ export const systemConfigService = {
       rpmLimit,
       tpm: currentTpm,
       tpmLimit,
+      activeModel: env.GEMINI_FLASH_MODEL || 'gemini-3.5-flash-lite',
       tokensToday: {
         total: totalTokensToday,
         inputTokens,
         outputTokens,
         flashTokens: flashTokensToday,
         proTokens: proTokensToday,
+        avgTokensPerRequest: requestsToday > 0 ? Math.round(totalTokensToday / requestsToday) : 0,
+        activeModel: env.GEMINI_FLASH_MODEL || 'gemini-3.5-flash-lite',
       },
       resetTimeUTC: '00:00 UTC',
     };

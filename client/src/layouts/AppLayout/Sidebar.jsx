@@ -29,6 +29,7 @@ import {
   List,
   Plus,
   ExternalLink,
+  Clock,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -38,6 +39,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { useProjectStore } from '@/store/projectStore';
+import { useWalletStore } from '@/store/walletStore';
 import { useUiStore } from '@/store/uiStore';
 import { toast } from '@/store/uiStore';
 import { CreateProjectModal, MoveToProjectModal } from '@/features/projects';
@@ -72,8 +74,46 @@ export function Sidebar({ onItemClick, isMobile = false }) {
   // Collapsible sections and state
   const [isProjectsOpen, setIsProjectsOpen] = useState(true);
   const [isChatsOpen, setIsChatsOpen] = useState(true);
-  const [organizeMode, setOrganizeMode] = useState('list'); // 'list' | 'project'
+  const [organizeMode, setOrganizeMode] = useState(() => {
+    try {
+      return localStorage.getItem('nexai_chat_organize_mode') || 'list';
+    } catch {
+      return 'list';
+    }
+  }); // 'list' | 'project'
   const [chatFilter, setChatFilter] = useState('all'); // 'all' | 'today' | 'week' | 'older'
+
+  const handleSetOrganizeMode = (mode) => {
+    setOrganizeMode(mode);
+    try {
+      localStorage.setItem('nexai_chat_organize_mode', mode);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+  const [collapsedGroups, setCollapsedGroups] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nexai_collapsed_chat_groups');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleGroupCollapse = (groupId) => {
+    setCollapsedGroups((prev) => {
+      const next = {
+        ...prev,
+        [groupId]: !prev[groupId],
+      };
+      try {
+        localStorage.setItem('nexai_collapsed_chat_groups', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
 
   // Modals state for projects
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -296,11 +336,9 @@ export function Sidebar({ onItemClick, isMobile = false }) {
     }
   };
 
-  const openCommandPalette = () => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
-  };
-
-  const credits = user?.wallet?.creditsRemaining ?? 100;
+  const storeGovernance = useWalletStore((state) => state.governance);
+  const quotaRemaining = storeGovernance?.dailyRequestsRemaining ?? 1500;
+  const quotaLimit = storeGovernance?.dailyGeminiQuotaLimit ?? 1500;
   const userDisplayName = user?.email ? user.email.split('@')[0] : 'User';
   const userPlan =
     user?.role === 'admin'
@@ -311,7 +349,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
 
   const userMenuItems = [
     {
-      label: `Recharge (${credits} credits remaining)`,
+      label: `API Quota (${quotaRemaining.toLocaleString()} calls left)`,
       icon: <Zap size={15} />,
       onClick: () => {
         onItemClick?.();
@@ -347,7 +385,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
     return (
       <div
         key={chat._id}
-        className={cn(styles.chatItem, isActive && styles.active)}
+        className={cn(styles.chatItem, isActive && styles.active, isPinned && styles.hasPinned)}
         onClick={() => {
           if (!isEditing) {
             handleSelectChat(chat._id);
@@ -743,7 +781,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                       trailing: organizeMode === 'list' && chatFilter === 'all' ? <Check size={14} /> : undefined,
                       active: organizeMode === 'list' && chatFilter === 'all',
                       onClick: () => {
-                        setOrganizeMode('list');
+                        handleSetOrganizeMode('list');
                         setChatFilter('all');
                       },
                     },
@@ -752,7 +790,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                       icon: <Folder size={14} />,
                       trailing: organizeMode === 'project' ? <Check size={14} /> : undefined,
                       active: organizeMode === 'project',
-                      onClick: () => setOrganizeMode('project'),
+                      onClick: () => handleSetOrganizeMode('project'),
                     },
                     { divider: true },
                     { header: true, label: 'Filter by date' },
@@ -802,18 +840,46 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                             (c) => (c.projectId?.toString() || c.projectId) === projId,
                           );
                           if (projChats.length === 0) return null;
+                          const isGroupCollapsed = !!collapsedGroups[projId];
+
                           return (
                             <div key={projId} className={styles.chatGroup}>
-                              <div
-                                className={styles.groupHeader}
-                                onClick={() => handleSelectProject(proj)}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <Folder size={11} style={{ color: proj.color || '#8b5cf6' }} />
-                                <span>{proj.name}</span>
-                                <span className={styles.groupCount}>({projChats.length})</span>
+                              <div className={styles.groupHeaderRow}>
+                                <button
+                                  type="button"
+                                  className={styles.groupToggleBtn}
+                                  onClick={() => toggleGroupCollapse(projId)}
+                                  aria-expanded={!isGroupCollapsed}
+                                  aria-label={`Toggle ${proj.name} group`}
+                                >
+                                  <span className={styles.groupChevron}>
+                                    {isGroupCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                                  </span>
+                                  <Folder
+                                    size={13}
+                                    style={{ color: proj.color || '#8b5cf6' }}
+                                    className={styles.groupFolderIcon}
+                                  />
+                                  <span className={styles.groupName}>{proj.name}</span>
+                                  <span className={styles.groupBadge}>{projChats.length}</span>
+                                </button>
+                                <IconButton
+                                  icon={<ExternalLink size={12} />}
+                                  label={`Open ${proj.name} workspace`}
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectProject(proj);
+                                  }}
+                                  className={styles.groupQuickOpenBtn}
+                                />
                               </div>
-                              {projChats.map((chat) => renderChatItem(chat))}
+                              {!isGroupCollapsed && (
+                                <div className={styles.nestedGroupList}>
+                                  {projChats.map((chat) => renderChatItem(chat))}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -822,13 +888,31 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                         {(() => {
                           const standaloneChats = visibleChats.filter((c) => !c.projectId);
                           if (standaloneChats.length === 0) return null;
+                          const isStandaloneCollapsed = !!collapsedGroups['standalone'];
+
                           return (
                             <div className={styles.chatGroup}>
-                              <div className={styles.groupHeader}>
-                                <span>Standalone Chats</span>
-                                <span className={styles.groupCount}>({standaloneChats.length})</span>
+                              <div className={styles.groupHeaderRow}>
+                                <button
+                                  type="button"
+                                  className={styles.groupToggleBtn}
+                                  onClick={() => toggleGroupCollapse('standalone')}
+                                  aria-expanded={!isStandaloneCollapsed}
+                                  aria-label="Toggle Standalone chats group"
+                                >
+                                  <span className={styles.groupChevron}>
+                                    {isStandaloneCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                                  </span>
+                                  <Layers size={13} className={styles.standaloneIcon} />
+                                  <span className={styles.groupName}>Standalone Chats</span>
+                                  <span className={styles.groupBadge}>{standaloneChats.length}</span>
+                                </button>
                               </div>
-                              {standaloneChats.map((chat) => renderChatItem(chat))}
+                              {!isStandaloneCollapsed && (
+                                <div className={styles.nestedGroupList}>
+                                  {standaloneChats.map((chat) => renderChatItem(chat))}
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
@@ -841,6 +925,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                             <div className={styles.groupHeader}>
                               <Pin size={11} className={styles.groupPinIcon} />
                               <span>Pinned</span>
+                              <span className={styles.groupBadge}>{pinnedChats.length}</span>
                             </div>
                             {pinnedChats.map((chat) => renderChatItem(chat))}
                           </div>
@@ -851,7 +936,9 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                           <div className={styles.chatGroup}>
                             {pinnedChats.length > 0 && (
                               <div className={styles.groupHeader}>
+                                <Clock size={11} className={styles.groupClockIcon} />
                                 <span>Recent</span>
+                                <span className={styles.groupBadge}>{unpinnedChats.length}</span>
                               </div>
                             )}
                             {unpinnedChats.map((chat) => renderChatItem(chat))}
@@ -885,9 +972,12 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                       <span className={styles.userName}>{userDisplayName}</span>
                       <span className={styles.userPlan}>{userPlan}</span>
                     </div>
-                    <div className={styles.creditChip} title={`${credits} credits remaining`}>
+                    <div
+                      className={styles.creditChip}
+                      title={`⚡ Daily Quota: ${quotaRemaining.toLocaleString()} / ${quotaLimit.toLocaleString()} calls left`}
+                    >
                       <Zap size={11} className={styles.creditIcon} />
-                      <span>{credits}</span>
+                      <span>{quotaRemaining.toLocaleString()}</span>
                     </div>
                   </div>
                 }
@@ -917,7 +1007,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                   className={styles.collapsedUserAvatar}
                   role="button"
                   tabIndex={0}
-                  title={`${userDisplayName} (${userPlan}) - ${credits} credits`}
+                  title={`${userDisplayName} (${userPlan}) - ${quotaRemaining.toLocaleString()} calls left`}
                 >
                   <Avatar name={user?.email || 'User'} size="sm" />
                 </div>

@@ -15,6 +15,10 @@ import {
   Brain,
   Volume2,
   VolumeX,
+  HelpCircle,
+  Code2,
+  Mail,
+  Server,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -33,21 +37,24 @@ import { cn } from '@/lib/utils/cn';
 import logoImg from '@/assets/logo.png';
 import styles from './MessageThread.module.scss';
 
-
 const PROMPT_SUGGESTIONS = [
   {
+    icon: HelpCircle,
     title: 'Explain a Concept',
     description: 'Explain quantum computing in simple, intuitive terms.',
   },
   {
+    icon: Code2,
     title: 'Code Assistance',
     description: 'Write a Python script to parse and transform a CSV dataset.',
   },
   {
+    icon: Mail,
     title: 'Professional Writing',
     description: 'Draft a polite follow-up email after a job interview.',
   },
   {
+    icon: Server,
     title: 'System Architecture',
     description: 'Design a scalable caching strategy for an API using Redis.',
   },
@@ -217,26 +224,34 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
           </div>
         ) : messages.length === 0 ? (
           <div className={styles.emptyWelcome}>
-            <div className={styles.welcomeIcon}>
-              <Sparkles size={32} />
+            <div className={styles.welcomeLogoWrapper}>
+              <img src={logoImg} alt="NexAI" className={styles.welcomeLogo} />
             </div>
-            <h2 className={styles.welcomeTitle}>What can I help you with today?</h2>
+            <h2 className={styles.welcomeTitle}>How can NexAI assist you today?</h2>
             <p className={styles.welcomeSubtitle}>
-              NexAI is ready to brainstorm, code, analyze, and draft with metered precision.
+              Ask anything, brainstorm code, solve system architecture, or pick a starter below.
             </p>
 
             <div className={styles.suggestionsGrid}>
-              {PROMPT_SUGGESTIONS.map((item, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className={styles.suggestionCard}
-                  onClick={() => onSelectSuggestion?.(item.description)}
-                >
-                  <span className={styles.suggestionTitle}>{item.title}</span>
-                  <span className={styles.suggestionDesc}>{item.description}</span>
-                </button>
-              ))}
+              {PROMPT_SUGGESTIONS.map((item, idx) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={styles.suggestionCard}
+                    onClick={() => onSelectSuggestion?.(item.description)}
+                  >
+                    <div className={styles.suggestionHeader}>
+                      <span className={styles.suggestionIconWrapper}>
+                        <IconComponent size={16} />
+                      </span>
+                      <span className={styles.suggestionTitle}>{item.title}</span>
+                    </div>
+                    <span className={styles.suggestionDesc}>{item.description}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : (

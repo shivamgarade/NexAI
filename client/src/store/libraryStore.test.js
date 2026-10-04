@@ -106,8 +106,13 @@ describe('libraryStore Zustand Store (Step 8)', () => {
 
     useLibraryStore.getState().setActiveTab('documents');
 
-    expect(useLibraryStore.getState().activeTab).toBe('documents');
-    expect(libraryApi.getItems).toHaveBeenCalledWith({ page: 1, limit: 24, tab: 'documents' });
+    expect(libraryApi.getItems).toHaveBeenCalledWith({
+      page: 1,
+      limit: 24,
+      tab: 'documents',
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    });
   });
 
   it('generates AI document draft and updates credits in authStore', async () => {

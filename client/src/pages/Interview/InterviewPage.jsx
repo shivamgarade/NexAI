@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, CreditCard, RotateCcw, ArrowLeft, Plus } from 'lucide-react';
+import { CreditCard } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
-import { Button } from '@/components/ui/Button';
 import {
   InterviewSetup,
   InterviewArena,
@@ -26,7 +25,6 @@ export default function InterviewPage() {
     isStarting,
     isStreaming,
     isConcluding,
-    insufficientCredits,
     role,
     difficulty,
     topic,
@@ -84,36 +82,6 @@ export default function InterviewPage() {
         }
       />
 
-      {/* Insufficient credits warning banner or simulation notification */}
-      {insufficientCredits || (creditsRemaining <= 0 && !currentSession) ? (
-        <div className={styles.warningBanner}>
-          <div className={styles.warningLeft}>
-            <AlertCircle size={18} className={styles.warningIcon} />
-            <div>
-              <strong className={styles.warningTitle}>
-                {isSimulation ? 'Simulation Mode Active' : 'Credit Balance Depleted'}
-              </strong>
-              <p className={styles.warningText}>
-                {isSimulation
-                  ? 'Zero tokens or credits will be charged. You can run complete technical screening simulations.'
-                  : 'Live AI interviews require token metering. Recharge your wallet or switch to Simulation Mode.'}
-              </p>
-            </div>
-          </div>
-          <div className={styles.warningActions}>
-            <Button
-              variant={isSimulation ? 'secondary' : 'secondary'}
-              size="sm"
-              onClick={toggleSimulation}
-            >
-              {isSimulation ? 'Live Mode' : 'Switch to Simulation (0 Credits)'}
-            </Button>
-            <Button variant="primary" size="sm" onClick={handleRechargeClick}>
-              Recharge Credits
-            </Button>
-          </div>
-        </div>
-      ) : null}
 
       {/* Main Content View Switcher */}
       <div className={styles.contentArea}>

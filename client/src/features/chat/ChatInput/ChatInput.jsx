@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { useNavigate } from 'react-router-dom';
 import {
   ArrowUp,
   Square,
@@ -9,32 +8,22 @@ import {
   Mic,
   MicOff,
   Paperclip,
-  FileText,
-  Bookmark,
-  X,
   Terminal,
-  Image as ImageIcon,
-  Volume2,
-  Video,
 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
 import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
 import { AttachContextModal } from './AttachContextModal';
 import { AttachedContextPreview } from './AttachedContextPreview';
 import { useChatStore } from '@/store/chatStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils/cn';
 import styles from './ChatInput.module.scss';
 
 export function ChatInput({ prefillValue, onClearPrefill }) {
-  const navigate = useNavigate();
   const {
     sendMessage,
     isStreaming,
     stopGeneration,
-    insufficientCredits,
     isSimulation,
     toggleSimulation,
     thinkingLevel,
@@ -53,7 +42,6 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [selectedPromptForVariables, setSelectedPromptForVariables] = useState(null);
-  const [isMultiline, setIsMultiline] = useState(false);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -106,14 +94,13 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
       const scrollHeight = textareaRef.current.scrollHeight;
       const newHeight = Math.min(Math.max(scrollHeight, 28), 220);
       textareaRef.current.style.height = `${newHeight}px`;
-      setIsMultiline(scrollHeight > 38);
     }
   }, [input]);
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
     const trimmed = input.trim();
-    if ((!trimmed && !attachedContext) || isStreaming || insufficientCredits) {
+    if ((!trimmed && !attachedContext) || isStreaming) {
       return;
     }
 
@@ -125,7 +112,6 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
 
     setInput('');
     setAttachedContext(null);
-    setIsMultiline(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = '28px';
     }
@@ -192,24 +178,8 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     }
   };
 
-  const handleRecharge = () => {
-    navigate(ROUTES.WALLET);
-  };
-
   return (
     <div className={styles.inputContainer}>
-      {insufficientCredits && (
-        <div className={styles.insufficientBanner} role="alert">
-          <div className={styles.bannerInfo}>
-            <Zap size={16} className={styles.bannerIcon} />
-            <span>You have run out of credits. Recharge your wallet to continue chatting.</span>
-          </div>
-          <Button variant="primary" size="sm" onClick={handleRecharge}>
-            Recharge to continue
-          </Button>
-        </div>
-      )}
-
       <form className={styles.composerForm} onSubmit={handleSubmit}>
         {/* Attached context / media preview */}
         {attachedContext && (
@@ -235,13 +205,10 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={insufficientCredits}
             placeholder={
-              insufficientCredits
-                ? 'Recharge your credits to send messages...'
-                : isSimulation
-                  ? 'Simulation (0 tokens) — Message NexAI...'
-                  : 'Message NexAI... (Enter to send, Shift + Enter for new line)'
+              isSimulation
+                ? 'Simulation (0 tokens) — Message NexAI...'
+                : 'Message NexAI... (Enter to send, Shift + Enter for new line)'
             }
             className={styles.textarea}
             aria-label="Chat input message"
@@ -349,7 +316,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
                   label="Send message"
                   variant="primary"
                   size="sm"
-                  disabled={!hasContent || (insufficientCredits && !isSimulation)}
+                  disabled={!hasContent}
                   className={styles.sendButton}
                 />
               )

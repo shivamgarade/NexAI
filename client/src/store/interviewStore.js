@@ -216,14 +216,9 @@ export const useInterviewStore = create((set, get) => ({
       set({
         isStarting: false,
         error: cleanMessage,
-        insufficientCredits: is402,
       });
 
-      if (is402) {
-        toast.error('Insufficient credits. Please recharge your wallet.');
-      } else {
-        toast.error(cleanMessage);
-      }
+      toast.error(cleanMessage);
     }
   },
 
@@ -332,23 +327,19 @@ export const useInterviewStore = create((set, get) => ({
               messages: msgs,
               isStreaming: false,
               abortController: null,
-              insufficientCredits: is402 ? true : state.insufficientCredits,
               error: cleanMessage,
               isSpeaking: false,
               speakingSource: null,
             };
           });
 
-          if (is402) {
-            toast.error('Insufficient credits. Recharge to continue.');
-          } else if (err.name !== 'AbortError') {
+          if (err.name !== 'AbortError') {
             toast.error(cleanMessage);
           }
         },
       });
     } catch (err) {
       if (err.name !== 'AbortError') {
-        const is402 = err.status === 402 || err.code === 'INSUFFICIENT_CREDITS';
         const cleanMessage = sanitizeErrorMessage(err.message || 'Failed to send response');
 
         set((state) => {
@@ -361,16 +352,13 @@ export const useInterviewStore = create((set, get) => ({
             messages: msgs,
             isStreaming: false,
             abortController: null,
-            insufficientCredits: is402 ? true : state.insufficientCredits,
             error: cleanMessage,
             isSpeaking: false,
             speakingSource: null,
           };
         });
 
-        if (!is402) {
-          toast.error(cleanMessage);
-        }
+        toast.error(cleanMessage);
       }
     }
   },
@@ -447,14 +435,9 @@ export const useInterviewStore = create((set, get) => ({
       set({
         isConcluding: false,
         error: cleanMessage,
-        insufficientCredits: is402,
       });
 
-      if (is402) {
-        toast.error('Insufficient credits to generate evaluation report.');
-      } else {
-        toast.error(cleanMessage);
-      }
+      toast.error(cleanMessage);
     }
   },
 

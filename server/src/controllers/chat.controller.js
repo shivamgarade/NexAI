@@ -8,6 +8,7 @@ import { streamChatReply, generateChatTitle } from '../agents/chat.agent.js';
 import { streamChatSimulation } from '../utils/chatSimulator.js';
 import { deductCredits } from '../services/credit.service.js';
 import { memoryService } from '../services/memory.service.js';
+import { systemConfigService } from '../services/systemConfig.service.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -183,6 +184,7 @@ export async function sendMessage(req, res, next) {
         });
 
       const currentCredits = req.user.wallet?.creditsRemaining ?? 0;
+      const governance = await systemConfigService.getPublicGovernanceStatus().catch(() => null);
 
       sendSse(res, 'done', {
         messageId: assistantMessage._id.toString(),
@@ -193,6 +195,7 @@ export async function sendMessage(req, res, next) {
         thoughts: simResult.thoughts || '',
         followUps: simResult.followUps,
         isSimulation: true,
+        ...(governance ? { governance } : {}),
       });
 
       closeSse(res);
@@ -322,6 +325,8 @@ export async function sendMessage(req, res, next) {
       model,
     });
 
+    const governance = await systemConfigService.getPublicGovernanceStatus().catch(() => null);
+
     // Send final done event with metrics
     sendSse(res, 'done', {
       messageId: assistantMessage._id.toString(),
@@ -330,6 +335,7 @@ export async function sendMessage(req, res, next) {
       creditsRemaining: deduction.creditsRemaining,
       chatTitle: chat.title,
       thoughts,
+      ...(governance ? { governance } : {}),
     });
 
     closeSse(res);

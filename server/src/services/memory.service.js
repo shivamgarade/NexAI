@@ -18,7 +18,7 @@ function extractDeterministicMemories(text) {
   const clean = text.trim();
 
   // 1. Forget / delete requests
-  const forgetMatch = clean.match(/(?:forget that|forget my|don't remember|do not remember)\s+([^.!?\n]+)/i);
+  const forgetMatch = clean.match(/(?:forget that|forget my|don't remember|do not remember|bhool jao|yaad mat rakhna|delete kar do)\s+([^.!?\n]+)/i);
   if (forgetMatch) {
     forgetRequests.push(forgetMatch[1].trim());
   }
@@ -48,7 +48,27 @@ function extractDeterministicMemories(text) {
     }
   }
 
-  const stopwords = /^(an?|the|here|ready|tired|hungry|happy|working|building|first|just|new|not|my|me|so|right|good|true|false|ok|okay)\b/i;
+  // Pattern D (Hindi/Hinglish): "mera naam shivam hai" / "mera naam shivam" / "mera naam ... save kar lo"
+  if (!identifiedName) {
+    const hindiNameMatch =
+      clean.match(/\b(?:mera\s+naam|naam\s+mera)\s+(?:hai\s+)?([A-Za-z]{2,25})\b/i) ||
+      clean.match(/\bmera\s+naam\s+([A-Za-z]{2,25})\s*(?:hai|save)?\b/i);
+    if (hindiNameMatch) {
+      identifiedName = hindiNameMatch[1].trim();
+    }
+  }
+
+  // Pattern E (Hindi/Hinglish): "mujhe shivam bulao" / "main shivam hoon"
+  if (!identifiedName) {
+    const mujheMatch =
+      clean.match(/\b(?:mujhe)\s+([A-Za-z]{2,25})\s+(?:bulao|kehte)\b/i) ||
+      clean.match(/\b(?:main|mai)\s+([A-Za-z]{2,25})\s+hoon\b/i);
+    if (mujheMatch) {
+      identifiedName = mujheMatch[1].trim();
+    }
+  }
+
+  const stopwords = /^(an?|the|here|ready|tired|hungry|happy|working|building|first|just|new|not|my|me|so|right|good|true|false|ok|okay|hai|hoon|kya|bhi|toh|aur|ye|yeh|wo|woh|kuch|save)\b/i;
   if (identifiedName && !stopwords.test(identifiedName)) {
     const formattedName = identifiedName.charAt(0).toUpperCase() + identifiedName.slice(1).toLowerCase();
     memories.push({
@@ -78,8 +98,8 @@ function extractDeterministicMemories(text) {
     });
   }
 
-  // 5. Explicit instruction: Remember that...
-  const rememberMatch = clean.match(/(?:remember that|note that|keep in mind that)\s+([^.!?\n]{3,120})/i);
+  // 5. Explicit instruction: Remember that... / Yaad rakhna... / Save kar lo...
+  const rememberMatch = clean.match(/(?:remember that|note that|keep in mind that|yaad rakhna ki|yaad rakhna|save kar lo ki|save kar lo)\s+([^.!?\n]{3,120})/i);
   if (rememberMatch) {
     memories.push({
       fact: `User note: ${rememberMatch[1].trim()}`,
@@ -264,7 +284,7 @@ export const memoryService = {
 
       // 2. If not simulation and message might contain personal context, run AI extraction
       const hasPersonalClues =
-        /\b(i am|i'm|my|i like|i prefer|i use|i work|remember|note|call me|building|project)\b/i.test(trimmed);
+        /\b(i am|i'm|my|i like|i prefer|i use|i work|remember|note|call me|building|project|mera|meri|mujhe|main|mai|naam|save|yaad|rakhna|batao|kar lo)\b/i.test(trimmed);
 
       if (!isSimulation && hasPersonalClues) {
         try {
