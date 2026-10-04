@@ -15,7 +15,7 @@ const usageLogSchema = new mongoose.Schema(
     },
     feature: {
       type: String,
-      enum: ['chat', 'library', 'docgen', 'document', 'interview'],
+      enum: ['chat', 'library', 'docgen', 'document', 'interview', 'schema'],
       required: true,
     },
     tokensUsed: {

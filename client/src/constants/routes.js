@@ -15,5 +15,6 @@ export const ROUTES = {
   PROJECTS: '/projects',
   PROJECT_ID: '/projects/:projectId',
   ADMIN: '/admin',
+  SCHEMA: '/schema',
   DESIGN_SYSTEM: '/design-system',
 };

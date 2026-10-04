@@ -30,6 +30,7 @@ import {
   Plus,
   ExternalLink,
   Clock,
+  Database,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -156,6 +157,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
     { to: ROUTES.LIBRARY, label: 'Library', icon: <Bookmark size={17} /> },
     { to: ROUTES.PROMPTS, label: 'Prompts', icon: <Terminal size={17} /> },
     { to: ROUTES.INTERVIEW, label: 'Interview', icon: <Mic size={17} /> },
+    { to: ROUTES.SCHEMA, label: 'Data Modeling', icon: <Database size={17} /> },
   ];
 
   // Secondary items for ChatGPT-style floating "... More" popover
