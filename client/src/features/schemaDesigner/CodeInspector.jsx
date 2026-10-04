@@ -1,4 +1,5 @@
-import { FileCode, Download, Code2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { FileCode, Download, Code2, Copy, Check, Edit3, Eye } from 'lucide-react';
 import { useSchemaStore } from '@/store/schemaStore';
 import { CodeBlock } from '@/features/chat/CodeBlock';
 import { toast } from '@/components/ui/Toast';
@@ -12,10 +13,28 @@ const TABS = [
 ];
 
 export function CodeInspector() {
-  const { currentSchema, activeDialect, setActiveDialect } = useSchemaStore();
+  const { currentSchema, activeDialect, setActiveDialect, updateCodeOutput } = useSchemaStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const activeTabConfig = TABS.find((t) => t.id === activeDialect) || TABS[0];
   const activeCode = currentSchema?.codeOutputs?.[activeDialect] || '';
+
+  const lineCount = useMemo(() => {
+    return Math.max(1, (activeCode.match(/\n/g) || []).length + 1);
+  }, [activeCode]);
+
+  const handleCopy = async () => {
+    if (!activeCode) return;
+    try {
+      await navigator.clipboard.writeText(activeCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success(`Copied ${activeTabConfig.label} code`);
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
 
   const handleDownload = () => {
     if (!activeCode) return;
@@ -24,7 +43,10 @@ export function CodeInspector() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${currentSchema?.title?.toLowerCase().replace(/\s+/g, '_') || 'schema'}_${activeTabConfig.ext}`);
+      link.setAttribute(
+        'download',
+        `${currentSchema?.title?.toLowerCase().replace(/\s+/g, '_') || 'schema'}_${activeTabConfig.ext}`
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -61,23 +83,62 @@ export function CodeInspector() {
           <div className={styles.tabActions}>
             <button
               type="button"
-              className={styles.btnDownload}
+              className={`${styles.btnAction} ${isEditing ? styles.active : ''}`}
+              onClick={() => setIsEditing(!isEditing)}
+              title={isEditing ? 'Switch to syntax preview' : 'Edit code directly'}
+            >
+              {isEditing ? <Eye size={13} /> : <Edit3 size={13} />}
+              <span>{isEditing ? 'Preview' : 'Edit'}</span>
+            </button>
+
+            <button
+              type="button"
+              className={styles.btnAction}
+              onClick={handleCopy}
+              title="Copy code to clipboard"
+            >
+              {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
+            </button>
+
+            <button
+              type="button"
+              className={styles.btnAction}
               onClick={handleDownload}
-              title={`Download ${activeTabConfig.ext}`}
+              title={`Download .${activeTabConfig.ext.split('.').pop()}`}
             >
               <Download size={13} />
-              <span>Export .{activeTabConfig.ext.split('.').pop()}</span>
+              <span>Export</span>
             </button>
           </div>
         )}
       </div>
 
-      <div className={styles.codeArea}>
+      <div className={styles.editorArea}>
         {activeCode ? (
-          <CodeBlock
-            language={activeTabConfig.lang}
-            value={activeCode}
-          />
+          isEditing ? (
+            <>
+              <div className={styles.lineNumbers} aria-hidden="true">
+                {Array.from({ length: lineCount }, (_, i) => (
+                  <div key={i}>{i + 1}</div>
+                ))}
+              </div>
+              <textarea
+                className={styles.codeTextarea}
+                value={activeCode}
+                onChange={(e) => updateCodeOutput(activeDialect, e.target.value)}
+                spellCheck={false}
+                placeholder="Write or edit code here..."
+              />
+            </>
+          ) : (
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <CodeBlock
+                language={activeTabConfig.lang}
+                value={activeCode}
+              />
+            </div>
+          )
         ) : (
           <div className={styles.emptyState}>
             <FileCode size={40} className="opacity-40" />

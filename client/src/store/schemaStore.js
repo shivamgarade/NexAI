@@ -15,6 +15,7 @@ export const useSchemaStore = create((set, get) => ({
   isTelemetryDrawerOpen: false,
   selectedModel: 'flash',
   isSimulation: false,
+  entityPositions: {},
 
   setPrompt: (prompt) => set({ prompt }),
   setActiveDialect: (dialect) => set({ activeDialect: dialect }),
@@ -22,6 +23,23 @@ export const useSchemaStore = create((set, get) => ({
   setIsSimulation: (isSimulation) => set({ isSimulation }),
   setReviewModalOpen: (isOpen) => set({ isReviewModalOpen: isOpen }),
   setTelemetryDrawerOpen: (isOpen) => set({ isTelemetryDrawerOpen: isOpen }),
+  setEntityPositions: (positions) =>
+    set((state) => ({
+      entityPositions: { ...state.entityPositions, ...positions },
+    })),
+  updateCodeOutput: (dialect, newCode) =>
+    set((state) => {
+      if (!state.currentSchema) return state;
+      return {
+        currentSchema: {
+          ...state.currentSchema,
+          codeOutputs: {
+            ...state.currentSchema.codeOutputs,
+            [dialect]: newCode,
+          },
+        },
+      };
+    }),
 
   generateSchema: async (customPrompt) => {
     const promptToUse = customPrompt || get().prompt;
