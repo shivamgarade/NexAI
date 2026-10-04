@@ -1,5 +1,5 @@
-import { useRef, useMemo, useState } from 'react';
-import { FileCode, Download, Code2, Copy, Check } from 'lucide-react';
+import { useRef, useMemo, useState, useEffect } from 'react';
+import { FileCode, Download, Code2, Copy, Check, RefreshCw, Sparkles } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-javascript';
 import 'prismjs/components/prism-typescript';
@@ -16,12 +16,16 @@ const TABS = [
 ];
 
 export function CodeInspector() {
-  const { currentSchema, activeDialect, setActiveDialect, updateCodeOutput } = useSchemaStore();
+  const { currentSchema, activeDialect, setActiveDialect, updateCodeOutput, syncCodeToDiagram } =
+    useSchemaStore();
   const [copied, setCopied] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('synced'); // 'synced' | 'modified' | 'error'
 
   const textareaRef = useRef(null);
   const preRef = useRef(null);
   const lineNumbersRef = useRef(null);
+  const syncTimeoutRef = useRef(null);
 
   const activeTabConfig = TABS.find((t) => t.id === activeDialect) || TABS[0];
   const activeCode = currentSchema?.codeOutputs?.[activeDialect] || '';
@@ -42,7 +46,7 @@ export function CodeInspector() {
     }
   }, [activeCode, activeTabConfig.lang]);
 
-  // Synchronize scrolling between textarea and highlighted backdrop & line numbers
+  // Synchronize scrolling between textarea, highlighted backdrop, and line numbers
   const handleScroll = (e) => {
     const { scrollTop, scrollLeft } = e.target;
     if (preRef.current) {
@@ -51,6 +55,44 @@ export function CodeInspector() {
     }
     if (lineNumbersRef.current) {
       lineNumbersRef.current.scrollTop = scrollTop;
+    }
+  };
+
+  // Debounced auto-sync from Code to Diagram
+  const handleCodeChange = (e) => {
+    const newCode = e.target.value;
+    updateCodeOutput(activeDialect, newCode);
+    setSyncStatus('modified');
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = setTimeout(() => {
+      const ok = syncCodeToDiagram(newCode, activeDialect);
+      if (ok) {
+        setSyncStatus('synced');
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    };
+  }, []);
+
+  const handleManualSync = () => {
+    if (!activeCode) return;
+    setIsSyncing(true);
+    const success = syncCodeToDiagram(activeCode, activeDialect);
+    setIsSyncing(false);
+
+    if (success) {
+      setSyncStatus('synced');
+      toast.success('Synced code changes into Architecture Diagram!');
+    } else {
+      toast.info('Could not parse new entities. Code preserved.');
     }
   };
 
@@ -113,6 +155,17 @@ export function CodeInspector() {
           <div className={styles.tabActions}>
             <button
               type="button"
+              className={`${styles.btnAction} ${styles.btnSync} ${syncStatus === 'synced' ? styles.isSynced : ''}`}
+              onClick={handleManualSync}
+              title="Sync code changes with visual canvas"
+              disabled={isSyncing}
+            >
+              <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+              <span>{syncStatus === 'synced' ? 'Synced to Canvas' : 'Sync to Canvas'}</span>
+            </button>
+
+            <button
+              type="button"
               className={styles.btnAction}
               onClick={handleCopy}
               title="Copy code to clipboard"
@@ -157,7 +210,7 @@ export function CodeInspector() {
                 ref={textareaRef}
                 className={styles.codeTextarea}
                 value={activeCode}
-                onChange={(e) => updateCodeOutput(activeDialect, e.target.value)}
+                onChange={handleCodeChange}
                 onScroll={handleScroll}
                 spellCheck={false}
                 placeholder="Write or edit code here..."

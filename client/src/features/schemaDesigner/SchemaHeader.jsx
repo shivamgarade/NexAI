@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { Database, Bookmark, Activity, RotateCcw, Columns2, Network, Code2 } from 'lucide-react';
+import { Database, Bookmark, Activity, RotateCcw, Columns2, Network, Code2, Plus } from 'lucide-react';
 import { useSchemaStore } from '@/store/schemaStore';
 import { Button } from '@/components/ui';
 import styles from './SchemaHeader.module.scss';
@@ -10,6 +10,7 @@ export function SchemaHeader({ viewMode = 'split', setViewMode }) {
     telemetry,
     setReviewModalOpen,
     setTelemetryDrawerOpen,
+    addEntity,
     reset,
   } = useSchemaStore();
 
@@ -17,9 +18,13 @@ export function SchemaHeader({ viewMode = 'split', setViewMode }) {
     <header className={styles.headerContainer}>
       <div className={styles.titleArea}>
         <div className={styles.titleRow}>
-          <Database size={20} className="text-accent" />
-          <h1>Data Modeling Studio</h1>
-          <span className={styles.badgeStudio}>Architect AI</span>
+          <div className={styles.iconWrapper}>
+            <Database size={18} className="text-accent" />
+          </div>
+          <div className={styles.titleText}>
+            <h1>Data Modeling Studio</h1>
+            <span className={styles.badgeStudio}>Architect AI</span>
+          </div>
         </div>
       </div>
 
@@ -73,7 +78,7 @@ export function SchemaHeader({ viewMode = 'split', setViewMode }) {
             title="Inspect AI execution telemetry"
           >
             <Activity size={13} className="text-accent" />
-            <span>{telemetry.tokensUsed || 0} tokens ({telemetry.creditsDeducted || 0} cr)</span>
+            <span>{telemetry.tokensUsed || 0} tok ({telemetry.creditsDeducted || 0} cr)</span>
           </button>
         )}
 
@@ -81,18 +86,33 @@ export function SchemaHeader({ viewMode = 'split', setViewMode }) {
           <>
             <Button
               variant="secondary"
-              onClick={() => setReviewModalOpen(true)}
+              size="sm"
+              leftIcon={<Plus size={14} />}
+              onClick={() => addEntity()}
+              title="Add a new entity / table to canvas"
+              className={styles.headerBtn}
             >
-              <Bookmark size={14} />
+              Add Entity
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Bookmark size={14} />}
+              onClick={() => setReviewModalOpen(true)}
+              className={styles.headerBtn}
+            >
               Save to Library
             </Button>
 
             <Button
               variant="ghost"
+              size="sm"
+              leftIcon={<RotateCcw size={14} />}
               onClick={reset}
               title="Reset studio canvas"
+              className={styles.headerBtn}
             >
-              <RotateCcw size={14} />
               New
             </Button>
           </>

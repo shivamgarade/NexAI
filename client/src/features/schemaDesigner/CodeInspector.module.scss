@@ -79,7 +79,7 @@
   flex-direction: row;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: 0 10px;
   height: 28px;
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
@@ -104,12 +104,24 @@
   }
 }
 
+.btnSync {
+  background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-accent);
+
+  &.isSynced {
+    color: var(--color-success, #10b981);
+    border-color: color-mix(in srgb, var(--color-success, #10b981) 30%, transparent);
+    background-color: color-mix(in srgb, var(--color-success, #10b981) 8%, transparent);
+  }
+}
+
 .editorArea {
   flex: 1 1 0;
   display: flex;
   flex-direction: row;
   position: relative;
-  background-color: var(--color-bg-app);
+  background-color: #0b0f19; /* High-contrast developer-grade editor backdrop */
   overflow: hidden;
   height: 100%;
   min-height: 0;
@@ -117,12 +129,12 @@
 
 .lineNumbers {
   padding: 16px 8px 16px 12px;
-  background-color: color-mix(in srgb, var(--color-bg-elevated) 60%, transparent);
-  border-right: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
-  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
-  font-size: 12px;
-  line-height: 21px;
-  color: var(--color-text-muted);
+  background-color: #080c14;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: var(--font-mono, 'Fira Code', 'JetBrains Mono', monospace);
+  font-size: 13px;
+  line-height: 22px;
+  color: #475569;
   text-align: right;
   user-select: none;
   min-width: 44px;
@@ -147,23 +159,86 @@
   bottom: 0;
   margin: 0;
   padding: 16px;
-  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
-  font-size: 12px;
-  line-height: 21px;
+  font-family: var(--font-mono, 'Fira Code', 'JetBrains Mono', monospace);
+  font-size: 13px;
+  line-height: 22px;
+  letter-spacing: normal;
   white-space: pre;
   box-sizing: border-box;
   overflow: hidden;
   pointer-events: none;
   background: transparent;
-  color: var(--color-text-primary);
+  color: #e2e8f0;
   z-index: 1;
 
   code {
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
+    letter-spacing: inherit;
     background: transparent;
     padding: 0;
+  }
+
+  /* Vibrant Colorful Syntax Highlighting */
+  :global {
+    .token.comment,
+    .token.prolog,
+    .token.doctype,
+    .token.cdata {
+      color: #64748b !important;
+      font-style: italic;
+    }
+
+    .token.punctuation {
+      color: #94a3b8 !important;
+    }
+
+    .token.property {
+      color: #60a5fa !important; /* sky blue */
+    }
+
+    .token.tag,
+    .token.boolean,
+    .token.number,
+    .token.constant,
+    .token.symbol {
+      color: #f59e0b !important; /* warm amber/gold */
+      font-weight: 500;
+    }
+
+    .token.selector,
+    .token.attr-name,
+    .token.string,
+    .token.char,
+    .token.builtin {
+      color: #10b981 !important; /* vivid emerald green */
+    }
+
+    .token.operator,
+    .token.entity,
+    .token.url {
+      color: #f472b6 !important; /* pink/rose */
+    }
+
+    .token.atrule,
+    .token.attr-value,
+    .token.keyword {
+      color: #a855f7 !important; /* vivid violet / purple */
+      font-weight: 600;
+    }
+
+    .token.function,
+    .token.class-name {
+      color: #38bdf8 !important; /* electric cyan / blue */
+      font-weight: 600;
+    }
+
+    .token.regex,
+    .token.important,
+    .token.variable {
+      color: #fb923c !important; /* orange */
+    }
   }
 }
 
@@ -177,13 +252,14 @@
   height: 100%;
   margin: 0;
   padding: 16px;
-  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
-  font-size: 12px;
-  line-height: 21px;
+  font-family: var(--font-mono, 'Fira Code', 'JetBrains Mono', monospace);
+  font-size: 13px;
+  line-height: 22px;
+  letter-spacing: normal;
   white-space: pre;
   box-sizing: border-box;
   color: transparent;
-  caret-color: var(--color-accent);
+  caret-color: #38bdf8;
   background: transparent;
   border: none;
   outline: none;
@@ -193,7 +269,7 @@
   z-index: 2;
 
   &::selection {
-    background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    background-color: rgba(56, 189, 248, 0.25);
     color: transparent;
   }
 }

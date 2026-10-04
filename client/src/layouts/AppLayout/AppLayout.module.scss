@@ -52,9 +52,13 @@
   }
 
   &.fullWidthContent {
-    max-width: 100%;
+    max-width: 1720px;
     width: 100%;
-    margin: 0;
-    padding: var(--space-4) var(--space-6);
+    margin: 0 auto;
+    padding: var(--space-4) var(--space-8);
+
+    @media (max-width: 1400px) {
+      padding: var(--space-3) var(--space-5);
+    }
   }
 }
