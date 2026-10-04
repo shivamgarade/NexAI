@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import Markdown from 'react-markdown';
 import { CodeBlock } from '../CodeBlock';
+import { MermaidBlock } from '../MermaidBlock';
 import { cn } from '@/lib/utils/cn';
 import styles from './MarkdownRenderer.module.scss';
 
@@ -23,10 +24,17 @@ export function MarkdownRenderer({ content = '', isStreaming = false }) {
             const isBlock = Boolean(match) || stringContent.includes('\n');
 
             if (isBlock) {
+              const lang = (match ? match[1] : 'plaintext').toLowerCase();
+              const codeVal = stringContent.replace(/\n$/, '');
+
+              if (lang === 'mermaid') {
+                return <MermaidBlock chart={codeVal} isStreaming={isStreaming} />;
+              }
+
               return (
                 <CodeBlock
-                  language={match ? match[1] : 'plaintext'}
-                  value={stringContent.replace(/\n$/, '')}
+                  language={lang}
+                  value={codeVal}
                 />
               );
             }

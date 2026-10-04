@@ -303,4 +303,25 @@ This log tracks architectural and design decisions made for the NexAI project, p
   4. **Transparent Wallet & Topbar UI:**
      - Clearly communicates mode status: `⚡ Quota Mode: X / 1,500 Daily Calls Left`, allowing evaluators to see simulated credit deductions alongside real quota headroom.
 
+## ADR-028: Dynamic Architecture & Flow Visualizer via Client-Side Mermaid.js Integration
+
+- **Date:** 2026-10-04
+- **Status:** Accepted (Implemented on `feature/mermaid-visualizer`)
+- **Context:** Text-only explanations of complex software architectures, sequence flows, database schemas, and state transitions are difficult for students and developers to parse and lack visual impact during academic viva evaluations. A native diagramming solution was needed that renders declarative markdown diagrams directly inside chats, library notes, and documents with zero additional backend compute cost or server load.
+- **Decision:**
+  1. **Zero-Compute Client-Side Rendering (`mermaid`):**
+     - Adopted `mermaid` directly on the client. Rendering happens entirely in the browser using SVG output with $0 backend compute cost and zero additional token overhead.
+  2. **Dynamic Semantic Theme Adaptation:**
+     - Re-initializes Mermaid dynamically upon theme toggles (`isDark` from `useTheme`), applying NexAI's semantic CSS design tokens (purple/violet primary `#8b5cf6`, dark blueprint `#1c2029`, light surface `#f7f7f9`, and custom fonts).
+  3. **Streaming & Incomplete Syntax Resilience:**
+     - Guards parsing with `mermaid.parse` and short debouncing (250ms during SSE streaming). During active token generation, incomplete syntax fails gracefully without error flickers. Only upon completed generation will syntax errors display a polite inspection banner.
+  4. **Interactive Architecture Canvas (`MermaidBlock`):**
+     - Pan & zoom controls (0.5x to 2.5x with percentage display and 1-click reset).
+     - "Diagram" and "Code" tab toggle allowing users to view and copy the raw Mermaid source.
+     - "Copy SVG" and "Export SVG" actions for instant integration into external documentation, LaTeX, and presentations.
+     - "Save to Library" integration respecting the human-in-the-loop *Suggest → Review → Confirm* pattern by pre-populating an architectural note modal.
+  5. **Prompt Engineering Alignment:**
+     - Updated `CHAT_SYSTEM_PROMPT` in `server/src/agents/prompts/chat.prompt.js` guiding Gemini to produce structured Mermaid diagrams when explaining workflows, architectures, algorithms, sequence flows, or schemas.
+
+
 

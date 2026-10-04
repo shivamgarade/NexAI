@@ -1,7 +1,9 @@
 export { CodeBlock } from './CodeBlock';
+export { MermaidBlock } from './MermaidBlock';
 export { MarkdownRenderer } from './MarkdownRenderer';
 export { ChatSidebar } from './ChatSidebar';
 export { MessageThread } from './MessageThread';
 export { ChatInput } from './ChatInput';
 export { ChatHero } from './ChatHero';
 export { ThinkingDrawer } from './ThinkingDrawer/ThinkingDrawer';
+
