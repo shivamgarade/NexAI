@@ -171,7 +171,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 120;
     userScrolledUpRef.current = !isNearBottom;
-    setShowScrollBottom(!isNearBottom);
+    setShowScrollBottom((prev) => (prev !== !isNearBottom ? !isNearBottom : prev));
   }, []);
 
   const scrollToBottom = useCallback((smooth = true) => {
