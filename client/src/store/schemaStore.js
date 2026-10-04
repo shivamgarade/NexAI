@@ -46,8 +46,9 @@ export const useSchemaStore = create((set, get) => ({
         isSimulation,
       });
 
-      const schema = response.data?.data?.schema;
-      const telemetry = response.data?.data?.telemetry;
+      const payload = response?.data || response || {};
+      const schema = payload.schema || payload.data?.schema || null;
+      const telemetry = payload.telemetry || payload.data?.telemetry || null;
 
       set({
         currentSchema: schema,

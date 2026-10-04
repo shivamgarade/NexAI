@@ -130,8 +130,9 @@ export function PromptPanel() {
 
         <div className={styles.actions}>
           <Button
+            type="button"
             variant="primary"
-            onClick={() => generateSchema()}
+            onClick={() => generateSchema(prompt)}
             disabled={isLoading || !prompt.trim()}
           >
             {isLoading ? (
