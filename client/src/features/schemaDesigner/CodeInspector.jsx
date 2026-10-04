@@ -1,7 +1,10 @@
-import { useState, useMemo } from 'react';
-import { FileCode, Download, Code2, Copy, Check, Edit3, Eye } from 'lucide-react';
+import { useRef, useMemo, useState } from 'react';
+import { FileCode, Download, Code2, Copy, Check } from 'lucide-react';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-sql';
 import { useSchemaStore } from '@/store/schemaStore';
-import { CodeBlock } from '@/features/chat/CodeBlock';
 import { toast } from '@/components/ui/Toast';
 import styles from './CodeInspector.module.scss';
 
@@ -14,15 +17,42 @@ const TABS = [
 
 export function CodeInspector() {
   const { currentSchema, activeDialect, setActiveDialect, updateCodeOutput } = useSchemaStore();
-  const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const textareaRef = useRef(null);
+  const preRef = useRef(null);
+  const lineNumbersRef = useRef(null);
 
   const activeTabConfig = TABS.find((t) => t.id === activeDialect) || TABS[0];
   const activeCode = currentSchema?.codeOutputs?.[activeDialect] || '';
 
+  // Calculate total lines
   const lineCount = useMemo(() => {
     return Math.max(1, (activeCode.match(/\n/g) || []).length + 1);
   }, [activeCode]);
+
+  // Syntax highlight with Prism in real-time
+  const highlightedCode = useMemo(() => {
+    if (!activeCode) return '';
+    try {
+      const grammar = Prism.languages[activeTabConfig.lang] || Prism.languages.javascript;
+      return Prism.highlight(activeCode, grammar, activeTabConfig.lang);
+    } catch {
+      return activeCode;
+    }
+  }, [activeCode, activeTabConfig.lang]);
+
+  // Synchronize scrolling between textarea and highlighted backdrop & line numbers
+  const handleScroll = (e) => {
+    const { scrollTop, scrollLeft } = e.target;
+    if (preRef.current) {
+      preRef.current.scrollTop = scrollTop;
+      preRef.current.scrollLeft = scrollLeft;
+    }
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = scrollTop;
+    }
+  };
 
   const handleCopy = async () => {
     if (!activeCode) return;
@@ -83,16 +113,6 @@ export function CodeInspector() {
           <div className={styles.tabActions}>
             <button
               type="button"
-              className={`${styles.btnAction} ${isEditing ? styles.active : ''}`}
-              onClick={() => setIsEditing(!isEditing)}
-              title={isEditing ? 'Switch to syntax preview' : 'Edit code directly'}
-            >
-              {isEditing ? <Eye size={13} /> : <Edit3 size={13} />}
-              <span>{isEditing ? 'Preview' : 'Edit'}</span>
-            </button>
-
-            <button
-              type="button"
               className={styles.btnAction}
               onClick={handleCopy}
               title="Copy code to clipboard"
@@ -116,29 +136,34 @@ export function CodeInspector() {
 
       <div className={styles.editorArea}>
         {activeCode ? (
-          isEditing ? (
-            <>
-              <div className={styles.lineNumbers} aria-hidden="true">
-                {Array.from({ length: lineCount }, (_, i) => (
-                  <div key={i}>{i + 1}</div>
-                ))}
-              </div>
+          <>
+            {/* Line numbers gutter */}
+            <div className={styles.lineNumbers} ref={lineNumbersRef} aria-hidden="true">
+              {Array.from({ length: lineCount }, (_, i) => (
+                <div key={i}>{i + 1}</div>
+              ))}
+            </div>
+
+            {/* Code Stage: Synchronized Prism Syntax Backdrop + Transparent Textarea */}
+            <div className={styles.codeStage}>
+              <pre ref={preRef} className={styles.highlightBackdrop} aria-hidden="true">
+                <code
+                  className={`language-${activeTabConfig.lang}`}
+                  dangerouslySetInnerHTML={{ __html: highlightedCode }}
+                />
+              </pre>
+
               <textarea
+                ref={textareaRef}
                 className={styles.codeTextarea}
                 value={activeCode}
                 onChange={(e) => updateCodeOutput(activeDialect, e.target.value)}
+                onScroll={handleScroll}
                 spellCheck={false}
                 placeholder="Write or edit code here..."
               />
-            </>
-          ) : (
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              <CodeBlock
-                language={activeTabConfig.lang}
-                value={activeCode}
-              />
             </div>
-          )
+          </>
         ) : (
           <div className={styles.emptyState}>
             <FileCode size={40} className="opacity-40" />

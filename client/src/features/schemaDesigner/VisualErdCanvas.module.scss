@@ -7,27 +7,32 @@
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   height: 100%;
-  min-height: 520px;
+  min-height: 0;
+  flex: 1 1 0;
 }
 
 .topBar {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-4);
+  padding: 0 var(--space-4);
+  height: 42px;
   background-color: var(--color-bg-elevated);
   border-bottom: 1px solid var(--color-border);
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  flex-shrink: 0;
+  gap: var(--space-3);
 }
 
 .titleArea {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: var(--space-2);
+  white-space: nowrap;
 
   h4 {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     font-weight: 600;
     color: var(--color-text-primary);
     margin: 0;
@@ -35,29 +40,34 @@
 }
 
 .badgeGroup {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: var(--space-2);
 }
 
 .metaBadge {
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--font-mono);
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: var(--radius-full);
   background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  white-space: nowrap;
 }
 
 .controls {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: var(--space-2);
+  white-space: nowrap;
 }
 
 .modeToggle {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 2px;
   background-color: var(--color-bg-surface);
@@ -68,15 +78,18 @@
 
 .btnAction {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 5px;
+  padding: 4px 9px;
+  height: 28px;
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-bg-surface);
   cursor: pointer;
+  white-space: nowrap;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &:hover {
@@ -95,8 +108,9 @@
 
 .viewportContainer {
   position: relative;
-  flex: 1;
-  min-height: 460px;
+  flex: 1 1 0;
+  height: 100%;
+  min-height: 0;
   background-color: var(--color-bg-app);
   overflow: hidden;
   user-select: none;
@@ -108,28 +122,40 @@
   position: absolute;
   inset: 0;
   transform-origin: 0 0;
-  transition: transform 0.05s linear;
 }
 
 .svgConnectionsLayer {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 4000px;
+  height: 3000px;
   pointer-events: none;
   z-index: 1;
 }
 
 .connectionCurve {
   fill: none;
-  stroke: color-mix(in srgb, var(--color-accent) 65%, white 10%);
+  stroke: color-mix(in srgb, var(--color-accent) 70%, white 10%);
   stroke-width: 2.2;
-  transition: stroke 0.2s ease;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease;
+  pointer-events: stroke;
+  cursor: pointer;
 
   &:hover {
     stroke: var(--color-accent);
-    stroke-width: 3;
+    stroke-width: 3.5;
   }
+}
+
+.connectionEndpointDot {
+  fill: var(--color-accent);
+  stroke: var(--color-bg-surface);
+  stroke-width: 2;
+}
+
+.cardinalityBadgeGroup {
+  pointer-events: all;
+  cursor: pointer;
 }
 
 .cardinalityBadge {
@@ -137,6 +163,11 @@
   stroke: var(--color-border);
   stroke-width: 1;
   rx: 4;
+  transition: stroke-color 0.15s ease;
+
+  &:hover {
+    stroke: var(--color-accent);
+  }
 }
 
 .cardinalityText {
@@ -146,6 +177,7 @@
   font-weight: 600;
   text-anchor: middle;
   dominant-baseline: central;
+  user-select: none;
 }
 
 .entityCard {
@@ -158,28 +190,27 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 
   &:hover {
     border-color: var(--color-accent);
     box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--color-accent);
   }
-
-  &.isConnectingSource {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px var(--color-accent);
-  }
 }
 
 .entityCardHeader {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
+  height: 38px;
   background-color: var(--color-bg-elevated);
   border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   cursor: grab;
+  box-sizing: border-box;
 
   &:active {
     cursor: grabbing;
@@ -189,7 +220,8 @@
     font-size: var(--text-xs);
     font-weight: 700;
     color: var(--color-text-primary);
-    display: flex;
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
     gap: 6px;
     letter-spacing: 0.02em;
@@ -205,43 +237,101 @@
 .fieldList {
   display: flex;
   flex-direction: column;
-  padding: 4px 0;
-  max-height: 280px;
-  overflow-y: auto;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .fieldRow {
+  position: relative;
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 12px;
+  padding: 0 12px;
+  height: 28px;
+  box-sizing: border-box;
   font-size: 11px;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  transition: background-color 0.1s ease;
 
   &:last-child {
     border-bottom: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
   }
 
   &:hover {
     background-color: var(--color-bg-hover);
+
+    .portHandle {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+  }
+
+  &.isFieldConnecting {
+    background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+
+    .portHandle {
+      opacity: 1;
+      background-color: var(--color-accent);
+      border-color: #fff;
+      box-shadow: 0 0 8px var(--color-accent);
+    }
+  }
+}
+
+.portHandle {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--color-bg-surface);
+  border: 1.5px solid var(--color-accent);
+  transform: translateY(-50%);
+  cursor: crosshair;
+  opacity: 0.4;
+  transition: all 0.15s ease;
+  z-index: 5;
+
+  &.portLeft {
+    left: -5px;
+  }
+
+  &.portRight {
+    right: -5px;
+  }
+
+  &:hover {
+    opacity: 1 !important;
+    background-color: var(--color-accent);
+    transform: translateY(-50%) scale(1.3) !important;
   }
 }
 
 .fieldLeft {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  overflow: hidden;
 }
 
 .fieldName {
   font-family: var(--font-mono);
   color: var(--color-text-primary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fieldRight {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .fieldType {
@@ -277,7 +367,6 @@
   justify-content: center;
   padding: var(--space-8);
   height: 100%;
-  min-height: 440px;
   color: var(--color-text-muted);
   text-align: center;
   gap: var(--space-3);
@@ -305,10 +394,11 @@
   top: 12px;
   left: 12px;
   z-index: 10;
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
-  background-color: color-mix(in srgb, var(--color-bg-surface) 90%, transparent);
+  background-color: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 3px 6px;
@@ -317,7 +407,8 @@
 }
 
 .canvasToolBtn {
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   width: 26px;
@@ -345,4 +436,35 @@
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
   padding: 0 4px;
+  user-select: none;
+}
+
+.connectionHelpHint {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+  animation: pulseHint 1.5s infinite alternate;
+}
+
+@keyframes pulseHint {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent);
+  }
 }

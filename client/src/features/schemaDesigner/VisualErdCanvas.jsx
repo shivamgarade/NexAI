@@ -11,6 +11,8 @@ import {
   RotateCcw,
   Sparkles,
   Link2,
+  Key,
+  X,
 } from 'lucide-react';
 import { useSchemaStore } from '@/store/schemaStore';
 import { MermaidBlock } from '@/features/chat/MermaidBlock';
@@ -18,18 +20,19 @@ import { toast } from '@/components/ui/Toast';
 import styles from './VisualErdCanvas.module.scss';
 
 export function VisualErdCanvas() {
-  const { currentSchema, isLoading, entityPositions, setEntityPositions } = useSchemaStore();
+  const { currentSchema, isLoading, entityPositions, setEntityPositions, updateCodeOutput } =
+    useSchemaStore();
   const [renderMode, setRenderMode] = useState('interactive'); // 'interactive' | 'mermaid'
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [connectingSource, setConnectingSource] = useState(null);
+  const [connectingField, setConnectingField] = useState(null); // { entityName, fieldName }
   const [manualLinks, setManualLinks] = useState([]);
 
   const draggingRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Compute balanced initial positions for entities if not saved
+  // Compute balanced initial positions for entities if not set
   useEffect(() => {
     if (!currentSchema?.entities?.length) return;
     const newPositions = { ...entityPositions };
@@ -37,7 +40,7 @@ export function VisualErdCanvas() {
 
     const cols = Math.min(3, Math.ceil(Math.sqrt(currentSchema.entities.length)));
     const colWidth = 320;
-    const rowHeight = 310;
+    const rowHeight = 280;
 
     currentSchema.entities.forEach((entity, index) => {
       if (!newPositions[entity.name]) {
@@ -56,7 +59,7 @@ export function VisualErdCanvas() {
     }
   }, [currentSchema, entityPositions, setEntityPositions]);
 
-  // Extract all relationships (AI detected + manual connections)
+  // Extract all relationships with specific field names
   const connections = useMemo(() => {
     if (!currentSchema?.entities?.length) return [];
     const list = [];
@@ -64,10 +67,14 @@ export function VisualErdCanvas() {
     currentSchema.entities.forEach((entity) => {
       (entity.fields || []).forEach((field) => {
         if (field.isForeignKey || field.references || field.name.toLowerCase().endsWith('id')) {
-          // Identify target entity
+          // Identify target entity and target field
           let targetName = '';
+          let targetField = 'id';
+
           if (field.references) {
-            targetName = field.references.split('.')[0];
+            const parts = field.references.split('.');
+            targetName = parts[0];
+            if (parts[1]) targetField = parts[1];
           } else if (field.name.toLowerCase().endsWith('id')) {
             const rawPrefix = field.name.replace(/_?id$/i, '');
             const match = currentSchema.entities.find(
@@ -78,10 +85,11 @@ export function VisualErdCanvas() {
 
           if (targetName && targetName !== entity.name) {
             list.push({
-              id: `${entity.name}-${field.name}->${targetName}`,
+              id: `${entity.name}.${field.name}->${targetName}.${targetField}`,
               source: entity.name,
               sourceField: field.name,
               target: targetName,
+              targetField,
               cardinality: '1 : N',
             });
           }
@@ -89,9 +97,9 @@ export function VisualErdCanvas() {
       });
     });
 
-    // Add any manual connections created by user
+    // Merge any user-drawn manual connections
     manualLinks.forEach((ml) => {
-      if (!list.some((l) => l.source === ml.source && l.target === ml.target)) {
+      if (!list.some((l) => l.source === ml.source && l.sourceField === ml.sourceField && l.target === ml.target)) {
         list.push(ml);
       }
     });
@@ -100,66 +108,86 @@ export function VisualErdCanvas() {
   }, [currentSchema, manualLinks]);
 
   // Handle entity card dragging
-  const handleMouseDown = useCallback((e, entityName) => {
-    if (e.button !== 0) return; // primary click only
-    e.stopPropagation();
+  const handleMouseDown = useCallback(
+    (e, entityName) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
 
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const currentPos = entityPositions[entityName] || { x: 50, y: 50 };
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const currentPos = entityPositions[entityName] || { x: 50, y: 50 };
 
-    draggingRef.current = {
-      entityName,
-      startX,
-      startY,
-      origX: currentPos.x,
-      origY: currentPos.y,
-    };
+      draggingRef.current = {
+        entityName,
+        startX,
+        startY,
+        origX: currentPos.x,
+        origY: currentPos.y,
+      };
 
-    const handleMouseMove = (moveEvent) => {
-      if (!draggingRef.current) return;
-      const dx = (moveEvent.clientX - draggingRef.current.startX) / zoom;
-      const dy = (moveEvent.clientY - draggingRef.current.startY) / zoom;
+      const handleMouseMove = (moveEvent) => {
+        if (!draggingRef.current) return;
+        const dx = (moveEvent.clientX - draggingRef.current.startX) / zoom;
+        const dy = (moveEvent.clientY - draggingRef.current.startY) / zoom;
 
-      setEntityPositions({
-        [draggingRef.current.entityName]: {
-          x: Math.max(10, Math.round(draggingRef.current.origX + dx)),
-          y: Math.max(10, Math.round(draggingRef.current.origY + dy)),
-        },
-      });
-    };
+        setEntityPositions({
+          [draggingRef.current.entityName]: {
+            x: Math.max(10, Math.round(draggingRef.current.origX + dx)),
+            y: Math.max(10, Math.round(draggingRef.current.origY + dy)),
+          },
+        });
+      };
 
-    const handleMouseUp = () => {
-      draggingRef.current = null;
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
+      const handleMouseUp = () => {
+        draggingRef.current = null;
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  }, [entityPositions, setEntityPositions, zoom]);
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    },
+    [entityPositions, setEntityPositions, zoom]
+  );
 
-  // Handle entity click in connection mode
-  const handleEntityCardClick = (entityName) => {
-    if (!connectingSource) {
-      setConnectingSource(entityName);
-      toast.info(`Selected ${entityName}. Now click target entity to link.`);
-    } else if (connectingSource !== entityName) {
-      setManualLinks((prev) => [
-        ...prev,
-        {
-          id: `manual-${connectingSource}->${entityName}`,
-          source: connectingSource,
-          sourceField: 'relation',
-          target: entityName,
-          cardinality: '1 : N',
-        },
-      ]);
-      toast.success(`Connected ${connectingSource} → ${entityName}`);
-      setConnectingSource(null);
+  // Field port connection handler
+  const handlePortClick = (entityName, fieldName) => {
+    if (!connectingField) {
+      setConnectingField({ entityName, fieldName });
+      toast.info(`Port selected: ${entityName}.${fieldName}. Click a target key to connect.`);
+    } else if (connectingField.entityName === entityName && connectingField.fieldName === fieldName) {
+      setConnectingField(null);
     } else {
-      setConnectingSource(null);
+      // Connect source to target
+      const newLink = {
+        id: `link-${connectingField.entityName}.${connectingField.fieldName}->${entityName}.${fieldName}`,
+        source: connectingField.entityName,
+        sourceField: connectingField.fieldName,
+        target: entityName,
+        targetField: fieldName,
+        cardinality: '1 : N',
+      };
+
+      setManualLinks((prev) => [...prev, newLink]);
+
+      // Update real-time schema in state
+      toast.success(
+        `Linked ${connectingField.entityName}.${connectingField.fieldName} → ${entityName}.${fieldName}`
+      );
+
+      // Real-time sync: update code comments in active code output
+      if (currentSchema?.codeOutputs?.mongoose) {
+        const comment = `\n// Relation: ${connectingField.entityName}.${connectingField.fieldName} -> ${entityName}.${fieldName}`;
+        updateCodeOutput('mongoose', `${currentSchema.codeOutputs.mongoose}${comment}`);
+      }
+
+      setConnectingField(null);
     }
+  };
+
+  const handleDeleteConnection = (connId) => {
+    setManualLinks((prev) => prev.filter((l) => l.id !== connId));
+    toast.info('Connection removed');
   };
 
   const handleCopyMermaid = async () => {
@@ -183,7 +211,7 @@ export function VisualErdCanvas() {
       const row = Math.floor(index / cols);
       resetPositions[entity.name] = {
         x: 40 + col * 320,
-        y: 40 + row * 310,
+        y: 40 + row * 280,
       };
     });
     setEntityPositions(resetPositions);
@@ -217,7 +245,7 @@ export function VisualErdCanvas() {
                 type="button"
                 className={`${styles.btnAction} ${renderMode === 'interactive' ? styles.active : ''}`}
                 onClick={() => setRenderMode('interactive')}
-                title="Interactive draggable entity nodes with smooth bezier relations"
+                title="Interactive node view with field-to-field bezier connectors"
               >
                 <Sparkles size={12} />
                 <span>Interactive</span>
@@ -226,7 +254,7 @@ export function VisualErdCanvas() {
                 type="button"
                 className={`${styles.btnAction} ${renderMode === 'mermaid' ? styles.active : ''}`}
                 onClick={() => setRenderMode('mermaid')}
-                title="Mermaid.js diagram rendering"
+                title="Mermaid diagram format"
               >
                 <Network size={12} />
                 <span>Mermaid View</span>
@@ -256,10 +284,27 @@ export function VisualErdCanvas() {
       </div>
 
       <div className={styles.viewportContainer} ref={canvasRef}>
+        {/* Floating helper hint during connection mode */}
+        {connectingField && (
+          <div className={styles.connectionHelpHint}>
+            <Link2 size={12} />
+            <span>
+              Connecting from <strong>{connectingField.entityName}.{connectingField.fieldName}</strong>... click target key
+            </span>
+            <button
+              type="button"
+              className="text-text-muted hover:text-text-primary ml-1"
+              onClick={() => setConnectingField(null)}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         {currentSchema?.entities?.length ? (
           renderMode === 'interactive' ? (
             <>
-              {/* Floating Zoom & Tool Controls */}
+              {/* Floating Canvas Controls */}
               <div className={styles.floatingCanvasToolbar}>
                 <button
                   type="button"
@@ -286,116 +331,142 @@ export function VisualErdCanvas() {
                 >
                   <RotateCcw size={13} />
                 </button>
-                <div style={{ width: 1, height: 16, background: 'var(--color-border)', margin: '0 2px' }} />
-                <button
-                  type="button"
-                  className={`${styles.canvasToolBtn} ${connectingSource ? styles.active : ''}`}
-                  onClick={() => setConnectingSource(connectingSource ? null : 'SELECT')}
-                  title="Connect tool: Click an entity then click another to add relationship"
-                >
-                  <Link2 size={14} />
-                </button>
               </div>
 
-              {/* Interactive Canvas Workspace */}
+              {/* Interactive Draggable Canvas */}
               <div
                 className={styles.interactiveCanvas}
                 style={{ transform: `scale(${zoom})` }}
               >
-                {/* SVG Connections Overlay */}
+                {/* SVG Connections Overlay with Field-to-Field Bezier Curves */}
                 <svg className={styles.svgConnectionsLayer} width="4000" height="3000">
                   <defs>
                     <marker
                       id="arrowhead"
-                      markerWidth="10"
-                      markerHeight="8"
-                      refX="9"
-                      refY="4"
+                      markerWidth="9"
+                      markerHeight="7"
+                      refX="8"
+                      refY="3.5"
                       orient="auto"
                     >
                       <polygon
-                        points="0 0, 10 4, 0 8"
+                        points="0 0, 9 3.5, 0 7"
                         fill="var(--color-accent)"
                       />
                     </marker>
                   </defs>
 
                   {connections.map((conn) => {
+                    const srcEntity = currentSchema.entities.find((e) => e.name === conn.source);
+                    const tgtEntity = currentSchema.entities.find((e) => e.name === conn.target);
+
+                    if (!srcEntity || !tgtEntity) return null;
+
                     const srcPos = entityPositions[conn.source] || { x: 50, y: 50 };
                     const tgtPos = entityPositions[conn.target] || { x: 400, y: 50 };
 
+                    // Find field index within each entity card
+                    const srcFieldIdx = Math.max(
+                      0,
+                      srcEntity.fields.findIndex((f) => f.name === conn.sourceField)
+                    );
+                    const tgtFieldIdx = Math.max(
+                      0,
+                      tgtEntity.fields.findIndex(
+                        (f) => f.name === conn.targetField || f.isPrimary
+                      )
+                    );
+
                     const cardW = 260;
-                    const cardH = 140;
+                    const headerH = 38;
+                    const rowH = 28;
 
-                    // Compute clean anchor connection coordinates
-                    const srcCenterX = srcPos.x + cardW / 2;
-                    const srcCenterY = srcPos.y + cardH / 2;
-                    const tgtCenterX = tgtPos.x + cardW / 2;
-                    const tgtCenterY = tgtPos.y + cardH / 2;
+                    // Calculate precise field anchor Y coordinates
+                    const srcY = srcPos.y + headerH + srcFieldIdx * rowH + 14;
+                    const tgtY = tgtPos.y + headerH + tgtFieldIdx * rowH + 14;
 
-                    let startX, startY, endX, endY;
+                    let srcX, tgtX;
 
-                    if (srcCenterX < tgtCenterX) {
-                      startX = srcPos.x + cardW;
-                      startY = srcCenterY;
-                      endX = tgtPos.x;
-                      endY = tgtCenterY;
+                    if (srcPos.x + cardW <= tgtPos.x) {
+                      srcX = srcPos.x + cardW;
+                      tgtX = tgtPos.x;
+                    } else if (srcPos.x >= tgtPos.x + cardW) {
+                      srcX = srcPos.x;
+                      tgtX = tgtPos.x + cardW;
                     } else {
-                      startX = srcPos.x;
-                      startY = srcCenterY;
-                      endX = tgtPos.x + cardW;
-                      endY = tgtCenterY;
+                      srcX = srcPos.x + cardW;
+                      tgtX = tgtPos.x + cardW;
                     }
 
-                    const dx = Math.max(50, Math.abs(endX - startX) * 0.45);
-                    const pathData = `M ${startX} ${startY} C ${startX < endX ? startX + dx : startX - dx} ${startY}, ${startX < endX ? endX - dx : endX + dx} ${endY}, ${endX} ${endY}`;
-                    const midX = (startX + endX) / 2;
-                    const midY = (startY + endY) / 2;
+                    const dx = Math.max(50, Math.abs(tgtX - srcX) * 0.45);
+                    const pathData = `M ${srcX} ${srcY} C ${
+                      srcX <= tgtX ? srcX + dx : srcX - dx
+                    } ${srcY}, ${srcX <= tgtX ? tgtX - dx : tgtX + dx} ${tgtY}, ${tgtX} ${tgtY}`;
+
+                    const midX = (srcX + tgtX) / 2;
+                    const midY = (srcY + tgtY) / 2;
 
                     return (
                       <g key={conn.id}>
+                        {/* Smooth Cubic Bezier Connection */}
                         <path
                           d={pathData}
                           className={styles.connectionCurve}
                           markerEnd="url(#arrowhead)"
+                          onClick={() => handleDeleteConnection(conn.id)}
+                          title={`${conn.source}.${conn.sourceField} → ${conn.target}.${conn.targetField} (Click to remove)`}
                         />
+
+                        {/* Anchor Endpoint Dots */}
+                        <circle
+                          cx={srcX}
+                          cy={srcY}
+                          r="3.5"
+                          className={styles.connectionEndpointDot}
+                        />
+                        <circle
+                          cx={tgtX}
+                          cy={tgtY}
+                          r="3.5"
+                          className={styles.connectionEndpointDot}
+                        />
+
                         {/* Cardinality Badge on Midpoint */}
-                        <rect
-                          x={midX - 22}
-                          y={midY - 10}
-                          width={44}
-                          height={20}
-                          className={styles.cardinalityBadge}
-                        />
-                        <text
-                          x={midX}
-                          y={midY}
-                          className={styles.cardinalityText}
+                        <g
+                          className={styles.cardinalityBadgeGroup}
+                          onClick={() => handleDeleteConnection(conn.id)}
                         >
-                          {conn.cardinality}
-                        </text>
+                          <rect
+                            x={midX - 22}
+                            y={midY - 10}
+                            width={44}
+                            height={20}
+                            className={styles.cardinalityBadge}
+                          />
+                          <text
+                            x={midX}
+                            y={midY}
+                            className={styles.cardinalityText}
+                          >
+                            {conn.cardinality}
+                          </text>
+                        </g>
                       </g>
                     );
                   })}
                 </svg>
 
-                {/* Render Draggable Entity Cards */}
+                {/* Entity Cards */}
                 {currentSchema.entities.map((entity) => {
                   const pos = entityPositions[entity.name] || { x: 50, y: 50 };
-                  const isSource = connectingSource === entity.name;
 
                   return (
                     <div
                       key={entity.name}
-                      className={`${styles.entityCard} ${isSource ? styles.isConnectingSource : ''}`}
+                      className={styles.entityCard}
                       style={{
                         left: `${pos.x}px`,
                         top: `${pos.y}px`,
-                      }}
-                      onClick={() => {
-                        if (connectingSource) {
-                          handleEntityCardClick(entity.name);
-                        }
                       }}
                     >
                       <div
@@ -412,22 +483,66 @@ export function VisualErdCanvas() {
                       </div>
 
                       <div className={styles.fieldList}>
-                        {(entity.fields || []).map((field) => (
-                          <div key={field.name} className={styles.fieldRow}>
-                            <div className={styles.fieldLeft}>
-                              <span className={styles.fieldName}>{field.name}</span>
+                        {(entity.fields || []).map((field) => {
+                          const isConnectingThisField =
+                            connectingField?.entityName === entity.name &&
+                            connectingField?.fieldName === field.name;
+
+                          return (
+                            <div
+                              key={field.name}
+                              className={`${styles.fieldRow} ${
+                                isConnectingThisField ? styles.isFieldConnecting : ''
+                              }`}
+                            >
+                              {/* Left Anchor Port */}
+                              <button
+                                type="button"
+                                className={`${styles.portHandle} ${styles.portLeft}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePortClick(entity.name, field.name);
+                                }}
+                                title={`Connect from ${entity.name}.${field.name}`}
+                                aria-label={`Port for ${entity.name}.${field.name}`}
+                              />
+
+                              <div className={styles.fieldLeft}>
+                                {(field.isPrimary || field.isForeignKey) && (
+                                  <Key
+                                    size={10}
+                                    style={{
+                                      color: field.isPrimary ? '#f59e0b' : '#06b6d4',
+                                    }}
+                                  />
+                                )}
+                                <span className={styles.fieldName}>{field.name}</span>
+                              </div>
+
+                              <div className={styles.fieldRight}>
+                                <span className={styles.fieldType}>{field.type}</span>
+                                {field.isPrimary && (
+                                  <span className={styles.tagPk}>PK</span>
+                                )}
+                                {field.isForeignKey && (
+                                  <span className={styles.tagFk}>FK</span>
+                                )}
+                              </div>
+
+                              {/* Right Anchor Port */}
+                              <button
+                                type="button"
+                                className={`${styles.portHandle} ${styles.portRight}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePortClick(entity.name, field.name);
+                                }}
+                                title={`Connect from ${entity.name}.${field.name}`}
+                                aria-label={`Port for ${entity.name}.${field.name}`}
+                              />
                             </div>
-                            <div className={styles.fieldRight}>
-                              <span className={styles.fieldType}>{field.type}</span>
-                              {field.isPrimary && (
-                                <span className={styles.tagPk}>PK</span>
-                              )}
-                              {field.isForeignKey && (
-                                <span className={styles.tagFk}>FK</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
