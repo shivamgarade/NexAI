@@ -50,4 +50,11 @@
   &.wideContent {
     max-width: 1540px;
   }
+
+  &.fullWidthContent {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    padding: var(--space-4) var(--space-6);
+  }
 }

@@ -37,6 +37,7 @@ export function AppLayout() {
   const isWideRoute =
     location.pathname.startsWith('/interview') ||
     location.pathname.startsWith('/library');
+  const isFullWidthRoute = location.pathname.startsWith('/schema');
 
   return (
     <div className={styles.layout}>
@@ -57,6 +58,7 @@ export function AppLayout() {
             styles.content,
             isChatRoute && styles.chatContent,
             isWideRoute && styles.wideContent,
+            isFullWidthRoute && styles.fullWidthContent,
           )}
         >
           <Suspense
