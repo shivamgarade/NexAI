@@ -2,10 +2,11 @@
 
 .container {
   margin: var(--space-4) 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   background-color: var(--color-bg-surface);
   position: relative;
+  // Note: do not set overflow: hidden so position: sticky on .header works within scroll containers
 }
 
 .header {
@@ -15,53 +16,45 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-4) var(--space-3);
-  // Smooth gradient fade that blends seamlessly into the code block background
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-bg-surface) 96%, transparent) 0%,
-    color-mix(in srgb, var(--color-bg-surface) 88%, transparent) 60%,
-    transparent 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  mask-image: linear-gradient(180deg, black 0%, black 72%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, black 0%, black 72%, transparent 100%);
-  border-bottom: none;
-  border-top-left-radius: calc(var(--radius-md) - 1px);
-  border-top-right-radius: calc(var(--radius-md) - 1px);
+  padding: 8px 14px;
+  background-color: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
-  pointer-events: none;
-  transition: opacity var(--duration-fast) var(--ease-standard);
-
-  > * {
-    pointer-events: auto;
-  }
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  transition: background-color var(--duration-fast) var(--ease-standard);
 }
 
-.language {
+.languageBadge {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   font-weight: var(--weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 7px;
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--color-bg-elevated) 75%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
   color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  user-select: none;
+
+  .codeIcon {
+    color: var(--color-accent);
+    opacity: 0.9;
+  }
+
+  .languageText {
+    letter-spacing: 0.02em;
+  }
 }
 
 .copyButton {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  padding: 4px 8px;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-bg-elevated) 75%, transparent);
+  background: transparent;
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   cursor: pointer;
@@ -86,8 +79,8 @@
   margin: 0;
   padding: var(--space-4);
   overflow-x: auto;
-  border-bottom-left-radius: calc(var(--radius-md) - 1px);
-  border-bottom-right-radius: calc(var(--radius-md) - 1px);
+  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: var(--leading-relaxed);

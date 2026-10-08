@@ -86,16 +86,39 @@ export default function ProjectPage() {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
 
   const textareaRef = useRef(null);
+  const basePromptTextRef = useRef('');
 
-  // Web Speech dictation hook
-  const { isSupported: isVoiceSupported, isListening, toggleListening } = useSpeechRecognition({
+  // Web Speech dictation hook with real-time streaming
+  const { isSupported: isVoiceSupported, isListening, stopListening, toggleListening } = useSpeechRecognition({
+    continuous: true,
+    onInterim: (interim) => {
+      const base = basePromptTextRef.current;
+      if (interim) {
+        setPromptText(base ? `${base} ${interim}` : interim);
+      } else {
+        setPromptText(base);
+      }
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    },
     onResult: (transcription) => {
-      setPromptText((prev) => (prev ? `${prev} ${transcription}` : transcription));
+      const base = basePromptTextRef.current;
+      const updated = base ? `${base} ${transcription}` : transcription;
+      basePromptTextRef.current = updated;
+      setPromptText(updated);
       if (textareaRef.current) {
         textareaRef.current.focus();
       }
     },
   });
+
+  const handleToggleListening = () => {
+    if (!isListening) {
+      basePromptTextRef.current = promptText;
+    }
+    toggleListening();
+  };
 
   useEffect(() => {
     if (projectId) {
@@ -130,6 +153,9 @@ export default function ProjectPage() {
   // Handle start chat from prompt bar
   const handleStartChatFromPrompt = async (e) => {
     e?.preventDefault();
+    if (isListening) {
+      stopListening();
+    }
     if (isCreatingChat || !projectId) return;
 
     const trimmed = promptText.trim();
@@ -143,15 +169,19 @@ export default function ProjectPage() {
         navigate(`${ROUTES.CHAT}/${newChat._id}`);
 
         if (trimmed) {
-          // Send initial prompt into newly created chat
+          // Send initial prompt into newly created chat with selected model
+          if (selectedModel) {
+            useChatStore.getState().setSelectedModel(selectedModel);
+          }
           setTimeout(() => {
-            sendMessage(trimmed, selectedModel);
+            sendMessage(trimmed);
           }, 150);
         }
       }
     } finally {
       setIsCreatingChat(false);
       setPromptText('');
+      basePromptTextRef.current = '';
     }
   };
 
@@ -316,7 +346,10 @@ export default function ProjectPage() {
               ref={textareaRef}
               rows={1}
               value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
+              onChange={(e) => {
+                setPromptText(e.target.value);
+                basePromptTextRef.current = e.target.value;
+              }}
               onKeyDown={handleKeyDown}
               placeholder={`Ask anything or start a chat in ${currentProject.name}...`}
               className={styles.promptTextarea}
@@ -358,7 +391,7 @@ export default function ProjectPage() {
                     size="sm"
                     variant={isListening ? 'danger' : 'ghost'}
                     type="button"
-                    onClick={toggleListening}
+                    onClick={handleToggleListening}
                   />
                 )}
 

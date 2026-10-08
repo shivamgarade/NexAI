@@ -30,6 +30,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Avatar } from '@/components/ui/Avatar';
 import { Switch } from '@/components/ui/Switch';
 import { Kbd } from '@/components/ui/Kbd';
+import { ThinkingIndicator } from '@/components/ui/ThinkingIndicator';
 import { toast } from '@/store/uiStore';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -271,6 +272,145 @@ export default function DesignSystemPage() {
             description="Clear visual communication for zero-state screens with actionable next steps."
             action={<Button size="sm">Primary Action</Button>}
           />
+        </Card.Body>
+      </Card>
+
+      {/* 21. AI Thinking & Reasoning Indicators */}
+      <Card padding="md">
+        <Card.Header>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <h3>21. AI Thinking &amp; Reasoning Indicators</h3>
+            <Badge tone="accent">Brand AI Animations</Badge>
+          </div>
+        </Card.Header>
+        <Card.Body style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          {/* Brand "N" Logo Thinking Animation */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <span
+              style={{
+                fontSize: 'var(--text-xs)',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--color-text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              NexAI Brand &quot;N&quot; Logo Animation (Default Streaming / Thinking State)
+            </span>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--space-6)',
+                alignItems: 'center',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--color-bg-app)',
+                border: '1px solid var(--color-border)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ThinkingIndicator variant="logo" size="sm" />
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Small (26px)</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ThinkingIndicator variant="logo" size="md" />
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Medium (36px)</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ThinkingIndicator variant="logo" size="lg" />
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Large (52px)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Orbital Dots Thinking Animation */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <span
+              style={{
+                fontSize: 'var(--text-xs)',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--color-text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Orbital 3-Dot Constellation Animation (Alternative Variant)
+            </span>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--space-6)',
+                alignItems: 'center',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--color-bg-app)',
+                border: '1px solid var(--color-border)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ThinkingIndicator variant="dots" size="sm" />
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Small (26px)</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ThinkingIndicator variant="dots" size="md" />
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Medium (36px)</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <ThinkingIndicator variant="dots" size="lg" />
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Large (52px)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Simulated Chat Message Preview */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <span
+              style={{
+                fontSize: 'var(--text-xs)',
+                fontWeight: 'var(--weight-semibold)',
+                color: 'var(--color-text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Live Message Stream Simulation
+            </span>
+            <div
+              style={{
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--color-bg-app)',
+                border: '1px solid var(--color-border)',
+                display: 'flex',
+                gap: 'var(--space-3)',
+                alignItems: 'flex-start',
+              }}
+            >
+              <ThinkingIndicator variant="logo" size="sm" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--weight-semibold)', color: 'var(--color-text-muted)' }}>
+                    NexAI
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Just now</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                  <span>Synthesizing response...</span>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '2px',
+                      height: '14px',
+                      backgroundColor: 'var(--color-accent)',
+                      animation: 'blink 1s infinite steps(2, start)',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </Card.Body>
       </Card>
     </div>

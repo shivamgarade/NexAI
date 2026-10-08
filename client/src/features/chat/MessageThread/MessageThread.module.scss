@@ -13,12 +13,12 @@
 .scrollArea {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-3) var(--space-4) calc(var(--space-24) + var(--space-12));
+  padding: 0 var(--space-4) calc(var(--space-24) + var(--space-12));
   display: flex;
   flex-direction: column;
 
   @include up(md) {
-    padding: var(--space-4) var(--space-6) calc(var(--space-24) + var(--space-12));
+    padding: 0 var(--space-6) calc(var(--space-24) + var(--space-12));
   }
 }
 
@@ -29,6 +29,7 @@
   max-width: 980px;
   margin: 0 auto;
   width: 100%;
+  padding-top: var(--space-4);
 }
 
 .skeletonMessageUser {
@@ -166,6 +167,7 @@
   max-width: 980px;
   margin: 0 auto;
   width: 100%;
+  padding-top: var(--space-4);
 }
 
 .messageRow {
@@ -225,26 +227,32 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  padding: 3px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+  padding: 0;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &.aiAvatarThinking {
-    background-color: color-mix(in srgb, var(--color-bg-elevated) 90%, transparent);
-    border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
-    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 20%, transparent);
+    background: transparent;
+    border: none;
+    box-shadow: none;
     padding: 0;
   }
 }
 
 .avatarLogo {
-  width: 100%;
-  height: 100%;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 45%, transparent));
+  transition: transform var(--duration-fast) var(--ease-standard), filter var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 80%, transparent));
+  }
 }
 
 .messageContentWrapper {
@@ -286,16 +294,18 @@
   &.userBubble {
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-xl);
-    background: linear-gradient(135deg, var(--color-accent), var(--green-600));
-    color: var(--color-accent-contrast);
+    background-color: var(--color-bg-elevated);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+    color: var(--color-text-primary);
     border-bottom-right-radius: var(--radius-sm);
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 25%, transparent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 10%, transparent);
 
     .userText {
       white-space: pre-wrap;
       font-size: var(--text-sm);
       line-height: var(--leading-normal);
       font-weight: var(--weight-regular);
+      color: var(--color-text-primary);
     }
   }
 
@@ -324,8 +334,8 @@
 
 .blinkingCursor {
   display: inline-block;
-  width: 6px;
-  height: 15px;
+  width: 2px;
+  height: 14px;
   background-color: var(--color-accent);
   margin-left: 4px;
   vertical-align: middle;
@@ -345,31 +355,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: geminiRotate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: geminiRotate 3.6s linear infinite;
 }
 
 .geminiDot {
   position: absolute;
   width: 5px;
   height: 5px;
+  top: 8.5px;
+  left: 8.5px;
   border-radius: 50%;
   background-color: var(--color-accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 60%, transparent);
+  box-shadow: none;
 
   &:nth-child(1) {
-    top: 2px;
-    left: 8.5px;
-    animation: geminiPulse 1.5s ease-in-out infinite 0s;
+    animation: geminiOrbitOne 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
   }
   &:nth-child(2) {
-    bottom: 3px;
-    left: 2px;
-    animation: geminiPulse 1.5s ease-in-out infinite 0.25s;
+    animation: geminiOrbitTwo 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
   }
   &:nth-child(3) {
-    bottom: 3px;
-    right: 2px;
-    animation: geminiPulse 1.5s ease-in-out infinite 0.5s;
+    animation: geminiOrbitThree 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
   }
 }
 
@@ -382,14 +388,60 @@
   }
 }
 
-@keyframes geminiPulse {
-  0%, 100% {
-    transform: scale(0.85);
-    opacity: 0.7;
+@keyframes geminiOrbitOne {
+  0% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
   }
-  50% {
-    transform: scale(1.15);
+  33.3% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
+  }
+  66.6% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
     opacity: 1;
+  }
+  100% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
+  }
+}
+
+@keyframes geminiOrbitTwo {
+  0% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
+    opacity: 1;
+  }
+  33.3% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
+  }
+  66.6% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes geminiOrbitThree {
+  0% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
+  }
+  33.3% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
+    opacity: 1;
+  }
+  66.6% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
   }
 }
 
@@ -437,13 +489,14 @@
 .actionBtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
-  font-size: 11px;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-standard);
 

@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { ROUTES } from '@/constants/routes';
 import {
   Sparkles,
   ArrowDown,
@@ -24,6 +26,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { ThinkingIndicator } from '@/components/ui/ThinkingIndicator';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ThinkingDrawer } from '../ThinkingDrawer/ThinkingDrawer';
 import { PromptFormModal } from '@/features/prompts';
@@ -64,13 +68,14 @@ function formatTime(timestamp) {
   if (!timestamp) return '';
   try {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
   } catch {
     return '';
   }
 }
 
 export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const {
     messages,
@@ -78,6 +83,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     isStreaming,
     stopGeneration,
     resendPrompt,
+    selectChat,
     setActiveDrawerThought,
   } = useChatStore();
   const createPrompt = usePromptStore((state) => state.createPrompt);
@@ -273,22 +279,11 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                   <div className={styles.avatarWrapper}>
                     {isUser ? (
                       <Avatar name={user?.email || 'User'} size="sm" />
+                    ) : isCurrentlyStreaming && !message.content ? (
+                      <ThinkingIndicator variant="dots" size="sm" />
                     ) : (
-                      <div
-                        className={cn(
-                          styles.aiAvatar,
-                          isCurrentlyStreaming && !message.content && styles.aiAvatarThinking,
-                        )}
-                      >
-                        {isCurrentlyStreaming && !message.content ? (
-                          <div className={styles.geminiSpinner} aria-label="Thinking...">
-                            <span className={styles.geminiDot} />
-                            <span className={styles.geminiDot} />
-                            <span className={styles.geminiDot} />
-                          </div>
-                        ) : (
-                          <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
-                        )}
+                      <div className={styles.aiAvatar}>
+                        <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
                       </div>
                     )}
                   </div>
@@ -336,23 +331,14 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                         </div>
                       ) : (
                         <div className={styles.aiMarkdown}>
-                          {isCurrentlyStreaming && (message.isThinking || message.thoughts) && (
-                            <div
-                              className={styles.liveThinkingIndicator}
-                              onClick={() =>
-                                setActiveDrawerThought(message.thoughts || message._id)
-                              }
-                              title="Click to view AI reasoning steps in drawer"
-                              role="button"
-                              tabIndex={0}
-                            >
-                              <Brain size={14} className={styles.pulsingBrain} />
-                              <span>Thinking & reasoning...</span>
-                            </div>
-                          )}
                           <MarkdownRenderer
                             content={message.content}
                             isStreaming={isCurrentlyStreaming}
+                            onSavePrompt={(promptData) => setSavePromptData(promptData)}
+                            onUsePrompt={(template) => {
+                              selectChat(null);
+                              navigate(ROUTES.CHAT, { state: { prefill: template } });
+                            }}
                           />
                           {isCurrentlyStreaming && (
                             <span className={styles.blinkingCursor} aria-hidden="true" />
@@ -366,179 +352,181 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                       <div className={styles.actionToolbar}>
                         {isUser ? (
                           <>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleCopy(message.content, messageId)}
-                              title="Copy prompt"
-                              aria-label="Copy prompt"
-                            >
-                              {isCopied ? (
-                                <Check size={13} className={styles.copiedIcon} />
-                              ) : (
-                                <Copy size={13} />
-                              )}
-                              <span>{isCopied ? 'Copied' : 'Copy'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => onEditPrompt?.(message.content)}
-                              title="Edit prompt in input box"
-                              aria-label="Edit prompt in input box"
-                            >
-                              <Edit3 size={13} />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleResendUserPrompt(message.content)}
-                              title="Resend this prompt"
-                              aria-label="Resend this prompt"
-                              disabled={isStreaming}
-                            >
-                              <RotateCcw size={13} />
-                              <span>Resend</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() =>
-                                setSavePromptData({
-                                  title: 'Saved User Prompt',
-                                  template: message.content,
-                                })
-                              }
-                              title="Save to Prompt Vault"
-                              aria-label="Save to Prompt Vault"
-                            >
-                              <BookmarkPlus size={13} />
-                              <span>Save to Vault</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => {
-                                const titleHint =
-                                  message.content
-                                    .split('\n')[0]
-                                    .replace(/^[#*-]+\s*/, '')
-                                    .slice(0, 45) || 'User Note';
-                                useLibraryStore.getState().openAddModal({
-                                  type: 'note',
-                                  title: titleHint,
-                                  content: message.content,
-                                  tags: ['chat', 'note'],
-                                });
-                              }}
-                              title="Save to Library"
-                              aria-label="Save to Library"
-                            >
-                              <BookOpen size={13} />
-                              <span>Save to Library</span>
-                            </button>
+                            <Tooltip content={isCopied ? 'Copied!' : 'Copy prompt'} side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => handleCopy(message.content, messageId)}
+                                aria-label="Copy prompt"
+                              >
+                                {isCopied ? (
+                                  <Check size={15} className={styles.copiedIcon} />
+                                ) : (
+                                  <Copy size={15} />
+                                )}
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Edit prompt" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => onEditPrompt?.(message.content)}
+                                aria-label="Edit prompt"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Resend prompt" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => handleResendUserPrompt(message.content)}
+                                aria-label="Resend prompt"
+                                disabled={isStreaming}
+                              >
+                                <RotateCcw size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Prompt Vault" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() =>
+                                  setSavePromptData({
+                                    title: 'Saved User Prompt',
+                                    template: message.content,
+                                  })
+                                }
+                                aria-label="Save to Prompt Vault"
+                              >
+                                <BookmarkPlus size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Library" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => {
+                                  const titleHint =
+                                    message.content
+                                      .split('\n')[0]
+                                      .replace(/^[#*-]+\s*/, '')
+                                      .slice(0, 45) || 'User Note';
+                                  useLibraryStore.getState().openAddModal({
+                                    type: 'note',
+                                    title: titleHint,
+                                    content: message.content,
+                                    tags: ['chat', 'note'],
+                                  });
+                                }}
+                                aria-label="Save to Library"
+                              >
+                                <BookOpen size={15} />
+                              </button>
+                            </Tooltip>
                           </>
                         ) : (
                           <>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleCopy(message.content, messageId)}
-                              title="Copy response"
-                              aria-label="Copy response"
-                            >
-                              {isCopied ? (
-                                <Check size={13} className={styles.copiedIcon} />
-                              ) : (
-                                <Copy size={13} />
-                              )}
-                              <span>{isCopied ? 'Copied' : 'Copy'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleRetryAssistant(index)}
-                              title="Regenerate response"
-                              aria-label="Regenerate response"
-                              disabled={isStreaming}
-                            >
-                              <RotateCcw size={13} />
-                              <span>Regenerate</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() =>
-                                setSavePromptData({
-                                  title: 'Saved AI Response',
-                                  template: message.content,
-                                })
-                              }
-                              title="Save to Prompt Vault"
-                              aria-label="Save to Prompt Vault"
-                            >
-                              <BookmarkPlus size={13} />
-                              <span>Save to Vault</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => {
-                                const titleHint =
-                                  message.content
-                                    .split('\n')[0]
-                                    .replace(/^[#*-]+\s*/, '')
-                                    .slice(0, 45) || 'AI Solution Note';
-                                useLibraryStore.getState().openAddModal({
-                                  type: 'note',
-                                  title: titleHint,
-                                  content: message.content,
-                                  tags: ['chat', 'ai-solution'],
-                                });
-                              }}
-                              title="Save to Library"
-                              aria-label="Save to Library"
-                            >
-                              <BookOpen size={13} />
-                              <span>Save to Library</span>
-                            </button>
-                            {Boolean(message.thoughts) && (
+                            <Tooltip content={isCopied ? 'Copied!' : 'Copy response'} side="top">
                               <button
                                 type="button"
-                                className={cn(styles.actionBtn, styles.thinkingActionBtn)}
-                                onClick={() =>
-                                  setActiveDrawerThought(message.thoughts || message._id)
-                                }
-                                title="View AI Reasoning & Thinking Process"
-                                aria-label="View AI Reasoning & Thinking Process"
+                                className={styles.actionBtn}
+                                onClick={() => handleCopy(message.content, messageId)}
+                                aria-label="Copy response"
                               >
-                                <Brain size={13} className={styles.brainIcon} />
-                                <span>Show Thinking</span>
+                                {isCopied ? (
+                                  <Check size={15} className={styles.copiedIcon} />
+                                ) : (
+                                  <Copy size={15} />
+                                )}
                               </button>
+                            </Tooltip>
+                            <Tooltip content="Regenerate response" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => handleRetryAssistant(index)}
+                                aria-label="Regenerate response"
+                                disabled={isStreaming}
+                              >
+                                <RotateCcw size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Prompt Vault" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() =>
+                                  setSavePromptData({
+                                    title: 'Saved AI Response',
+                                    template: message.content,
+                                  })
+                                }
+                                aria-label="Save to Prompt Vault"
+                              >
+                                <BookmarkPlus size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Library" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => {
+                                  const titleHint =
+                                    message.content
+                                      .split('\n')[0]
+                                      .replace(/^[#*-]+\s*/, '')
+                                      .slice(0, 45) || 'AI Solution Note';
+                                  useLibraryStore.getState().openAddModal({
+                                    type: 'note',
+                                    title: titleHint,
+                                    content: message.content,
+                                    tags: ['chat', 'ai-solution'],
+                                  });
+                                }}
+                                aria-label="Save to Library"
+                              >
+                                <BookOpen size={15} />
+                              </button>
+                            </Tooltip>
+                            {Boolean(message.thoughts) && (
+                              <Tooltip content="Show AI Thinking & Reasoning" side="top">
+                                <button
+                                  type="button"
+                                  className={cn(styles.actionBtn, styles.thinkingActionBtn)}
+                                  onClick={() =>
+                                    setActiveDrawerThought(message.thoughts || message._id)
+                                  }
+                                  aria-label="Show AI Thinking & Reasoning"
+                                >
+                                  <Brain size={15} className={styles.brainIcon} />
+                                </button>
+                              </Tooltip>
                             )}
-                            <button
-                              type="button"
-                              className={cn(
-                                styles.actionBtn,
-                                speakingId === messageId && styles.speakingBtn,
-                              )}
-                              onClick={() => handleToggleSpeak(message.content, messageId)}
-                              title={speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'}
-                              aria-label={
-                                speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'
-                              }
+                            <Tooltip
+                              content={speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'}
+                              side="top"
                             >
-                              {speakingId === messageId ? (
-                                <VolumeX size={13} />
-                              ) : (
-                                <Volume2 size={13} />
-                              )}
-                              <span>{speakingId === messageId ? 'Stop' : 'Read Aloud'}</span>
-                            </button>
+                              <button
+                                type="button"
+                                className={cn(
+                                  styles.actionBtn,
+                                  speakingId === messageId && styles.speakingBtn,
+                                )}
+                                onClick={() => handleToggleSpeak(message.content, messageId)}
+                                aria-label={
+                                  speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'
+                                }
+                              >
+                                {speakingId === messageId ? (
+                                  <VolumeX size={15} />
+                                ) : (
+                                  <Volume2 size={15} />
+                                )}
+                              </button>
+                            </Tooltip>
                           </>
                         )}
-
                       </div>
                     )}
 

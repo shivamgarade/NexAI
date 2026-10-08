@@ -4,6 +4,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from '../CodeBlock';
 import { MermaidBlock } from '../MermaidBlock';
+import { PromptBlock } from '../PromptBlock';
 import { normalizeTableMarkdown } from './tableNormalizer';
 import { cn } from '@/lib/utils/cn';
 import styles from './MarkdownRenderer.module.scss';
@@ -14,6 +15,8 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
   content = '',
   isStreaming = false,
   allowSaveSnippet = true,
+  onSavePrompt,
+  onUsePrompt,
 }) {
   const components = useMemo(
     () => ({
@@ -32,6 +35,17 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
 
           if (lang === 'mermaid') {
             return <MermaidBlock chart={codeVal} isStreaming={isStreaming} />;
+          }
+
+          if (lang === 'prompt') {
+            return (
+              <PromptBlock
+                template={codeVal}
+                isStreaming={isStreaming}
+                onSavePrompt={onSavePrompt}
+                onUsePrompt={onUsePrompt}
+              />
+            );
           }
 
           return (
@@ -72,7 +86,7 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
         );
       },
     }),
-    [isStreaming],
+    [isStreaming, allowSaveSnippet, onSavePrompt, onUsePrompt],
   );
 
   const normalizedContent = useMemo(() => normalizeTableMarkdown(content), [content]);
@@ -94,4 +108,7 @@ MarkdownRenderer.propTypes = {
   content: PropTypes.string,
   isStreaming: PropTypes.bool,
   allowSaveSnippet: PropTypes.bool,
+  onSavePrompt: PropTypes.func,
+  onUsePrompt: PropTypes.func,
 };
+

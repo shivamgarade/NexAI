@@ -44,4 +44,20 @@ const isValid = a || b || c;
     expect(cells.some((c) => c.textContent === 'Tailwind CSS')).toBe(true);
     expect(cells.some((c) => c.textContent === 'Redis')).toBe(true);
   });
+
+  it('renders a dedicated PromptBlock when markdown contains ```prompt block', () => {
+    const rawContent = `Here is your requested prompt:
+\`\`\`prompt
+Analyze the following quarterly financial report for {{company_name}} focusing on {{metrics}}.
+\`\`\`
+Let me know if you want revisions!`;
+
+    const onSave = vi.fn();
+    render(<MarkdownRenderer content={rawContent} onSavePrompt={onSave} />);
+
+    expect(screen.getByText('Prompt Template')).toBeInTheDocument();
+    expect(screen.getByText('2 variables')).toBeInTheDocument();
+    expect(screen.getByText('Save to Vault')).toBeInTheDocument();
+  });
 });
+

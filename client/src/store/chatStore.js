@@ -296,6 +296,14 @@ export const useChatStore = create((set, get) => ({
       targetChatId = newChat._id;
     }
 
+    // Guard against callers accidentally passing a model string as second argument
+    let safeAttachments = Array.isArray(attachments) ? attachments : [];
+    let overrideModel = null;
+    if (typeof attachments === 'string' && ['flash', 'pro'].includes(attachments)) {
+      overrideModel = attachments;
+      safeAttachments = [];
+    }
+
     const optimisticUserId = `temp-user-${Date.now()}`;
     const optimisticAssistantId = `temp-assistant-${Date.now()}`;
 
@@ -304,7 +312,7 @@ export const useChatStore = create((set, get) => ({
       chatId: targetChatId,
       role: 'user',
       content: trimmed,
-      attachments: Array.isArray(attachments) ? attachments : [],
+      attachments: safeAttachments,
       createdAt: new Date().toISOString(),
     };
 
@@ -330,7 +338,7 @@ export const useChatStore = create((set, get) => ({
     }));
 
     try {
-      const model = get().selectedModel;
+      const model = overrideModel || get().selectedModel;
       const thinkingLevel = get().thinkingLevel;
       const isSimulation = get().isSimulation;
 
@@ -339,7 +347,7 @@ export const useChatStore = create((set, get) => ({
         content: trimmed,
         model,
         thinkingLevel,
-        attachments,
+        attachments: safeAttachments,
         isSimulation,
         signal: abortController.signal,
         onThought: (text) => {

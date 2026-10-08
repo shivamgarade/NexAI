@@ -76,8 +76,14 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const baseTextRef = useRef('');
+
   const insertCompiledPrompt = (compiledText) => {
-    setInput((prev) => (prev ? `${prev}\n\n${compiledText}` : compiledText));
+    setInput((prev) => {
+      const next = prev ? `${prev}\n\n${compiledText}` : compiledText;
+      baseTextRef.current = next;
+      return next;
+    });
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -99,6 +105,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   useEffect(() => {
     if (initialPrompt) {
       setInput(initialPrompt);
+      baseTextRef.current = initialPrompt;
       onClearInitialPrompt?.();
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -106,16 +113,37 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     }
   }, [initialPrompt, onClearInitialPrompt]);
 
-  // Web Speech API Voice Dictation Hook
-  const { isSupported: isVoiceSupported, isListening, toggleListening } = useSpeechRecognition({
+  // Web Speech API Voice Dictation Hook with Real-Time Streaming
+  const { isSupported: isVoiceSupported, isListening, stopListening, toggleListening } = useSpeechRecognition({
+    continuous: true,
+    onInterim: (interim) => {
+      const base = baseTextRef.current;
+      if (interim) {
+        setInput(base ? `${base} ${interim}` : interim);
+      } else {
+        setInput(base);
+      }
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    },
     onResult: (transcription) => {
-      setInput((prev) => (prev ? `${prev} ${transcription}` : transcription));
+      const base = baseTextRef.current;
+      const updated = base ? `${base} ${transcription}` : transcription;
+      baseTextRef.current = updated;
+      setInput(updated);
       if (textareaRef.current) {
         textareaRef.current.focus();
       }
     },
   });
 
+  const handleToggleListening = () => {
+    if (!isListening) {
+      baseTextRef.current = input;
+    }
+    toggleListening();
+  };
 
   // Adjust textarea height dynamically with smooth auto-grow up to 220px
   useEffect(() => {
@@ -130,6 +158,9 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
 
   const handleSubmit = (e) => {
     e?.preventDefault();
+    if (isListening) {
+      stopListening();
+    }
     const trimmed = input.trim();
     if ((!trimmed && !attachedContext) || isStreaming) {
       return;
@@ -159,6 +190,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     }
 
     setInput("");
+    baseTextRef.current = "";
     setAttachedContext(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "28px";
@@ -286,7 +318,10 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 ref={textareaRef}
                 rows={1}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  baseTextRef.current = e.target.value;
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isSimulation
@@ -368,7 +403,10 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                   type="button"
                   icon={
                     isListening ? (
-                      <MicOff size={16} className={styles.activeMicIcon} />
+                      <span className={styles.recordingIconWrapper}>
+                        <Mic size={16} className={styles.activeMicIcon} />
+                        <span className={styles.recordingRing} aria-hidden="true" />
+                      </span>
                     ) : (
                       <Mic size={16} />
                     )
@@ -377,13 +415,13 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     !isVoiceSupported
                       ? 'Voice input not supported in this browser'
                       : isListening
-                        ? 'Stop listening'
+                        ? 'Listening... Click to stop dictation'
                         : 'Voice dictation'
                   }
                   disabled={!isVoiceSupported}
                   variant={isListening ? 'primary' : 'ghost'}
                   size="sm"
-                  onClick={toggleListening}
+                  onClick={handleToggleListening}
                   className={cn(styles.toolBtn, isListening && styles.listeningMic)}
                 />
 

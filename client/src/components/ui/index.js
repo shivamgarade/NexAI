@@ -19,3 +19,4 @@ export * from './EmptyState';
 export * from './Avatar';
 export * from './Switch';
 export * from './Kbd';
+export * from './ThinkingIndicator';

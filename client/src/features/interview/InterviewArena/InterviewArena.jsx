@@ -84,16 +84,25 @@ export function InterviewArena({
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
+        let lastProcessedIndex = 0;
 
         recognition.onstart = () => {
+          lastProcessedIndex = 0;
           setIsListening(true);
         };
 
         recognition.onresult = (event) => {
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const startIndex = Math.max(
+            lastProcessedIndex,
+            typeof event.resultIndex === 'number' ? event.resultIndex : 0,
+          );
+          for (let i = startIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
-              const text = event.results[i][0].transcript;
-              setResponseText((prev) => (prev ? `${prev} ${text}` : text));
+              const text = event.results[i][0]?.transcript?.trim();
+              if (text) {
+                setResponseText((prev) => (prev ? `${prev} ${text}` : text));
+              }
+              lastProcessedIndex = i + 1;
             }
           }
         };

@@ -1,0 +1,259 @@
+@use '@/styles/abstracts' as *;
+
+.spinnerWrapper,
+.logoWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.spinnerImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+
+.size_sm {
+  width: 26px;
+  height: 26px;
+  --orbit-scale: 1;
+
+  .dot {
+    width: 5px;
+    height: 5px;
+    top: 10.5px;
+    left: 10.5px;
+  }
+}
+
+.size_md {
+  width: 36px;
+  height: 36px;
+  --orbit-scale: 1.38;
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    top: 14.5px;
+    left: 14.5px;
+  }
+}
+
+.size_lg {
+  width: 52px;
+  height: 52px;
+  --orbit-scale: 2;
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    top: 21px;
+    left: 21px;
+  }
+}
+
+.logoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: nexaiLogoNeuralPulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.energyRing {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 60%, transparent);
+  pointer-events: none;
+  animation: nexaiEnergyExpand 1.8s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+.quantumParticle {
+  position: absolute;
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
+  pointer-events: none;
+  animation: nexaiParticleOrbit 2.2s linear infinite;
+}
+
+@keyframes nexaiLogoNeuralPulse {
+  0%, 100% {
+    transform: scale(0.92);
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 35%, transparent)) brightness(0.92);
+    opacity: 0.82;
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 85%, transparent)) brightness(1.25);
+    opacity: 1;
+  }
+}
+
+@keyframes nexaiEnergyExpand {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes nexaiParticleOrbit {
+  0% {
+    transform: rotate(0deg) translateX(14px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(14px) rotate(-360deg);
+  }
+}
+
+// ----------------------------------------------------
+// Dots variant (orbital cross-displacement constellation)
+// ----------------------------------------------------
+.dotsWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  animation: constellationPrecess 12s linear infinite;
+}
+
+.dot {
+  position: absolute;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--color-accent) 45%, transparent);
+
+  &:nth-child(1) {
+    animation: geminiCrossOne 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  &:nth-child(2) {
+    animation: geminiCrossTwo 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  &:nth-child(3) {
+    animation: geminiCrossThree 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+}
+
+@keyframes constellationPrecess {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes geminiCrossOne {
+  0% {
+    transform: translate(0, calc(var(--orbit-scale, 1) * -7px)) scale(1);
+    opacity: 0.95;
+  }
+  16.6% {
+    transform: translate(0, 0) scale(1.3);
+    opacity: 1;
+  }
+  33.3% {
+    transform: translate(calc(var(--orbit-scale, 1) * -6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.9);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(calc(var(--orbit-scale, 1) * -3px), calc(var(--orbit-scale, 1) * 2px)) scale(0.85);
+    opacity: 0.8;
+  }
+  66.6% {
+    transform: translate(0, calc(var(--orbit-scale, 1) * 4px)) scale(1.15);
+    opacity: 0.95;
+  }
+  83.3% {
+    transform: translate(calc(var(--orbit-scale, 1) * 6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.9);
+    opacity: 0.85;
+  }
+  91.6% {
+    transform: translate(calc(var(--orbit-scale, 1) * 2.5px), calc(var(--orbit-scale, 1) * -2px)) scale(1.22);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, calc(var(--orbit-scale, 1) * -7px)) scale(1);
+    opacity: 0.95;
+  }
+}
+
+@keyframes geminiCrossTwo {
+  0% {
+    transform: translate(calc(var(--orbit-scale, 1) * -6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.9);
+    opacity: 0.85;
+  }
+  16.6% {
+    transform: translate(0, 0) scale(0.75);
+    opacity: 0.7;
+  }
+  33.3% {
+    transform: translate(0, calc(var(--orbit-scale, 1) * -7px)) scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: translate(0, 0) scale(0.78);
+    opacity: 0.72;
+  }
+  66.6% {
+    transform: translate(calc(var(--orbit-scale, 1) * 6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.9);
+    opacity: 0.85;
+  }
+  83.3% {
+    transform: translate(0, 0) scale(1.28);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(var(--orbit-scale, 1) * -6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.9);
+    opacity: 0.85;
+  }
+}
+
+@keyframes geminiCrossThree {
+  0% {
+    transform: translate(calc(var(--orbit-scale, 1) * 6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.95);
+    opacity: 0.85;
+  }
+  16.6% {
+    transform: translate(calc(var(--orbit-scale, 1) * 3.5px), calc(var(--orbit-scale, 1) * 1px)) scale(1.05);
+    opacity: 0.9;
+  }
+  33.3% {
+    transform: translate(calc(var(--orbit-scale, 1) * 6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.95);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(0, 0) scale(1.3);
+    opacity: 1;
+  }
+  66.6% {
+    transform: translate(0, calc(var(--orbit-scale, 1) * -7px)) scale(1);
+    opacity: 0.95;
+  }
+  83.3% {
+    transform: translate(calc(var(--orbit-scale, 1) * -3px), calc(var(--orbit-scale, 1) * -1.5px)) scale(0.8);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(calc(var(--orbit-scale, 1) * 6.5px), calc(var(--orbit-scale, 1) * 4px)) scale(0.95);
+    opacity: 0.85;
+  }
+}
+

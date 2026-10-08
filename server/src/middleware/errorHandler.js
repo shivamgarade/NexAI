@@ -31,6 +31,7 @@ export async function errorHandler(err, req, res, _next) {
       statusCode,
       code,
       message: err.message,
+      details,
       stack: env.NODE_ENV === 'development' ? err.stack : undefined,
       path: req.originalUrl,
     },

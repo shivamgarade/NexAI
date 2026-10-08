@@ -331,3 +331,52 @@
     background-color: color-mix(in srgb, var(--color-danger) 15%, transparent);
   }
 }
+
+.listeningMic {
+  background-color: color-mix(in srgb, var(--color-danger) 18%, transparent) !important;
+  color: var(--color-danger) !important;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent) !important;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.recordingIconWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activeMicIcon {
+  color: var(--color-danger);
+  animation: micActivePulse 1.2s infinite alternate ease-in-out;
+}
+
+.recordingRing {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--color-danger);
+  animation: recordingRingExpand 1.5s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes micActivePulse {
+  0% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes recordingRingExpand {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+

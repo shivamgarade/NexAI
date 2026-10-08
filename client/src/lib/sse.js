@@ -189,10 +189,18 @@ export async function streamChatMessage({
     headers.Authorization = `Bearer ${token}`;
   }
 
+  const safeAttachments = Array.isArray(attachments) ? attachments : [];
+
   const response = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ content, model, thinkingLevel, isSimulation, attachments }),
+    body: JSON.stringify({
+      content,
+      model,
+      thinkingLevel,
+      isSimulation,
+      attachments: safeAttachments,
+    }),
     signal,
     credentials: 'include',
   });
@@ -221,7 +229,13 @@ export async function streamChatMessage({
     } catch {
       // Ignore json parse error
     }
-    const rawMsg = errorJson?.error?.message || response.statusText || 'Failed to stream message';
+    const detailMsg = Array.isArray(errorJson?.error?.details)
+      ? errorJson.error.details.map((d) => (d.path ? `${d.path}: ${d.message}` : d.message)).join(', ')
+      : null;
+    const rawMsg = detailMsg
+      ? `${errorJson?.error?.message || 'Validation error'} (${detailMsg})`
+      : errorJson?.error?.message || response.statusText || 'Failed to stream message';
+
     const err = {
       status: response.status,
       code: errorJson?.error?.code || 'STREAM_ERROR',

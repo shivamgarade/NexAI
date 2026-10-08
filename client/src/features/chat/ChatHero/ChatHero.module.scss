@@ -228,20 +228,50 @@
 .listeningMic {
   animation: pulseMic 1.4s infinite alternate;
   color: var(--gray-0);
+  background-color: color-mix(in srgb, var(--color-danger) 18%, transparent) !important;
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent) !important;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .activeMicIcon {
-  color: var(--red-500);
+  color: var(--color-danger);
+}
+
+.recordingIconWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recordingRing {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--color-danger);
+  animation: recordingRingExpandHero 1.5s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes recordingRingExpandHero {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
 }
 
 @keyframes pulseMic {
   0% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--red-500) 40%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-danger) 40%, transparent);
   }
   100% {
     transform: scale(1.08);
-    box-shadow: 0 0 12px 4px color-mix(in srgb, var(--red-500) 60%, transparent);
+    box-shadow: 0 0 12px 4px color-mix(in srgb, var(--color-danger) 60%, transparent);
   }
 }
 
