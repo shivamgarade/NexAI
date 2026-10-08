@@ -924,12 +924,28 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                         {/* Pinned Section */}
                         {pinnedChats.length > 0 && (
                           <div className={styles.chatGroup}>
-                            <div className={styles.groupHeader}>
-                              <Pin size={11} className={styles.groupPinIcon} />
-                              <span>Pinned</span>
-                              <span className={styles.groupBadge}>{pinnedChats.length}</span>
+                            <div className={styles.groupHeaderRow}>
+                              <button
+                                type="button"
+                                className={styles.groupToggleBtn}
+                                onClick={() => toggleGroupCollapse('pinned')}
+                                aria-expanded={!collapsedGroups['pinned']}
+                                aria-label="Toggle pinned chats"
+                              >
+                                <span className={styles.groupChevron}>
+                                  {collapsedGroups['pinned'] ? (
+                                    <ChevronRight size={12} />
+                                  ) : (
+                                    <ChevronDown size={12} />
+                                  )}
+                                </span>
+                                <Pin size={11} className={styles.groupPinIcon} />
+                                <span className={styles.groupHeaderTitle}>Pinned</span>
+                                <span className={styles.groupBadge}>{pinnedChats.length}</span>
+                              </button>
                             </div>
-                            {pinnedChats.map((chat) => renderChatItem(chat))}
+                            {!collapsedGroups['pinned'] &&
+                              pinnedChats.map((chat) => renderChatItem(chat))}
                           </div>
                         )}
 
@@ -937,13 +953,29 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                         {unpinnedChats.length > 0 && (
                           <div className={styles.chatGroup}>
                             {pinnedChats.length > 0 && (
-                              <div className={styles.groupHeader}>
-                                <Clock size={11} className={styles.groupClockIcon} />
-                                <span>Recent</span>
-                                <span className={styles.groupBadge}>{unpinnedChats.length}</span>
+                              <div className={styles.groupHeaderRow}>
+                                <button
+                                  type="button"
+                                  className={styles.groupToggleBtn}
+                                  onClick={() => toggleGroupCollapse('recent')}
+                                  aria-expanded={!collapsedGroups['recent']}
+                                  aria-label="Toggle recent chats"
+                                >
+                                  <span className={styles.groupChevron}>
+                                    {collapsedGroups['recent'] ? (
+                                      <ChevronRight size={12} />
+                                    ) : (
+                                      <ChevronDown size={12} />
+                                    )}
+                                  </span>
+                                  <Clock size={11} className={styles.groupClockIcon} />
+                                  <span className={styles.groupHeaderTitle}>Recent</span>
+                                  <span className={styles.groupBadge}>{unpinnedChats.length}</span>
+                                </button>
                               </div>
                             )}
-                            {unpinnedChats.map((chat) => renderChatItem(chat))}
+                            {(!pinnedChats.length || !collapsedGroups['recent']) &&
+                              unpinnedChats.map((chat) => renderChatItem(chat))}
                           </div>
                         )}
                       </>

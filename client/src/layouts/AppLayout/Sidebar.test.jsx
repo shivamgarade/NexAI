@@ -187,4 +187,45 @@ describe('Sidebar Component', () => {
 
     expect(handleItemClick).toHaveBeenCalled();
   });
+
+  it('renders collapsible Pinned and Recent sections and toggles their visibility', () => {
+    // Pin chat-1
+    localStorage.setItem('nexai_pinned_chats', JSON.stringify(['chat-1']));
+
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    // Both Pinned and Recent headers should be present
+    const pinnedToggle = screen.getByRole('button', { name: /toggle pinned chats/i });
+    const recentToggle = screen.getByRole('button', { name: /toggle recent chats/i });
+    expect(pinnedToggle).toBeInTheDocument();
+    expect(recentToggle).toBeInTheDocument();
+
+    // Chat-1 (pinned) and Chat-2 (recent) are visible initially
+    expect(screen.getByText('React Architecture Review')).toBeInTheDocument();
+    expect(screen.getByText('Python Web Scraping')).toBeInTheDocument();
+
+    // Collapse Pinned
+    fireEvent.click(pinnedToggle);
+    expect(screen.queryByText('React Architecture Review')).not.toBeInTheDocument();
+    expect(screen.getByText('Python Web Scraping')).toBeInTheDocument();
+
+    // Collapse Recent
+    fireEvent.click(recentToggle);
+    expect(screen.queryByText('React Architecture Review')).not.toBeInTheDocument();
+    expect(screen.queryByText('Python Web Scraping')).not.toBeInTheDocument();
+
+    // Uncollapse Pinned
+    fireEvent.click(pinnedToggle);
+    expect(screen.getByText('React Architecture Review')).toBeInTheDocument();
+    expect(screen.queryByText('Python Web Scraping')).not.toBeInTheDocument();
+
+    // Uncollapse Recent
+    fireEvent.click(recentToggle);
+    expect(screen.getByText('React Architecture Review')).toBeInTheDocument();
+    expect(screen.getByText('Python Web Scraping')).toBeInTheDocument();
+  });
 });

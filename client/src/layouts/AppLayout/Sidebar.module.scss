@@ -444,6 +444,14 @@
   &:hover {
     background-color: var(--color-bg-hover);
 
+    .groupToggleBtn .groupChevron,
+    .groupToggleBtn .groupName,
+    .groupToggleBtn .groupPinIcon,
+    .groupToggleBtn .groupClockIcon,
+    .groupToggleBtn .groupHeaderTitle {
+      color: var(--color-text-primary);
+    }
+
     .groupQuickOpenBtn {
       opacity: 0.9;
       visibility: visible;
@@ -475,11 +483,15 @@
   }
 
   .groupFolderIcon,
-  .standaloneIcon {
+  .standaloneIcon,
+  .groupPinIcon,
+  .groupClockIcon {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--ease-standard);
   }
 
   .standaloneIcon {
@@ -498,9 +510,26 @@
     transition: color var(--duration-fast) var(--ease-standard);
   }
 
+  .groupHeaderTitle {
+    font-size: 11px;
+    font-weight: var(--weight-semibold, 600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1 1 0;
+    min-width: 0;
+    transition: color var(--duration-fast) var(--ease-standard);
+  }
+
   &:hover {
     .groupChevron,
-    .groupName {
+    .groupName,
+    .groupPinIcon,
+    .groupClockIcon,
+    .groupHeaderTitle {
       color: var(--color-text-primary);
     }
   }
