@@ -196,4 +196,50 @@ describe('SearchPage Component', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/chat/chat-1');
   });
+
+  it('renders inline recent search chips and triggers search on click', () => {
+    const performSearchMock = vi.fn();
+    useSearchStore.setState({
+      recentSearches: ['neural', 'docker'],
+      performSearch: performSearchMock,
+    });
+
+    render(
+      <MemoryRouter>
+        <SearchPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Recent:')).toBeInTheDocument();
+    const neuralChip = screen.getByText('neural');
+    expect(neuralChip).toBeInTheDocument();
+    expect(screen.getByText('docker')).toBeInTheDocument();
+
+    fireEvent.click(neuralChip);
+    expect(performSearchMock).toHaveBeenCalledWith('neural', 'chats');
+  });
+
+  it('allows removing an individual recent search chip and clearing all chips', () => {
+    const removeRecentMock = vi.fn();
+    const clearRecentMock = vi.fn();
+    useSearchStore.setState({
+      recentSearches: ['neural'],
+      removeRecentSearch: removeRecentMock,
+      clearRecentSearches: clearRecentMock,
+    });
+
+    render(
+      <MemoryRouter>
+        <SearchPage />
+      </MemoryRouter>,
+    );
+
+    const removeBtn = screen.getByLabelText(/Remove neural/i);
+    fireEvent.click(removeBtn);
+    expect(removeRecentMock).toHaveBeenCalledWith('neural');
+
+    const clearAllBtn = screen.getByRole('button', { name: /Clear all/i });
+    fireEvent.click(clearAllBtn);
+    expect(clearRecentMock).toHaveBeenCalled();
+  });
 });

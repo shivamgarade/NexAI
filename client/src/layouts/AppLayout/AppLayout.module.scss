@@ -47,6 +47,12 @@
     height: calc(100vh - var(--topbar-height));
   }
 
+  &.searchContent {
+    height: calc(100vh - var(--topbar-height));
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+
   &.wideContent {
     max-width: 1540px;
   }

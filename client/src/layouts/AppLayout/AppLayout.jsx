@@ -34,6 +34,7 @@ export function AppLayout() {
 
   const isChatRoute =
     location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  const isSearchRoute = location.pathname === '/search';
   const isWideRoute =
     location.pathname.startsWith('/interview') ||
     location.pathname.startsWith('/library');
@@ -57,6 +58,7 @@ export function AppLayout() {
           className={cn(
             styles.content,
             isChatRoute && styles.chatContent,
+            isSearchRoute && styles.searchContent,
             isWideRoute && styles.wideContent,
             isFullWidthRoute && styles.fullWidthContent,
           )}

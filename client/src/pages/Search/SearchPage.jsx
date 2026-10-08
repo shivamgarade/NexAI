@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '@/store/chatStore';
 import {
@@ -70,7 +70,6 @@ function CustomCheckbox({ checked, onChange, ariaLabel }) {
 
 export default function SearchPage() {
   const navigate = useNavigate();
-  const searchContainerRef = useRef(null);
 
   const {
     chats: allChats,
@@ -137,9 +136,8 @@ export default function SearchPage() {
     });
   };
 
-  // Search input & focus state
+  // Search input state
   const [localInput, setLocalInput] = useState(query);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const debouncedInput = useDebounce(localInput, 300);
 
   useEffect(() => {
@@ -150,17 +148,6 @@ export default function SearchPage() {
     }
   }, [debouncedInput, performSearch, clearSearch]);
 
-  // Click outside to close recent searches dropdown
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
-        setIsSearchFocused(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleClear = () => {
     setLocalInput('');
     clearSearch();
@@ -169,7 +156,6 @@ export default function SearchPage() {
   const handleRecentClick = (term) => {
     setLocalInput(term);
     setQuery(term);
-    setIsSearchFocused(false);
     performSearch(term, 'chats');
   };
 
@@ -262,209 +248,213 @@ export default function SearchPage() {
 
   return (
     <div className={styles.pageContainer}>
-      <PageHeader
-        title="Search Conversations"
-        description="Search through message history, rename titles, and organize your chats."
-      />
+      {/* Pinned Top Header Section */}
+      <div className={styles.fixedHeader}>
+        <PageHeader
+          title="Search Conversations"
+          description="Search through message history, rename titles, and organize your chats."
+        />
 
-      {/* Compact Search & Filter Section */}
-      <div className={styles.searchSection}>
-        <div ref={searchContainerRef} className={styles.searchInputWrapper}>
-          <Search size={18} className={styles.searchIcon} />
-          <input
-            type="text"
-            value={localInput}
-            onChange={(e) => setLocalInput(e.target.value)}
-            onFocus={() => setIsSearchFocused(true)}
-            placeholder="Search conversations by title or message content..."
-            className={styles.searchInput}
-            autoFocus
-          />
-          {localInput && (
-            <button
-              onClick={handleClear}
-              className={styles.clearButton}
-              aria-label="Clear search"
-              type="button"
-            >
-              <X size={16} />
-            </button>
-          )}
+        {/* Compact Search & Filter Section */}
+        <div className={styles.searchSection}>
+          <div className={styles.searchInputWrapper}>
+            <Search size={18} className={styles.searchIcon} />
+            <input
+              type="text"
+              value={localInput}
+              onChange={(e) => setLocalInput(e.target.value)}
+              placeholder="Search conversations by title or message content..."
+              className={styles.searchInput}
+              autoFocus
+            />
+            {localInput && (
+              <button
+                onClick={handleClear}
+                className={styles.clearButton}
+                aria-label="Clear search"
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
 
-          {/* Floating Recent Searches Popover */}
-          {isSearchFocused && !localInput && recentSearches && recentSearches.length > 0 && (
-            <div className={styles.recentPopover}>
-              <div className={styles.recentPopoverHeader}>
-                <span>
-                  <Clock size={12} /> Recent Searches
-                </span>
-                <button
-                  type="button"
-                  onClick={clearRecentSearches}
-                  className={styles.clearAllBtn}
-                >
-                  Clear all
-                </button>
-              </div>
-              <div className={styles.recentPopoverList}>
+          {/* Inline Recent Searches Chips Bar (never overlaps conversation titles) */}
+          {!localInput && recentSearches && recentSearches.length > 0 && (
+            <div className={styles.recentSearchesBar}>
+              <span className={styles.recentLabel}>
+                <Clock size={12} /> Recent:
+              </span>
+              <div className={styles.recentChipsList}>
                 {recentSearches.map((term) => (
                   <div
                     key={term}
-                    className={styles.recentItemRow}
+                    className={styles.recentChip}
                     onClick={() => handleRecentClick(term)}
                     role="button"
                     tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRecentClick(term);
+                    }}
                   >
-                    <div className={styles.recentItemText}>
-                      <Clock size={13} className={styles.recentClockIcon} />
-                      <span>{term}</span>
-                    </div>
+                    <span className={styles.recentChipText}>{term}</span>
                     <button
                       type="button"
-                      className={styles.removeRecentBtn}
+                      className={styles.removeChipBtn}
                       onClick={(e) => {
                         e.stopPropagation();
                         removeRecentSearch(term);
                       }}
                       aria-label={`Remove ${term}`}
                     >
-                      <X size={12} />
+                      <X size={11} />
                     </button>
                   </div>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={clearRecentSearches}
+                className={styles.clearAllBtn}
+              >
+                Clear all
+              </button>
             </div>
           )}
-        </div>
 
-        {/* Streamlined Toolbar */}
-        <div className={styles.toolbar}>
-          <div className={styles.toolbarLeft}>
-            {selectedChatIds.length > 0 ? (
-              <div className={styles.bulkActiveGroup}>
-                <CustomCheckbox
-                  checked={isAllSelected}
-                  onChange={handleToggleSelectAll}
-                  ariaLabel="Toggle select all"
-                />
-                <span className={styles.bulkCountText}>
-                  {selectedChatIds.length} {selectedChatIds.length === 1 ? 'chat' : 'chats'} selected
-                </span>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => setIsBulkDeleteModalOpen(true)}
-                >
-                  <Trash2 size={13} /> Delete Selected ({selectedChatIds.length})
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedChatIds([])}
-                >
-                  Deselect All
-                </Button>
-              </div>
-            ) : (
-              displayedChats.length > 0 && (
-                <div className={styles.selectAllGroup} onClick={handleToggleSelectAll}>
+          {/* Streamlined Toolbar */}
+          <div className={styles.toolbar}>
+            <div className={styles.toolbarLeft}>
+              {selectedChatIds.length > 0 ? (
+                <div className={styles.bulkActiveGroup}>
                   <CustomCheckbox
                     checked={isAllSelected}
                     onChange={handleToggleSelectAll}
-                    ariaLabel="Select all conversations"
+                    ariaLabel="Toggle select all"
                   />
-                  <span>Select All</span>
-                  <Badge tone="neutral">
-                    {displayedChats.length}{' '}
-                    {displayedChats.length === 1 ? 'conversation' : 'conversations'}
-                  </Badge>
+                  <span className={styles.bulkCountText}>
+                    {selectedChatIds.length} {selectedChatIds.length === 1 ? 'chat' : 'chats'} selected
+                  </span>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    leftIcon={<Trash2 size={13} />}
+                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                  >
+                    Delete Selected ({selectedChatIds.length})
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedChatIds([])}
+                  >
+                    Deselect All
+                  </Button>
                 </div>
-              )
-            )}
-          </div>
+              ) : (
+                displayedChats.length > 0 && (
+                  <div className={styles.selectAllGroup} onClick={handleToggleSelectAll}>
+                    <CustomCheckbox
+                      checked={isAllSelected}
+                      onChange={handleToggleSelectAll}
+                      ariaLabel="Select all conversations"
+                    />
+                    <span>Select All</span>
+                    <Badge tone="neutral">
+                      {displayedChats.length}{' '}
+                      {displayedChats.length === 1 ? 'conversation' : 'conversations'}
+                    </Badge>
+                  </div>
+                )
+              )}
+            </div>
 
-          <div className={styles.toolbarRight}>
-            <div className={styles.viewModeToggle}>
-              <button
-                type="button"
-                className={cn(styles.viewModeBtn, viewMode === 'grid' && styles.active)}
-                onClick={() => handleSetViewMode('grid')}
-                title="Cards Grid View"
-                aria-label="Cards Grid View"
-              >
-                <LayoutGrid size={15} />
-              </button>
-              <button
-                type="button"
-                className={cn(styles.viewModeBtn, viewMode === 'list' && styles.active)}
-                onClick={() => handleSetViewMode('list')}
-                title="Compact List View"
-                aria-label="Compact List View"
-              >
-                <List size={15} />
-              </button>
+            <div className={styles.toolbarRight}>
+              <div className={styles.viewModeToggle}>
+                <button
+                  type="button"
+                  className={cn(styles.viewModeBtn, viewMode === 'grid' && styles.active)}
+                  onClick={() => handleSetViewMode('grid')}
+                  title="Cards Grid View"
+                  aria-label="Cards Grid View"
+                >
+                  <LayoutGrid size={15} />
+                </button>
+                <button
+                  type="button"
+                  className={cn(styles.viewModeBtn, viewMode === 'list' && styles.active)}
+                  onClick={() => handleSetViewMode('list')}
+                  title="Compact List View"
+                  aria-label="Compact List View"
+                >
+                  <List size={15} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Error Banner */}
-      {error && (
-        <div className={styles.errorBanner}>
-          <span>{error}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => performSearch(localInput, 'chats')}
-          >
-            <RotateCcw size={14} /> Retry
-          </Button>
-        </div>
-      )}
-
-      {/* Loading Skeletons */}
-      {isLoading && (
-        <div className={styles.skeletonGrid}>
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <Skeleton key={idx} height="130px" radius="md" />
-          ))}
-        </div>
-      )}
-
-      {/* Empty State: No chats exist at all */}
-      {!isLoading && !isSearchActive && allChats.length === 0 && (
-        <EmptyState
-          icon={<MessageSquare size={36} />}
-          title="No conversations yet"
-          description="Start a new chat to begin exploring with NexAI."
-          action={
-            <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.CHAT)}>
-              Start New Chat
+      {/* Scrollable Conversation Content Area */}
+      <div className={styles.scrollArea}>
+        {/* Error Banner */}
+        {error && (
+          <div className={styles.errorBanner}>
+            <span>{error}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              leftIcon={<RotateCcw size={14} />}
+              onClick={() => performSearch(localInput, 'chats')}
+            >
+              Retry
             </Button>
-          }
-        />
-      )}
+          </div>
+        )}
 
-      {/* Empty State: Search produced no results */}
-      {!isLoading && isSearchActive && displayedChats.length === 0 && !error && (
-        <EmptyState
-          icon={<Search size={36} />}
-          title={`No conversations found for "${debouncedInput}"`}
-          description="Try searching with different keywords, check for typos, or browse all conversations."
-          action={
-            <Button variant="secondary" size="sm" onClick={handleClear}>
-              Clear Search
-            </Button>
-          }
-        />
-      )}
+        {/* Loading Skeletons */}
+        {isLoading && (
+          <div className={styles.skeletonGrid}>
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <Skeleton key={idx} height="130px" radius="md" />
+            ))}
+          </div>
+        )}
 
-      {/* Render Conversations in Cards (Grid) or List View */}
-      {!isLoading && displayedChats.length > 0 && (
-        <div>
-          {viewMode === 'grid' ? (
-            /* CARDS GRID VIEW */
-            <div className={styles.cardsGrid}>
+        {/* Empty State: No chats exist at all */}
+        {!isLoading && !isSearchActive && allChats.length === 0 && (
+          <EmptyState
+            icon={<MessageSquare size={36} />}
+            title="No conversations yet"
+            description="Start a new chat to begin exploring with NexAI."
+            action={
+              <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.CHAT)}>
+                Start New Chat
+              </Button>
+            }
+          />
+        )}
+
+        {/* Empty State: Search produced no results */}
+        {!isLoading && isSearchActive && displayedChats.length === 0 && !error && (
+          <EmptyState
+            icon={<Search size={36} />}
+            title={`No conversations found for "${debouncedInput}"`}
+            description="Try searching with different keywords, check for typos, or browse all conversations."
+            action={
+              <Button variant="secondary" size="sm" onClick={handleClear}>
+                Clear Search
+              </Button>
+            }
+          />
+        )}
+
+        {/* Render Conversations in Cards (Grid) or List View */}
+        {!isLoading && displayedChats.length > 0 && (
+          <div className={styles.resultsWrapper}>
+            {viewMode === 'grid' ? (
+              /* CARDS GRID VIEW */
+              <div className={styles.cardsGrid}>
               {displayedChats.map((chat) => {
                 const chatId = chat._id || chat.chatId;
                 const isSelected = selectedChatIds.includes(chatId);
@@ -673,8 +663,9 @@ export default function SearchPage() {
               })}
             </div>
           )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Rename Conversation Modal */}
       <Modal
