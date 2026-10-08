@@ -8,6 +8,8 @@ import { LibraryItem } from '../src/models/LibraryItem.js';
 import { UsageLog } from '../src/models/UsageLog.js';
 import { generateAccessToken } from '../src/utils/token.js';
 import * as interviewAgent from '../src/agents/interview.agent.js';
+import * as geminiService from '../src/services/gemini.service.js';
+import * as edgeTtsService from '../src/services/edgeTts.service.js';
 
 describe('AI Mock Interview Platform Integration Tests (Step 9)', () => {
   let userA = null;
@@ -405,4 +407,159 @@ describe('AI Mock Interview Platform Integration Tests (Step 9)', () => {
       expect(freshUser.wallet.creditsRemaining).toBe(0);
     });
   });
+
+  describe('POST /api/interview/tts (Gemini 3.8 Flash-Lite TTS & Dual-Mode Voice)', () => {
+    it('should reject unauthenticated requests with 401', async () => {
+      const res = await request(app).post('/api/interview/tts').send({ text: 'Hello' });
+      expect(res.status).toBe(401);
+    });
+
+    it('should reject empty or missing text with 400', async () => {
+      const res = await request(app)
+        .post('/api/interview/tts')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ text: '   ' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 204 in simulation mode without calling Gemini or deducting credits', async () => {
+      const generateSpeechSpy = vi.spyOn(geminiService, 'generateSpeech');
+
+      const res = await request(app)
+        .post('/api/interview/tts')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          text: 'This is a simulation test question.',
+          isSimulation: true,
+        });
+
+      expect(res.status).toBe(204);
+      expect(generateSpeechSpy).not.toHaveBeenCalled();
+
+      const freshUser = await User.findById(userA._id);
+      expect(freshUser.wallet.creditsRemaining).toBe(100);
+
+      const usageLogs = await UsageLog.find({ userId: userA._id, model: 'tts' });
+      expect(usageLogs).toHaveLength(0);
+    });
+
+    it('should synthesize audio via Edge Neural TTS by default, return audio/mpeg, and consume 0 credits', async () => {
+      const fakeMp3Buffer = Buffer.from('ID3....FAKE_MP3_DATA....');
+      const edgeSpy = vi.spyOn(edgeTtsService, 'synthesizeEdgeSpeech').mockResolvedValueOnce({
+        audioBuffer: fakeMp3Buffer,
+        mimeType: 'audio/mpeg',
+        voice: 'en-US-ChristopherNeural',
+      });
+
+      const res = await request(app)
+        .post('/api/interview/tts')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          text: 'Welcome to your live technical assessment. Please introduce yourself.',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('audio/mpeg');
+      expect(res.headers['x-engine']).toBe('edge');
+      expect(res.headers['x-voice']).toBe('en-US-ChristopherNeural');
+      expect(res.headers['x-credits-remaining']).toBe('100');
+      expect(res.headers['x-credits-deducted']).toBe('0');
+      expect(res.headers['x-tokens-used']).toBe('0');
+      expect(res.body).toEqual(fakeMp3Buffer);
+      expect(edgeSpy).toHaveBeenCalled();
+
+      // Ensure no credits deducted from user wallet
+      const freshUser = await User.findById(userA._id);
+      expect(freshUser.wallet.creditsRemaining).toBe(100);
+
+      // Ensure no UsageLog recorded for 0-credit Edge TTS
+      const usageLogs = await UsageLog.find({ userId: userA._id, model: 'tts' });
+      expect(usageLogs).toHaveLength(0);
+    });
+
+    it('should allow Edge Neural TTS even when credits are 0 in strict mode', async () => {
+      await User.findByIdAndUpdate(userA._id, { 'wallet.creditsRemaining': 0 });
+      const fakeMp3Buffer = Buffer.from('ID3....ZERO_CREDIT_EDGE_TTS....');
+      vi.spyOn(edgeTtsService, 'synthesizeEdgeSpeech').mockResolvedValueOnce({
+        audioBuffer: fakeMp3Buffer,
+        mimeType: 'audio/mpeg',
+        voice: 'en-US-ChristopherNeural',
+      });
+
+      const res = await request(app)
+        .post('/api/interview/tts')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          text: 'Free Edge voice synthesis during viva.',
+          engine: 'edge',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.headers['x-engine']).toBe('edge');
+      expect(res.headers['x-credits-remaining']).toBe('0');
+      expect(res.headers['x-credits-deducted']).toBe('0');
+
+      // Reset balance for remaining tests
+      await User.findByIdAndUpdate(userA._id, { 'wallet.creditsRemaining': 100 });
+    });
+
+    it('should synthesize audio via Gemini TTS, return audio/wav, deduct credits, and log usage when engine is gemini', async () => {
+      const fakeWavBuffer = Buffer.from('RIFF....WAVEfmt ....data....');
+      vi.spyOn(geminiService, 'generateSpeech').mockResolvedValueOnce({
+        audioBuffer: fakeWavBuffer,
+        mimeType: 'audio/wav',
+        totalTokens: 150, // 150 tokens = ceil(150 / 100) = 2 credits
+        usageMetadata: { promptTokenCount: 50, candidatesTokenCount: 100, totalTokenCount: 150 },
+      });
+
+      const res = await request(app)
+        .post('/api/interview/tts')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          text: 'Welcome to your live technical assessment. Please introduce yourself.',
+          engine: 'gemini',
+          voice: 'Kore',
+          style: 'professional and engaging',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('audio/wav');
+      expect(res.headers['x-engine']).toBe('gemini');
+      expect(res.headers['x-credits-remaining']).toBe('98');
+      expect(res.headers['x-credits-deducted']).toBe('2');
+      expect(res.headers['x-tokens-used']).toBe('150');
+      expect(res.body).toEqual(fakeWavBuffer);
+
+      // Verify wallet deduction in MongoDB
+      const freshUser = await User.findById(userA._id);
+      expect(freshUser.wallet.creditsRemaining).toBe(98);
+      expect(freshUser.wallet.totalTokensConsumed).toBe(150);
+
+      // Verify UsageLog audit entry
+      const log = await UsageLog.findOne({ userId: userA._id, model: 'tts' });
+      expect(log).toBeDefined();
+      expect(log.feature).toBe('interview');
+      expect(log.tokensUsed).toBe(150);
+      expect(log.creditsDeducted).toBe(2);
+    });
+
+    it('should block Gemini TTS with 402 when credits are 0 in strict mode', async () => {
+      await User.findByIdAndUpdate(userA._id, { 'wallet.creditsRemaining': 0 });
+
+      const res = await request(app)
+        .post('/api/interview/tts')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({
+          text: 'This should be blocked due to lack of credits.',
+          engine: 'gemini',
+          isSimulation: false,
+        });
+
+      expect(res.status).toBe(402);
+      expect(res.body.error.code).toBe('INSUFFICIENT_CREDITS');
+    });
+  });
 });
+

@@ -481,11 +481,11 @@ ${improvements.map((i) => `• ${i}`).join('\n')}`;
                 viewingItem.sections.map((sec, idx) => (
                   <div key={idx} className={styles.sectionBlock}>
                     <h2 className={styles.sectionHeading}>{sec.heading}</h2>
-                    <MarkdownRenderer content={sec.body || ''} />
+                    <MarkdownRenderer content={sec.body || ''} allowSaveSnippet={false} />
                   </div>
                 ))
               ) : viewingItem.content ? (
-                <MarkdownRenderer content={viewingItem.content} />
+                <MarkdownRenderer content={viewingItem.content} allowSaveSnippet={false} />
               ) : (
                 <p className={styles.emptyContentNotice}>
                   No sections generated for this document.

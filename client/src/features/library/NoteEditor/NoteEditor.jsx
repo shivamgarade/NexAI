@@ -28,8 +28,9 @@ export function NoteEditor({
   autoFocus = false,
   readOnly = false,
   className = '',
+  initialTab = 'write',
 }) {
-  const [activeTab, setActiveTab] = useState('write'); // 'write' | 'preview'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'write' | 'preview'
   const textareaRef = useRef(null);
 
   // Helper to insert markdown tags around selection or at cursor
@@ -53,10 +54,7 @@ export function NoteEditor({
     setTimeout(() => {
       textarea.focus();
       const newCursorPos = start + prefix.length + selectedText.length;
-      textarea.setSelectionRange(
-        start + prefix.length,
-        newCursorPos,
-      );
+      textarea.setSelectionRange(start + prefix.length, newCursorPos);
     }, 0);
   };
 
@@ -132,122 +130,122 @@ export function NoteEditor({
         </div>
 
         {activeTab === 'write' && !readOnly && (
-          <div className={styles.toolbar} role="toolbar" aria-label="Markdown formatting">
-            <div className={styles.toolbarGroup}>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Bold (Ctrl+B)"
-                onClick={() => insertFormatting('**', '**', 'bold text')}
-              >
-                <Bold size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Italic (Ctrl+I)"
-                onClick={() => insertFormatting('*', '*', 'italic text')}
-              >
-                <Italic size={14} />
-              </button>
+            <div className={styles.toolbar} role="toolbar" aria-label="Markdown formatting">
+              <div className={styles.toolbarGroup}>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Bold (Ctrl+B)"
+                  onClick={() => insertFormatting('**', '**', 'bold text')}
+                >
+                  <Bold size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Italic (Ctrl+I)"
+                  onClick={() => insertFormatting('*', '*', 'italic text')}
+                >
+                  <Italic size={14} />
+                </button>
+              </div>
+
+              <div className={styles.divider} />
+
+              <div className={styles.toolbarGroup}>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Heading 1"
+                  onClick={() => insertFormatting('# ', '', 'Heading 1')}
+                >
+                  <Heading1 size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Heading 2"
+                  onClick={() => insertFormatting('## ', '', 'Heading 2')}
+                >
+                  <Heading2 size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Heading 3"
+                  onClick={() => insertFormatting('### ', '', 'Heading 3')}
+                >
+                  <Heading3 size={14} />
+                </button>
+              </div>
+
+              <div className={styles.divider} />
+
+              <div className={styles.toolbarGroup}>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Inline Code"
+                  onClick={() => insertFormatting('`', '`', 'code')}
+                >
+                  <Code size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Code Block"
+                  onClick={() => insertFormatting('```\n', '\n```', 'code block')}
+                >
+                  <FileCode size={14} />
+                </button>
+              </div>
+
+              <div className={styles.divider} />
+
+              <div className={styles.toolbarGroup}>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Bullet List"
+                  onClick={() => insertFormatting('- ', '', 'List item')}
+                >
+                  <List size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Numbered List"
+                  onClick={() => insertFormatting('1. ', '', 'Numbered item')}
+                >
+                  <ListOrdered size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Task Item"
+                  onClick={() => insertFormatting('- [ ] ', '', 'Task')}
+                >
+                  <CheckSquare size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Blockquote"
+                  onClick={() => insertFormatting('> ', '', 'Quote')}
+                >
+                  <Quote size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  title="Link (Ctrl+K)"
+                  onClick={() => insertFormatting('[', '](https://)', 'Link')}
+                >
+                  <Link size={14} />
+                </button>
+              </div>
             </div>
-
-            <div className={styles.divider} />
-
-            <div className={styles.toolbarGroup}>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Heading 1"
-                onClick={() => insertFormatting('# ', '', 'Heading 1')}
-              >
-                <Heading1 size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Heading 2"
-                onClick={() => insertFormatting('## ', '', 'Heading 2')}
-              >
-                <Heading2 size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Heading 3"
-                onClick={() => insertFormatting('### ', '', 'Heading 3')}
-              >
-                <Heading3 size={14} />
-              </button>
-            </div>
-
-            <div className={styles.divider} />
-
-            <div className={styles.toolbarGroup}>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Inline Code"
-                onClick={() => insertFormatting('`', '`', 'code')}
-              >
-                <Code size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Code Block"
-                onClick={() => insertFormatting('```\n', '\n```', 'code block')}
-              >
-                <FileCode size={14} />
-              </button>
-            </div>
-
-            <div className={styles.divider} />
-
-            <div className={styles.toolbarGroup}>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Bullet List"
-                onClick={() => insertFormatting('- ', '', 'List item')}
-              >
-                <List size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Numbered List"
-                onClick={() => insertFormatting('1. ', '', 'Numbered item')}
-              >
-                <ListOrdered size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Task Item"
-                onClick={() => insertFormatting('- [ ] ', '', 'Task')}
-              >
-                <CheckSquare size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Blockquote"
-                onClick={() => insertFormatting('> ', '', 'Quote')}
-              >
-                <Quote size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                title="Link (Ctrl+K)"
-                onClick={() => insertFormatting('[', '](https://)', 'Link')}
-              >
-                <Link size={14} />
-              </button>
-            </div>
-          </div>
-        )}
+          )}
       </div>
 
       <div className={styles.editorArea} style={{ minHeight }}>
@@ -267,7 +265,7 @@ export function NoteEditor({
         ) : (
           <div className={styles.previewArea} style={{ minHeight }}>
             {value.trim() ? (
-              <MarkdownRenderer content={value} />
+              <MarkdownRenderer content={value} allowSaveSnippet={false} />
             ) : (
               <div className={styles.emptyPreview}>Nothing to preview yet. Start typing in Write mode.</div>
             )}
@@ -301,4 +299,5 @@ NoteEditor.propTypes = {
   autoFocus: PropTypes.bool,
   readOnly: PropTypes.bool,
   className: PropTypes.string,
+  initialTab: PropTypes.oneOf(['write', 'preview']),
 };

@@ -268,3 +268,91 @@ export async function embedContent({ contents, model = 'embed' }) {
     }
   }
 }
+
+/**
+ * Generates text-to-speech audio using Gemini TTS (gemini-3.8-flash-lite-tts).
+ * Returns decoded WAV audio buffer and token usage metadata.
+ *
+ * @param {Object} options
+ * @param {string} options.text - Transcript text to speak
+ * @param {string} [options.voice='Kore'] - Speaker voice name (e.g. Kore, Puck, Zephyr, Fenrir)
+ * @param {string} [options.style='professional and conversational'] - Vocal tone/delivery style
+ * @returns {Promise<{ audioBuffer: Buffer, mimeType: string, totalTokens: number, usageMetadata: any }>}
+ */
+export async function generateSpeech({
+  text,
+  voice = 'Kore',
+  style = 'professional and engaging',
+}) {
+  const client = getGeminiClient();
+  const modelName = getModelName('tts');
+
+  let attempt = 0;
+  const maxRetries = 1;
+
+  while (true) {
+    try {
+      const response = await client.models.generateContent({
+        model: modelName,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text,
+                speech_metadata: {
+                  speaker: voice,
+                  style,
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      const part = response.candidates?.[0]?.content?.parts?.[0];
+      const base64Data =
+        part?.inlineData?.data ||
+        response.output_audio?.data ||
+        null;
+
+      if (!base64Data) {
+        throw new ApiError(502, 'GEMINI_TTS_ERROR', 'No audio data received from Gemini TTS model');
+      }
+
+      const mimeType = part?.inlineData?.mimeType || 'audio/wav';
+      const audioBuffer = Buffer.from(base64Data, 'base64');
+
+      const usageMetadata = response.usageMetadata || null;
+      const promptTokens = usageMetadata?.promptTokenCount || 0;
+      const candidatesTokens = usageMetadata?.candidatesTokenCount || 0;
+      const totalTokens =
+        usageMetadata?.totalTokenCount ?? (promptTokens + candidatesTokens);
+
+      return {
+        audioBuffer,
+        mimeType,
+        totalTokens: Math.max(1, totalTokens),
+        usageMetadata,
+      };
+    } catch (error) {
+      attempt++;
+      const isTransient =
+        error.message?.includes('503') ||
+        error.message?.includes('UNAVAILABLE') ||
+        error.message?.includes('high demand');
+
+      if (isTransient && attempt <= maxRetries) {
+        logger.warn(
+          { attempt, maxRetries },
+          'Transient Gemini 503 high demand spike during TTS generation, retrying after 1s...',
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
+      logger.error({ error: error.message }, 'Gemini speech generation error');
+      throw parseGeminiError(error);
+    }
+  }
+}
+

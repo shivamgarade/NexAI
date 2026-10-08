@@ -13,11 +13,12 @@ export function creditCheck(req, _res, next) {
       throw new ApiError(401, 'UNAUTHORIZED', 'Authentication required for credit check');
     }
 
-    // Allow mock interview simulation without deducting credits if simulation mode is flagged
+    // Allow mock interview simulation or Edge Neural TTS (0 credits, free tier) without deducting credits
     if (
       req.body?.isSimulation === true ||
       req.query?.simulation === 'true' ||
-      req.headers?.['x-simulation'] === 'true'
+      req.headers?.['x-simulation'] === 'true' ||
+      req.body?.engine === 'edge'
     ) {
       return next();
     }

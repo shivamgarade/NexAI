@@ -1990,3 +1990,56 @@ Updates item metadata, title, content, or toggles pinned status.
 }
 ```
 
+## Mock Interview Platform
+
+### POST `/api/interview/tts`
+
+Synthesizes interview speech using **Microsoft Edge Neural TTS** (default, ~400ms ultra-low latency, 100% free, 0 credits) or **Gemini 3.8 Flash-Lite TTS** (cloud metered, token charges), or returns 204 for client-side Web Speech simulation.
+
+- **Auth:** Bearer Token (requires authenticated user session)
+- **Rate Limit:** 30 req / min (bypassed in simulation mode)
+- **Credit Check:** Enforced for `engine: 'gemini'` only; bypassed for `engine: 'edge'` and `isSimulation: true`
+- **Request Body:**
+```json
+{
+  "text": "Welcome to your technical screening.",
+  "engine": "edge",
+  "voice": "en-US-ChristopherNeural",
+  "style": "professional and engaging interviewer",
+  "isSimulation": false
+}
+```
+
+- **Parameters:**
+  - `text` (required, string, 1–5000 chars): Interviewer question or critique text.
+  - `engine` (optional, `"edge"` | `"gemini"`, default: `"edge"`): Selected voice engine.
+  - `voice` (optional, string):
+    - For Edge: `"en-US-ChristopherNeural"` (Male Lead, default), `"en-US-GuyNeural"`, `"en-US-JennyNeural"` (Female Lead), etc.
+    - For Gemini: `"Kore"` (default), `"Puck"`, `"Fenrir"`, `"Aoede"`, etc.
+  - `style` (optional, string): Style description for Gemini TTS.
+  - `isSimulation` (optional, boolean): If true, returns 204 for offline Web Speech synthesis.
+
+- **Response `200 OK` (Edge Neural Engine — Default):**
+  - **Content-Type:** `audio/mpeg`
+  - **Headers:**
+    - `X-Engine`: `edge`
+    - `X-Voice`: Selected Edge voice name
+    - `X-Credits-Remaining`: Unchanged user credit balance
+    - `X-Credits-Deducted`: `0`
+    - `X-Tokens-Used`: `0`
+  - **Body:** Binary MP3 audio buffer (24 kHz, 96 kbps mono MP3)
+
+- **Response `200 OK` (Gemini Flash-Lite Engine — Cloud Metered):**
+  - **Content-Type:** `audio/wav`
+  - **Headers:**
+    - `X-Engine`: `gemini`
+    - `X-Voice`: Selected Gemini voice name
+    - `X-Credits-Remaining`: Updated user credit balance
+    - `X-Credits-Deducted`: Credits deducted (`ceil(totalTokens / 100)`)
+    - `X-Tokens-Used`: Total prompt and audio candidate tokens
+    - `X-Usage-Log-Id`: MongoDB audit log ID
+  - **Body:** Binary WAV audio buffer with standard RIFF header (24 kHz, 16-bit mono PCM)
+
+- **Response `204 No Content` (Simulation Mode):**
+  - Returned when `isSimulation: true` or `x-simulation: true` header is provided.
+

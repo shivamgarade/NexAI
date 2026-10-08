@@ -33,3 +33,17 @@ export const interviewIdParamSchema = z.object({
     .string({ required_error: 'Interview ID is required' })
     .regex(/^[0-9a-fA-F]{24}$/, 'Invalid interview ID format'),
 });
+
+export const interviewTtsSchema = z.object({
+  text: z
+    .string({ required_error: 'Text is required for TTS synthesis' })
+    .trim()
+    .min(1, 'Text cannot be empty')
+    .max(5000, 'Text must not exceed 5000 characters'),
+  engine: z.enum(['edge', 'gemini']).default('edge').optional(),
+  voice: z.string().trim().max(100).optional(),
+  style: z.string().trim().max(200).optional(),
+  sessionId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid session ID format').optional(),
+  isSimulation: z.boolean().optional(),
+});
+

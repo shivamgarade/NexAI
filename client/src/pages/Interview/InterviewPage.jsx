@@ -37,6 +37,9 @@ export default function InterviewPage() {
     isSpeaking,
     speakingSource,
     isTtsEnabled,
+    isTtsLoading,
+    voiceEngine,
+    setVoiceEngine,
     setSetupField,
     startInterview,
     sendResponse,
@@ -107,6 +110,9 @@ export default function InterviewPage() {
             isSpeaking={isSpeaking}
             speakingSource={speakingSource}
             isTtsEnabled={isTtsEnabled}
+            isTtsLoading={isTtsLoading}
+            voiceEngine={voiceEngine}
+            onToggleVoiceEngine={setVoiceEngine}
             onToggleTts={toggleTts}
             onSpeakText={speakInterviewerText}
           />
@@ -126,6 +132,8 @@ export default function InterviewPage() {
             onSelectSession={loadSession}
             isSimulation={isSimulation}
             onToggleSimulation={toggleSimulation}
+            voiceEngine={voiceEngine}
+            onVoiceEngineChange={setVoiceEngine}
           />
         )}
       </div>

@@ -116,6 +116,26 @@ describe('chatStore Zustand Store', () => {
     expect(useChatStore.getState().activeChatId).toBe('chat-2');
   });
 
+  it('deletes multiple chats and cleans up active selection', async () => {
+    useChatStore.setState({
+      chats: [
+        { _id: 'chat-1', title: 'Chat 1' },
+        { _id: 'chat-2', title: 'Chat 2' },
+        { _id: 'chat-3', title: 'Chat 3' },
+      ],
+      activeChatId: 'chat-1',
+    });
+    chatApi.deleteChat.mockResolvedValue({ data: { message: 'Deleted' } });
+    chatApi.getMessages.mockResolvedValueOnce({ data: [] });
+
+    await useChatStore.getState().deleteMultipleChats(['chat-1', 'chat-2']);
+
+    expect(chatApi.deleteChat).toHaveBeenCalledWith('chat-1');
+    expect(chatApi.deleteChat).toHaveBeenCalledWith('chat-2');
+    expect(useChatStore.getState().chats).toEqual([{ _id: 'chat-3', title: 'Chat 3' }]);
+    expect(useChatStore.getState().activeChatId).toBe('chat-3');
+  });
+
   it('sends a message, receives streaming tokens, and updates credits on done', async () => {
     useChatStore.setState({
       activeChatId: 'chat-1',

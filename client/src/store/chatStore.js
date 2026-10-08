@@ -211,6 +211,46 @@ export const useChatStore = create((set, get) => ({
   },
 
   /**
+   * Delete multiple chats and their messages
+   * @param {string[]} chatIds
+   */
+  deleteMultipleChats: async (chatIds) => {
+    if (!chatIds || chatIds.length === 0) return true;
+    try {
+      await Promise.all(chatIds.map((id) => chatApi.deleteChat(id)));
+      set((state) => {
+        const remainingChats = state.chats.filter((c) => !chatIds.includes(c._id));
+        const nextActiveId = chatIds.includes(state.activeChatId)
+          ? remainingChats.length > 0
+            ? remainingChats[0]._id
+            : null
+          : state.activeChatId;
+
+        return {
+          chats: remainingChats,
+          activeChatId: nextActiveId,
+          messages: chatIds.includes(state.activeChatId) ? [] : state.messages,
+        };
+      });
+
+      const currentActiveId = get().activeChatId;
+      if (currentActiveId) {
+        get().fetchMessages(currentActiveId);
+      }
+      toast.success(
+        chatIds.length === 1
+          ? 'Conversation deleted successfully'
+          : `Deleted ${chatIds.length} conversations`,
+      );
+      return true;
+    } catch (err) {
+      const message = err.message || 'Failed to delete selected conversations';
+      toast.error(message);
+      return false;
+    }
+  },
+
+  /**
    * Fetch messages for a specific chat
    * @param {string} chatId
    */

@@ -40,4 +40,19 @@ describe('InterviewSetup Component', () => {
     fireEvent.click(startBtn);
     expect(defaultProps.onStart).toHaveBeenCalled();
   });
+
+  it('renders voice engine options and triggers onVoiceEngineChange', () => {
+    const onVoiceEngineChange = vi.fn();
+    render(
+      <InterviewSetup
+        {...defaultProps}
+        voiceEngine="edge"
+        onVoiceEngineChange={onVoiceEngineChange}
+      />,
+    );
+
+    const geminiBtn = screen.getByRole('button', { name: /Gemini 3.8 TTS/i });
+    fireEvent.click(geminiBtn);
+    expect(onVoiceEngineChange).toHaveBeenCalledWith('gemini');
+  });
 });

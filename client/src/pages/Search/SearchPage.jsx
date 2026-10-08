@@ -1,26 +1,30 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useChatStore } from '@/store/chatStore';
 import {
   Search,
   X,
-  Bookmark,
-  Terminal,
   MessageSquare,
   Clock,
-  BookOpen,
-  FileText,
-  Layers,
   ArrowRight,
   RotateCcw,
-  Paperclip,
-  Mic,
+  LayoutGrid,
+  List,
+  Pencil,
+  Trash2,
+  Check,
+  Pin,
+  MoreVertical,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { useSearchStore } from '@/store/searchStore';
 import { useDebounce } from '@/hooks/useDebounce';
 import { ROUTES } from '@/constants/routes';
@@ -46,55 +50,43 @@ function HighlightedText({ text, query }) {
   );
 }
 
-function getLibraryTypeTone(type) {
-  switch (type) {
-    case 'note':
-      return 'neutral';
-    case 'link':
-      return 'info';
-    case 'document':
-      return 'accent';
-    case 'file':
-      return 'warning';
-    case 'interview':
-      return 'success';
-    default:
-      return 'neutral';
-  }
-}
-
-function getLibraryTypeIcon(type) {
-  switch (type) {
-    case 'note':
-      return <Bookmark size={13} />;
-    case 'link':
-      return <BookOpen size={13} />;
-    case 'document':
-      return <FileText size={13} />;
-    case 'file':
-      return <Paperclip size={13} />;
-    case 'interview':
-      return <Mic size={13} />;
-    default:
-      return <Bookmark size={13} />;
-  }
+function CustomCheckbox({ checked, onChange, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      className={cn(styles.customCheckbox, checked && styles.checked)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(e);
+      }}
+    >
+      {checked && <Check size={11} className={styles.checkIcon} />}
+    </button>
+  );
 }
 
 export default function SearchPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { chats: allChats, fetchChats } = useChatStore();
+  const searchContainerRef = useRef(null);
+
+  const {
+    chats: allChats,
+    fetchChats,
+    updateChatTitle,
+    deleteChat,
+    deleteMultipleChats,
+  } = useChatStore();
 
   const {
     query,
-    activeTab,
     results,
-    counts,
     isLoading,
     error,
     recentSearches,
     setQuery,
-    setActiveTab,
     performSearch,
     clearSearch,
     removeRecentSearch,
@@ -105,25 +97,69 @@ export default function SearchPage() {
     fetchChats();
   }, [fetchChats]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tabParam = params.get('tab');
-    if (tabParam && ['all', 'library', 'prompts', 'chats'].includes(tabParam)) {
-      setActiveTab(tabParam);
+  // View mode preference (Grid / Cards vs List)
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('nexai_search_view_mode') || 'grid';
+    } catch {
+      return 'grid';
     }
-  }, [location.search, setActiveTab]);
+  });
 
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('nexai_search_view_mode', mode);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  // Pinned chat IDs synchronization
+  const [pinnedChatIds, setPinnedChatIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nexai_pinned_chats');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const togglePin = (chatId) => {
+    setPinnedChatIds((prev) => {
+      const next = prev.includes(chatId) ? prev.filter((id) => id !== chatId) : [chatId, ...prev];
+      try {
+        localStorage.setItem('nexai_pinned_chats', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  // Search input & focus state
   const [localInput, setLocalInput] = useState(query);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const debouncedInput = useDebounce(localInput, 300);
 
-  // Trigger search on debounced input
   useEffect(() => {
     if (debouncedInput.trim()) {
-      performSearch(debouncedInput.trim(), activeTab);
+      performSearch(debouncedInput.trim(), 'chats');
     } else {
       clearSearch();
     }
-  }, [debouncedInput, activeTab, performSearch, clearSearch]);
+  }, [debouncedInput, performSearch, clearSearch]);
+
+  // Click outside to close recent searches dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleClear = () => {
     setLocalInput('');
@@ -133,50 +169,114 @@ export default function SearchPage() {
   const handleRecentClick = (term) => {
     setLocalInput(term);
     setQuery(term);
-    performSearch(term, activeTab);
+    setIsSearchFocused(false);
+    performSearch(term, 'chats');
   };
 
-  const handleLibraryClick = (item) => {
-    let tab = 'all';
-    if (item.type === 'note' || item.type === 'link') tab = 'notes_links';
-    else if (item.type === 'document') tab = 'documents';
-    else if (item.type === 'file') tab = 'files';
-    else if (item.type === 'interview') tab = 'interviews';
-    navigate(`${ROUTES.LIBRARY}?tab=${tab}`);
+  // Multi-selection state
+  const [selectedChatIds, setSelectedChatIds] = useState([]);
+
+  // Rename Modal state
+  const [chatToRename, setChatToRename] = useState(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  const handleStartRename = (chat) => {
+    setChatToRename(chat);
+    setRenameTitle(chat.title || '');
   };
 
-  const handlePromptClick = () => {
-    navigate(ROUTES.PROMPTS);
+  const handleConfirmRename = async () => {
+    if (!chatToRename || !renameTitle.trim()) return;
+    const targetId = chatToRename._id || chatToRename.chatId;
+    setIsRenaming(true);
+    await updateChatTitle(targetId, renameTitle.trim());
+    setIsRenaming(false);
+    setChatToRename(null);
   };
 
-  const handleChatClick = (chat) => {
-    navigate(`/chat/${chat.chatId || chat._id}`);
+  // Single Delete Confirmation Modal
+  const [chatToDelete, setChatToDelete] = useState(null);
+  const [isDeletingSingle, setIsDeletingSingle] = useState(false);
+
+  const handleStartDelete = (chat) => {
+    setChatToDelete(chat);
   };
 
-  const showLibrary = activeTab === 'all' || activeTab === 'library';
-  const showPrompts = activeTab === 'all' || activeTab === 'prompts';
-  const showChats = activeTab === 'all' || activeTab === 'chats';
+  const handleConfirmSingleDelete = async () => {
+    if (!chatToDelete) return;
+    const targetId = chatToDelete._id || chatToDelete.chatId;
+    setIsDeletingSingle(true);
+    await deleteChat(targetId);
+    setSelectedChatIds((prev) => prev.filter((id) => id !== targetId));
+    setIsDeletingSingle(false);
+    setChatToDelete(null);
+  };
 
-  const hasResults =
-    (results.library && results.library.length > 0) ||
-    (results.prompts && results.prompts.length > 0) ||
-    (results.chats && results.chats.length > 0);
+  // Bulk Delete Confirmation Modal
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedChatIds.length === 0) return;
+    setIsDeletingBulk(true);
+    await deleteMultipleChats(selectedChatIds);
+    setSelectedChatIds([]);
+    setIsDeletingBulk(false);
+    setIsBulkDeleteModalOpen(false);
+  };
+
+  // Determine current displayed chats list
+  const isSearchActive = Boolean(debouncedInput.trim());
+  const displayedChats = useMemo(() => {
+    if (isSearchActive) {
+      return results.chats || [];
+    }
+    return allChats;
+  }, [isSearchActive, results.chats, allChats]);
+
+  // Selection helpers
+  const isAllSelected =
+    displayedChats.length > 0 &&
+    displayedChats.every((c) => selectedChatIds.includes(c._id || c.chatId));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedChatIds([]);
+    } else {
+      const allIds = displayedChats.map((c) => c._id || c.chatId);
+      setSelectedChatIds(allIds);
+    }
+  };
+
+  const handleToggleSelectOne = (chatId) => {
+    setSelectedChatIds((prev) =>
+      prev.includes(chatId) ? prev.filter((id) => id !== chatId) : [...prev, chatId],
+    );
+  };
+
+  const handleChatNavigate = (chat) => {
+    const id = chat._id || chat.chatId;
+    navigate(`/chat/${id}`);
+  };
 
   return (
     <div className={styles.pageContainer}>
       <PageHeader
-        title="Unified Search"
-        description="Deep hybrid search across your personal library, generated documents, prompt vault, and conversations."
+        title="Search Conversations"
+        description="Search through message history, rename titles, and organize your chats."
       />
 
-      <div className={styles.searchHero}>
-        <div className={styles.searchInputWrapper}>
-          <Search size={20} className={styles.searchIcon} />
+      {/* Compact Search & Filter Section */}
+      <div className={styles.searchSection}>
+        <div ref={searchContainerRef} className={styles.searchInputWrapper}>
+          <Search size={18} className={styles.searchIcon} />
           <input
             type="text"
             value={localInput}
             onChange={(e) => setLocalInput(e.target.value)}
-            placeholder={activeTab === 'chats' ? "Search conversations and chat history..." : "Search keywords, conceptual meaning, tags, or message history..."}
+            onFocus={() => setIsSearchFocused(true)}
+            placeholder="Search conversations by title or message content..."
             className={styles.searchInput}
             autoFocus
           />
@@ -187,96 +287,125 @@ export default function SearchPage() {
               aria-label="Clear search"
               type="button"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
+          )}
+
+          {/* Floating Recent Searches Popover */}
+          {isSearchFocused && !localInput && recentSearches && recentSearches.length > 0 && (
+            <div className={styles.recentPopover}>
+              <div className={styles.recentPopoverHeader}>
+                <span>
+                  <Clock size={12} /> Recent Searches
+                </span>
+                <button
+                  type="button"
+                  onClick={clearRecentSearches}
+                  className={styles.clearAllBtn}
+                >
+                  Clear all
+                </button>
+              </div>
+              <div className={styles.recentPopoverList}>
+                {recentSearches.map((term) => (
+                  <div
+                    key={term}
+                    className={styles.recentItemRow}
+                    onClick={() => handleRecentClick(term)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className={styles.recentItemText}>
+                      <Clock size={13} className={styles.recentClockIcon} />
+                      <span>{term}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.removeRecentBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeRecentSearch(term);
+                      }}
+                      aria-label={`Remove ${term}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Tab Filters */}
-        <div className={styles.tabsBar}>
-          <button
-            type="button"
-            className={cn(styles.tabItem, activeTab === 'all' && styles.active)}
-            onClick={() => setActiveTab('all')}
-          >
-            <Layers size={15} />
-            <span>All Results</span>
-            <span className={styles.countBadge}>{counts.total}</span>
-          </button>
+        {/* Streamlined Toolbar */}
+        <div className={styles.toolbar}>
+          <div className={styles.toolbarLeft}>
+            {selectedChatIds.length > 0 ? (
+              <div className={styles.bulkActiveGroup}>
+                <CustomCheckbox
+                  checked={isAllSelected}
+                  onChange={handleToggleSelectAll}
+                  ariaLabel="Toggle select all"
+                />
+                <span className={styles.bulkCountText}>
+                  {selectedChatIds.length} {selectedChatIds.length === 1 ? 'chat' : 'chats'} selected
+                </span>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setIsBulkDeleteModalOpen(true)}
+                >
+                  <Trash2 size={13} /> Delete Selected ({selectedChatIds.length})
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedChatIds([])}
+                >
+                  Deselect All
+                </Button>
+              </div>
+            ) : (
+              displayedChats.length > 0 && (
+                <div className={styles.selectAllGroup} onClick={handleToggleSelectAll}>
+                  <CustomCheckbox
+                    checked={isAllSelected}
+                    onChange={handleToggleSelectAll}
+                    ariaLabel="Select all conversations"
+                  />
+                  <span>Select All</span>
+                  <Badge tone="neutral">
+                    {displayedChats.length}{' '}
+                    {displayedChats.length === 1 ? 'conversation' : 'conversations'}
+                  </Badge>
+                </div>
+              )
+            )}
+          </div>
 
-          <button
-            type="button"
-            className={cn(styles.tabItem, activeTab === 'library' && styles.active)}
-            onClick={() => setActiveTab('library')}
-          >
-            <Bookmark size={15} />
-            <span>Library</span>
-            <span className={styles.countBadge}>{counts.library}</span>
-          </button>
-
-          <button
-            type="button"
-            className={cn(styles.tabItem, activeTab === 'prompts' && styles.active)}
-            onClick={() => setActiveTab('prompts')}
-          >
-            <Terminal size={15} />
-            <span>Prompts</span>
-            <span className={styles.countBadge}>{counts.prompts}</span>
-          </button>
-
-          <button
-            type="button"
-            className={cn(styles.tabItem, activeTab === 'chats' && styles.active)}
-            onClick={() => setActiveTab('chats')}
-          >
-            <MessageSquare size={15} />
-            <span>Chats</span>
-            <span className={styles.countBadge}>{counts.chats}</span>
-          </button>
-        </div>
-
-        {/* Recent Searches */}
-        {!localInput && recentSearches && recentSearches.length > 0 && (
-          <div className={styles.recentSection}>
-            <div className={styles.recentHeader}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                <Clock size={13} />
-                Recent Searches
-              </span>
+          <div className={styles.toolbarRight}>
+            <div className={styles.viewModeToggle}>
               <button
                 type="button"
-                onClick={clearRecentSearches}
-                className={styles.clearAllBtn}
+                className={cn(styles.viewModeBtn, viewMode === 'grid' && styles.active)}
+                onClick={() => handleSetViewMode('grid')}
+                title="Cards Grid View"
+                aria-label="Cards Grid View"
               >
-                Clear all
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                type="button"
+                className={cn(styles.viewModeBtn, viewMode === 'list' && styles.active)}
+                onClick={() => handleSetViewMode('list')}
+                title="Compact List View"
+                aria-label="Compact List View"
+              >
+                <List size={15} />
               </button>
             </div>
-            <div className={styles.recentChips}>
-              {recentSearches.map((term) => (
-                <div
-                  key={term}
-                  className={styles.recentChip}
-                  onClick={() => handleRecentClick(term)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <span>{term}</span>
-                  <button
-                    type="button"
-                    className={styles.removeChip}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeRecentSearch(term);
-                    }}
-                    aria-label={`Remove ${term}`}
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Error Banner */}
@@ -286,7 +415,7 @@ export default function SearchPage() {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => performSearch(localInput, activeTab)}
+            onClick={() => performSearch(localInput, 'chats')}
           >
             <RotateCcw size={14} /> Retry
           </Button>
@@ -297,78 +426,31 @@ export default function SearchPage() {
       {isLoading && (
         <div className={styles.skeletonGrid}>
           {Array.from({ length: 6 }).map((_, idx) => (
-            <Skeleton key={idx} height="140px" radius="md" />
+            <Skeleton key={idx} height="130px" radius="md" />
           ))}
         </div>
       )}
 
-      {/* Empty State: Initial Prompt for other tabs */}
-      {!isLoading && !localInput.trim() && activeTab !== 'chats' && (
+      {/* Empty State: No chats exist at all */}
+      {!isLoading && !isSearchActive && allChats.length === 0 && (
         <EmptyState
-          icon={<Search size={32} />}
-          title="Search your entire workspace"
-          description="Type keywords, technical terms, or natural concepts. Unified Search combines vector semantic similarity with full-text indexing."
+          icon={<MessageSquare size={36} />}
+          title="No conversations yet"
+          description="Start a new chat to begin exploring with NexAI."
+          action={
+            <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.CHAT)}>
+              Start New Chat
+            </Button>
+          }
         />
       )}
 
-      {/* Default Chat List when on Chats tab and no search query */}
-      {!isLoading && !localInput.trim() && activeTab === 'chats' && (
-        <div className={styles.categoryGroup}>
-          <div className={styles.groupTitle}>
-            <MessageSquare size={16} />
-            <span>All Conversations ({allChats.length})</span>
-          </div>
-          <div className={styles.cardsList}>
-            {allChats.length === 0 ? (
-              <EmptyState
-                icon={<MessageSquare size={32} />}
-                title="No conversations yet"
-                description="Start a new chat to begin exploring with NexAI."
-                action={
-                  <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.CHAT)}>
-                    Start New Chat
-                  </Button>
-                }
-              />
-            ) : (
-              allChats.map((chat) => (
-                <div
-                  key={chat._id}
-                  className={styles.resultCard}
-                  onClick={() => handleChatClick(chat)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div>
-                    <div className={styles.cardHeader}>
-                      <h4 className={styles.cardTitle}>{chat.title || 'Untitled Chat'}</h4>
-                      {chat.pinned && <Badge tone="accent">Pinned</Badge>}
-                    </div>
-
-                    <p className={styles.cardSnippet}>
-                      Click to resume this conversation and continue chatting.
-                    </p>
-                  </div>
-
-                  <div className={styles.cardFooter}>
-                    <span>{new Date(chat.updatedAt || chat.createdAt).toLocaleDateString()}</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      Resume Chat <ArrowRight size={12} />
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Empty State: No Matches */}
-      {!isLoading && localInput.trim() && !hasResults && !error && (
+      {/* Empty State: Search produced no results */}
+      {!isLoading && isSearchActive && displayedChats.length === 0 && !error && (
         <EmptyState
-          icon={<Search size={32} />}
-          title={`No results for "${localInput}"`}
-          description="Try broadening your terms, checking for typos, or switching to the 'All Results' tab."
+          icon={<Search size={36} />}
+          title={`No conversations found for "${debouncedInput}"`}
+          description="Try searching with different keywords, check for typos, or browse all conversations."
           action={
             <Button variant="secondary" size="sm" onClick={handleClear}>
               Clear Search
@@ -377,158 +459,284 @@ export default function SearchPage() {
         />
       )}
 
-      {/* Search Results Display */}
-      {!isLoading && hasResults && (
-        <div className={styles.resultsGrid}>
-          {/* Library Section */}
-          {showLibrary && results.library && results.library.length > 0 && (
-            <div className={styles.categoryGroup}>
-              <div className={styles.groupTitle}>
-                <Bookmark size={16} />
-                <span>Knowledge Library ({results.library.length})</span>
-              </div>
-              <div className={styles.cardsList}>
-                {results.library.map((item) => (
+      {/* Render Conversations in Cards (Grid) or List View */}
+      {!isLoading && displayedChats.length > 0 && (
+        <div>
+          {viewMode === 'grid' ? (
+            /* CARDS GRID VIEW */
+            <div className={styles.cardsGrid}>
+              {displayedChats.map((chat) => {
+                const chatId = chat._id || chat.chatId;
+                const isSelected = selectedChatIds.includes(chatId);
+                const isPinned = pinnedChatIds.includes(chatId);
+
+                return (
                   <div
-                    key={item._id}
-                    className={styles.resultCard}
-                    onClick={() => handleLibraryClick(item)}
+                    key={chatId}
+                    className={cn(styles.cardItem, isSelected && styles.selected)}
+                    onClick={() => handleChatNavigate(chat)}
                     role="button"
                     tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleChatNavigate(chat);
+                    }}
                   >
                     <div>
-                      <div className={styles.cardHeader}>
-                        <h4 className={styles.cardTitle}>
-                          <HighlightedText text={item.title} query={localInput} />
-                        </h4>
-                        <Badge tone={getLibraryTypeTone(item.type)}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            {getLibraryTypeIcon(item.type)}
-                            {item.type}
-                          </span>
-                        </Badge>
+                      {/* Card Top: Custom Checkbox, Status Badges & 3-Dots Dropdown */}
+                      <div className={styles.cardTop}>
+                        <div className={styles.cardTopLeft}>
+                          <CustomCheckbox
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectOne(chatId)}
+                            ariaLabel={`Select chat ${chat.title}`}
+                          />
+                          {chat.matchType === 'message' && (
+                            <Badge tone="neutral">Message Match</Badge>
+                          )}
+                          {isPinned && (
+                            <span className={styles.pinnedIndicator}>
+                              <Pin size={11} /> Pinned
+                            </span>
+                          )}
+                        </div>
+
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Dropdown
+                            portal
+                            align="right"
+                            trigger={
+                              <button
+                                type="button"
+                                className={styles.kebabBtn}
+                                title="Conversation options"
+                                aria-label="Conversation options"
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                            }
+                            items={[
+                              {
+                                label: isPinned ? 'Unpin Conversation' : 'Pin to Top',
+                                icon: <Pin size={14} />,
+                                onClick: () => togglePin(chatId),
+                              },
+                              {
+                                label: 'Rename Title',
+                                icon: <Pencil size={14} />,
+                                onClick: () => handleStartRename(chat),
+                              },
+                              { divider: true },
+                              {
+                                label: 'Delete Conversation',
+                                icon: <Trash2 size={14} />,
+                                danger: true,
+                                onClick: () => handleStartDelete(chat),
+                              },
+                            ]}
+                          />
+                        </div>
                       </div>
 
+                      {/* Card Title */}
+                      <div className={styles.cardTitleArea}>
+                        <h4 className={styles.cardTitle}>
+                          <HighlightedText text={chat.title || 'Untitled Chat'} query={debouncedInput} />
+                        </h4>
+                      </div>
+
+                      {/* Snippet / Description */}
                       <p className={styles.cardSnippet}>
-                        <HighlightedText
-                          text={item.summary || item.content || 'No description provided'}
-                          query={localInput}
-                        />
-                      </p>
-                    </div>
-
-                    <div className={styles.cardFooter}>
-                      <div className={styles.tagsContainer}>
-                        {item.tags?.slice(0, 3).map((tag) => (
-                          <span key={tag} className={styles.tagPill}>
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        View in Library <ArrowRight size={12} />
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Prompts Section */}
-          {showPrompts && results.prompts && results.prompts.length > 0 && (
-            <div className={styles.categoryGroup}>
-              <div className={styles.groupTitle}>
-                <Terminal size={16} />
-                <span>Prompt Vault ({results.prompts.length})</span>
-              </div>
-              <div className={styles.cardsList}>
-                {results.prompts.map((prompt) => (
-                  <div
-                    key={prompt._id}
-                    className={styles.resultCard}
-                    onClick={handlePromptClick}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div>
-                      <div className={styles.cardHeader}>
-                        <h4 className={styles.cardTitle}>
-                          <HighlightedText text={prompt.title} query={localInput} />
-                        </h4>
-                        {prompt.isFavorite && <Badge tone="accent">Favorite</Badge>}
-                      </div>
-
-                      <p className={styles.cardSnippet}>
-                        <HighlightedText
-                          text={prompt.description || prompt.template}
-                          query={localInput}
-                        />
-                      </p>
-                    </div>
-
-                    <div className={styles.cardFooter}>
-                      <div className={styles.tagsContainer}>
-                        {prompt.variables?.slice(0, 3).map((v) => (
-                          <span key={v} className={styles.tagPill}>
-                            &#123;&#123;{v}&#125;&#125;
-                          </span>
-                        ))}
-                      </div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Open in Vault <ArrowRight size={12} />
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Chats Section */}
-          {showChats && results.chats && results.chats.length > 0 && (
-            <div className={styles.categoryGroup}>
-              <div className={styles.groupTitle}>
-                <MessageSquare size={16} />
-                <span>Conversations ({results.chats.length})</span>
-              </div>
-              <div className={styles.cardsList}>
-                {results.chats.map((chat) => (
-                  <div
-                    key={chat._id || chat.chatId}
-                    className={styles.resultCard}
-                    onClick={() => handleChatClick(chat)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div>
-                      <div className={styles.cardHeader}>
-                        <h4 className={styles.cardTitle}>
-                          <HighlightedText text={chat.title} query={localInput} />
-                        </h4>
-                        {chat.matchType === 'message' && (
-                          <Badge tone="neutral">Message Match</Badge>
+                        {chat.snippet ? (
+                          <HighlightedText text={chat.snippet} query={debouncedInput} />
+                        ) : (
+                          'Click to resume this conversation and view discussion history.'
                         )}
-                      </div>
-
-                      <p className={styles.cardSnippet}>
-                        <HighlightedText text={chat.snippet} query={localInput} />
                       </p>
                     </div>
 
+                    {/* Card Footer */}
                     <div className={styles.cardFooter}>
-                      <span>{new Date(chat.updatedAt || chat.createdAt).toLocaleDateString()}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        Resume Chat <ArrowRight size={12} />
+                      <span>
+                        {new Date(chat.updatedAt || chat.createdAt || Date.now()).toLocaleDateString(
+                          undefined,
+                          { month: 'short', day: 'numeric', year: 'numeric' },
+                        )}
+                      </span>
+                      <span className={styles.resumeLink}>
+                        Resume <ArrowRight size={12} />
                       </span>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* COMPACT LIST VIEW */
+            <div className={styles.listView}>
+              {displayedChats.map((chat) => {
+                const chatId = chat._id || chat.chatId;
+                const isSelected = selectedChatIds.includes(chatId);
+                const isPinned = pinnedChatIds.includes(chatId);
+
+                return (
+                  <div
+                    key={chatId}
+                    className={cn(styles.listRow, isSelected && styles.selected)}
+                    onClick={() => handleChatNavigate(chat)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleChatNavigate(chat);
+                    }}
+                  >
+                    <div className={styles.listRowLeft}>
+                      <CustomCheckbox
+                        checked={isSelected}
+                        onChange={() => handleToggleSelectOne(chatId)}
+                        ariaLabel={`Select chat ${chat.title}`}
+                      />
+
+                      <div className={styles.listRowMain}>
+                        <div className={styles.listRowTitleRow}>
+                          <span className={styles.listRowTitle}>
+                            <HighlightedText
+                              text={chat.title || 'Untitled Chat'}
+                              query={debouncedInput}
+                            />
+                          </span>
+                          {chat.matchType === 'message' && (
+                            <Badge tone="neutral">Message Match</Badge>
+                          )}
+                          {isPinned && (
+                            <span className={styles.pinnedIndicator}>
+                              <Pin size={11} /> Pinned
+                            </span>
+                          )}
+                        </div>
+
+                        <span className={styles.listRowSnippet}>
+                          {chat.snippet ? (
+                            <HighlightedText text={chat.snippet} query={debouncedInput} />
+                          ) : (
+                            'Click to resume conversation'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={styles.listRowRight}>
+                      <span className={styles.listRowDate}>
+                        {new Date(chat.updatedAt || chat.createdAt || Date.now()).toLocaleDateString(
+                          undefined,
+                          { month: 'short', day: 'numeric' },
+                        )}
+                      </span>
+
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Dropdown
+                          portal
+                          align="right"
+                          trigger={
+                            <button
+                              type="button"
+                              className={styles.kebabBtn}
+                              title="Conversation options"
+                              aria-label="Conversation options"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                          }
+                          items={[
+                            {
+                              label: isPinned ? 'Unpin Conversation' : 'Pin to Top',
+                              icon: <Pin size={14} />,
+                              onClick: () => togglePin(chatId),
+                            },
+                            {
+                              label: 'Rename Title',
+                              icon: <Pencil size={14} />,
+                              onClick: () => handleStartRename(chat),
+                            },
+                            { divider: true },
+                            {
+                              label: 'Delete Conversation',
+                              icon: <Trash2 size={14} />,
+                              danger: true,
+                              onClick: () => handleStartDelete(chat),
+                            },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       )}
+
+      {/* Rename Conversation Modal */}
+      <Modal
+        open={Boolean(chatToRename)}
+        onClose={() => setChatToRename(null)}
+        title="Rename Conversation"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setChatToRename(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmRename}
+              disabled={!renameTitle.trim() || isRenaming}
+              loading={isRenaming}
+            >
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmRename();
+          }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
+        >
+          <Input
+            label="Conversation Title"
+            value={renameTitle}
+            onChange={(e) => setRenameTitle(e.target.value)}
+            placeholder="Enter new conversation title..."
+            autoFocus
+          />
+        </form>
+      </Modal>
+
+      {/* Single Chat Delete Confirmation Modal */}
+      <ConfirmDialog
+        open={Boolean(chatToDelete)}
+        title="Delete Conversation"
+        description={`Are you sure you want to delete "${chatToDelete?.title || 'this conversation'}"? All messages and history in this chat will be permanently removed.`}
+        confirmLabel="Delete"
+        tone="danger"
+        loading={isDeletingSingle}
+        onConfirm={handleConfirmSingleDelete}
+        onCancel={() => setChatToDelete(null)}
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <ConfirmDialog
+        open={isBulkDeleteModalOpen}
+        title="Delete Multiple Conversations"
+        description={`Are you sure you want to delete ${selectedChatIds.length} selected conversations? This action cannot be undone and will permanently remove all message history.`}
+        confirmLabel={`Delete ${selectedChatIds.length} Chats`}
+        tone="danger"
+        loading={isDeletingBulk}
+        onConfirm={handleConfirmBulkDelete}
+        onCancel={() => setIsBulkDeleteModalOpen(false)}
+      />
     </div>
   );
 }

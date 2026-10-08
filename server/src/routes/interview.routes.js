@@ -7,6 +7,7 @@ import {
   startInterviewSchema,
   respondInterviewSchema,
   interviewIdParamSchema,
+  interviewTtsSchema,
 } from '../validators/interview.validator.js';
 import {
   startInterview,
@@ -14,6 +15,7 @@ import {
   concludeInterview,
   getInterviews,
   getInterviewById,
+  synthesizeInterviewSpeech,
 } from '../controllers/interview.controller.js';
 
 const router = Router();
@@ -55,6 +57,13 @@ router.post(
   creditCheck,
   validate({ params: interviewIdParamSchema }),
   concludeInterview,
+);
+router.post(
+  '/tts',
+  aiLimiter,
+  creditCheck,
+  validate({ body: interviewTtsSchema }),
+  synthesizeInterviewSpeech,
 );
 
 export default router;

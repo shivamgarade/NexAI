@@ -17,7 +17,7 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { toast } from '@/store/uiStore';
 import styles from './CodeBlock.module.scss';
 
-export function CodeBlock({ language = 'plaintext', value = '' }) {
+export function CodeBlock({ language = 'plaintext', value = '', allowSaveSnippet = true }) {
   const [copied, setCopied] = useState(false);
 
   const normalizedLang = language.toLowerCase();
@@ -49,6 +49,8 @@ export function CodeBlock({ language = 'plaintext', value = '' }) {
       title: snippetTitle,
       content: `\`\`\`${language || 'plaintext'}\n${value}\n\`\`\``,
       tags: ['snippet', (language || 'code').toLowerCase().trim()],
+      isSnippet: true,
+      language: (language || 'plaintext').toLowerCase(),
     });
   };
 
@@ -57,16 +59,18 @@ export function CodeBlock({ language = 'plaintext', value = '' }) {
       <div className={styles.header}>
         <span className={styles.language}>{language || 'code'}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <button
-            type="button"
-            onClick={handleSaveSnippet}
-            className={styles.copyButton}
-            aria-label="Save snippet to library"
-            title="Save snippet to library"
-          >
-            <Bookmark size={14} />
-            <span>Save Snippet</span>
-          </button>
+          {allowSaveSnippet && (
+            <button
+              type="button"
+              onClick={handleSaveSnippet}
+              className={styles.copyButton}
+              aria-label="Save snippet to library"
+              title="Save snippet to library"
+            >
+              <Bookmark size={14} />
+              <span>Save Snippet</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleCopy}
@@ -101,4 +105,5 @@ export function CodeBlock({ language = 'plaintext', value = '' }) {
 CodeBlock.propTypes = {
   language: PropTypes.string,
   value: PropTypes.string.isRequired,
+  allowSaveSnippet: PropTypes.bool,
 };

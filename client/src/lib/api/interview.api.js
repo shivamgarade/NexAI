@@ -32,4 +32,16 @@ export const interviewApi = {
   getInterviewById(id) {
     return apiClient.get(`/interview/${id}`);
   },
+
+  /**
+   * Synthesize interview speech via Edge Neural TTS or Gemini 3.8 Flash-Lite TTS
+   * Returns audio Blob (MP3/WAV) with headers: X-Engine, X-Credits-Remaining, X-Tokens-Used
+   * @param {{ text: string, engine?: 'edge' | 'gemini', voice?: string, style?: string, isSimulation?: boolean, sessionId?: string }} data
+   */
+  synthesizeSpeech(data) {
+    return apiClient.post('/interview/tts', data, {
+      responseType: 'blob',
+    });
+  },
 };
+

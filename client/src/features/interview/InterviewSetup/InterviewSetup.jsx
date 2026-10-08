@@ -18,6 +18,7 @@ import {
   Target,
   TrendingUp,
   BarChart2,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -93,6 +94,8 @@ export function InterviewSetup({
   onSelectSession,
   isSimulation = false,
   onToggleSimulation,
+  voiceEngine = 'edge',
+  onVoiceEngineChange,
 }) {
   // Calculate performance overview metrics
   const completedSessions = sessions.filter(
@@ -524,13 +527,52 @@ export function InterviewSetup({
               </button>
             </div>
 
+            {/* Voice Audio Engine Selector */}
+            <div className={styles.voiceEngineRow}>
+              <div className={styles.voiceEngineInfo}>
+                <span className={styles.modeLabel}>Voice Speech Engine:</span>
+                <span className={styles.voiceEngineDesc}>
+                  {voiceEngine === 'edge'
+                    ? '⚡ Edge Neural (~400ms Studio Voice, Free)'
+                    : '🎙️ Gemini 3.8 Flash-Lite TTS (Cloud Audio, Metered)'}
+                </span>
+              </div>
+
+              <div className={styles.engineToggleGroup} role="radiogroup" aria-label="Voice Engine">
+                <button
+                  type="button"
+                  className={cn(styles.enginePillBtn, voiceEngine === 'edge' && styles.enginePillActive)}
+                  onClick={() => onVoiceEngineChange && onVoiceEngineChange('edge')}
+                  title="⚡ Microsoft Edge Neural TTS: Free, ultra-fast, 0 credits"
+                  aria-pressed={voiceEngine === 'edge'}
+                >
+                  <Zap size={12} />
+                  <span>Edge Neural (Free)</span>
+                </button>
+                <button
+                  type="button"
+                  className={cn(styles.enginePillBtn, voiceEngine === 'gemini' && styles.enginePillActive)}
+                  onClick={() => onVoiceEngineChange && onVoiceEngineChange('gemini')}
+                  title="🎙️ Google Gemini 3.8 Flash-Lite TTS: Cloud voice, metered credits"
+                  aria-pressed={voiceEngine === 'gemini'}
+                >
+                  <Bot size={12} />
+                  <span>Gemini 3.8 TTS</span>
+                </button>
+              </div>
+            </div>
+
             {/* Ready to Start Summary Bar & CTA */}
             <div className={styles.ctaRow}>
               <div className={styles.summaryBar}>
                 <span className={styles.summaryPrefix}>Selected Configuration:</span>
                 <span className={styles.summaryValue}>
                   {role || 'Select Role'} · {difficulty.toUpperCase()} ·{' '}
-                  {isSimulation ? 'Offline Simulation (0 Tokens)' : 'Live AI Interview (Gemini Flash)'}
+                  {isSimulation
+                    ? 'Offline Simulation (0 Tokens)'
+                    : voiceEngine === 'edge'
+                      ? 'Live AI + Edge Neural Voice'
+                      : 'Live AI + Gemini 3.8 TTS'}
                 </span>
               </div>
 
@@ -711,4 +753,6 @@ InterviewSetup.propTypes = {
   onSelectSession: PropTypes.func.isRequired,
   isSimulation: PropTypes.bool,
   onToggleSimulation: PropTypes.func,
+  voiceEngine: PropTypes.oneOf(['edge', 'gemini']),
+  onVoiceEngineChange: PropTypes.func,
 };

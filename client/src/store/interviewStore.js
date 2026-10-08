@@ -77,6 +77,9 @@ export const useInterviewStore = create((set, get) => ({
   isSpeaking: false,
   speakingSource: null, // 'candidate' | 'interviewer' | null
   isTtsEnabled: true,
+  isTtsLoading: false,
+  voiceEngine: 'edge', // 'edge' (Edge Neural TTS, fast & free) | 'gemini' (Gemini 3.8 Flash-Lite TTS)
+  voiceName: 'en-US-ChristopherNeural', // Default Edge Tech Examiner voice
   transcriptOpen: false,
 
   // Setup action
@@ -108,11 +111,25 @@ export const useInterviewStore = create((set, get) => ({
   toggleTts: () => {
     set((state) => {
       const next = !state.isTtsEnabled;
-      if (!next && typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
+      if (!next) {
+        get().cancelSpeech();
       }
       return { isTtsEnabled: next };
     });
+  },
+
+  setVoiceEngine: (voiceEngine) => {
+    set({ voiceEngine });
+  },
+
+  setVoiceName: (voiceName) => {
+    set({ voiceName });
+  },
+
+  toggleVoiceEngine: () => {
+    set((state) => ({
+      voiceEngine: state.voiceEngine === 'edge' ? 'gemini' : 'edge',
+    }));
   },
 
   toggleTranscript: () => {
@@ -441,56 +458,212 @@ export const useInterviewStore = create((set, get) => ({
     }
   },
 
-  // Text-To-Speech audio readout helper with markdown sanitization and natural voice selection
-  speakInterviewerText: (text) => {
-    if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-
-    try {
-      window.speechSynthesis.cancel();
-
-      const spokenText = sanitizeForSpeech(text);
-      if (!spokenText) return;
-
-      const utterance = new SpeechSynthesisUtterance(spokenText);
-      const voice = getBestSpeechVoice();
-      if (voice) {
-        utterance.voice = voice;
+  // Cancel any active speech readout (Gemini audio or browser speechSynthesis)
+  cancelSpeech: () => {
+    if (typeof window !== 'undefined') {
+      if (window.__nexaiTtsAudio) {
+        try {
+          window.__nexaiTtsAudio.pause();
+          window.__nexaiTtsAudio.currentTime = 0;
+          window.__nexaiTtsAudio = null;
+        } catch {
+          // ignore
+        }
       }
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    }
+    set((state) => ({
+      isSpeaking: state.isListening ? true : false,
+      speakingSource: state.isListening ? 'candidate' : null,
+      isTtsLoading: false,
+    }));
+  },
 
-      utterance.onstart = () => {
-        set({ isSpeaking: true, speakingSource: 'interviewer' });
+  // Text-To-Speech audio readout helper with dual-mode support (Gemini TTS vs Web Speech API)
+  speakInterviewerText: async (text) => {
+    if (!text || !get().isTtsEnabled) return;
+
+    // Cancel any previous in-flight speech readout
+    get().cancelSpeech();
+
+    const spokenText = sanitizeForSpeech(text);
+    if (!spokenText) return;
+
+    const isSimulation = Boolean(get().isSimulation || get().currentSession?.isSimulation);
+
+    // 1. Simulation Mode: Use zero-quota client-side Web Speech API
+    if (isSimulation) {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+      try {
+        const utterance = new SpeechSynthesisUtterance(spokenText);
+        const voice = getBestSpeechVoice();
+        if (voice) {
+          utterance.voice = voice;
+        }
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => {
+          set({ isSpeaking: true, speakingSource: 'interviewer' });
+        };
+
+        utterance.onend = () => {
+          set((state) => ({
+            isSpeaking: state.isListening ? true : false,
+            speakingSource: state.isListening ? 'candidate' : null,
+          }));
+        };
+
+        utterance.onerror = () => {
+          set((state) => ({
+            isSpeaking: state.isListening ? true : false,
+            speakingSource: state.isListening ? 'candidate' : null,
+          }));
+        };
+
+        // Keep reference to prevent garbage collection cutting off long speech turns
+        window.__nexaiSpeechUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // Speech synthesis unsupported or failed silently
+      }
+      return;
+    }
+
+    // 2. Live Mode: Generate realistic audio via Edge Neural TTS or Gemini 3.8 Flash-Lite TTS
+    const engine = get().voiceEngine || 'edge';
+    const voice =
+      engine === 'edge'
+        ? get().voiceName || 'en-US-ChristopherNeural'
+        : 'Kore';
+
+    set({ isTtsLoading: true });
+    try {
+      const response = await interviewApi.synthesizeSpeech({
+        text: spokenText,
+        engine,
+        voice,
+        style: 'professional and engaging interviewer',
+        sessionId: get().currentSession?._id,
+      });
+
+      // Update wallet credits reactively from response header if present
+      const remainingCreditsHeader = response.headers?.['x-credits-remaining'];
+      if (remainingCreditsHeader !== undefined && !Number.isNaN(Number(remainingCreditsHeader))) {
+        useAuthStore.getState().updateCredits(Number(remainingCreditsHeader));
+      }
+
+      const audioBlob = response.data;
+      if (!audioBlob || audioBlob.size === 0) {
+        throw new Error('Empty audio received from TTS service');
+      }
+
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      window.__nexaiTtsAudio = audio;
+
+      audio.onplay = () => {
+        set({ isSpeaking: true, speakingSource: 'interviewer', isTtsLoading: false });
       };
 
-      utterance.onend = () => {
+      const cleanup = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (window.__nexaiTtsAudio === audio) {
+          window.__nexaiTtsAudio = null;
+        }
         set((state) => ({
           isSpeaking: state.isListening ? true : false,
           speakingSource: state.isListening ? 'candidate' : null,
+          isTtsLoading: false,
         }));
       };
 
-      utterance.onerror = () => {
-        set((state) => ({
-          isSpeaking: state.isListening ? true : false,
-          speakingSource: state.isListening ? 'candidate' : null,
-        }));
-      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
 
-      // Keep reference to prevent garbage collection cutting off long speech turns
-      window.__nexaiSpeechUtterance = utterance;
+      await audio.play();
+    } catch (err) {
+      set({ isTtsLoading: false });
 
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      // Speech synthesis unsupported or failed silently
+      // Fallback gracefully: if Gemini failed due to 402 or 429, auto-fallback to Edge Neural TTS!
+      const is402 = err.response?.status === 402;
+      const is429 = err.response?.status === 429;
+
+      if (engine === 'gemini') {
+        if (is402) {
+          toast.warning('Gemini TTS requires credits. Switching to Microsoft Edge Neural voice (Free).');
+        } else if (is429) {
+          toast.info('Daily Gemini TTS quota reached. Switching to Microsoft Edge Neural voice (Free).');
+        }
+        // Auto-recover with Edge TTS
+        set({ voiceEngine: 'edge' });
+        try {
+          const edgeRes = await interviewApi.synthesizeSpeech({
+            text: spokenText,
+            engine: 'edge',
+            voice: get().voiceName || 'en-US-ChristopherNeural',
+            sessionId: get().currentSession?._id,
+          });
+          const blob = edgeRes.data;
+          if (blob && blob.size > 0) {
+            const edgeUrl = URL.createObjectURL(blob);
+            const edgeAudio = new Audio(edgeUrl);
+            window.__nexaiTtsAudio = edgeAudio;
+            edgeAudio.onplay = () => {
+              set({ isSpeaking: true, speakingSource: 'interviewer' });
+            };
+            const cleanupEdge = () => {
+              URL.revokeObjectURL(edgeUrl);
+              if (window.__nexaiTtsAudio === edgeAudio) {
+                window.__nexaiTtsAudio = null;
+              }
+              set((state) => ({
+                isSpeaking: state.isListening ? true : false,
+                speakingSource: state.isListening ? 'candidate' : null,
+              }));
+            };
+            edgeAudio.onended = cleanupEdge;
+            edgeAudio.onerror = cleanupEdge;
+            await edgeAudio.play();
+            return;
+          }
+        } catch {
+          // Continue to Web Speech API fallback
+        }
+      }
+
+      // Execute browser-side fallback readout
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(spokenText);
+          const voice = getBestSpeechVoice();
+          if (voice) utterance.voice = voice;
+          utterance.onstart = () => set({ isSpeaking: true, speakingSource: 'interviewer' });
+          utterance.onend = () =>
+            set((state) => ({
+              isSpeaking: state.isListening ? true : false,
+              speakingSource: state.isListening ? 'candidate' : null,
+            }));
+          utterance.onerror = () =>
+            set((state) => ({
+              isSpeaking: state.isListening ? true : false,
+              speakingSource: state.isListening ? 'candidate' : null,
+            }));
+          window.__nexaiSpeechUtterance = utterance;
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          // ignore
+        }
+      }
     }
   },
 
   // Reset to setup screen
   resetSession: () => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
+    get().cancelSpeech();
     set({
       currentSession: null,
       messages: [],
@@ -500,6 +673,7 @@ export const useInterviewStore = create((set, get) => ({
       isStreaming: false,
       isStarting: false,
       isConcluding: false,
+      isTtsLoading: false,
     });
   },
 }));

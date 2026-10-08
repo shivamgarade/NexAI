@@ -546,7 +546,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                 variant="ghost"
                 onClick={() => {
                   onItemClick?.();
-                  navigate("/search?tab=chats");
+                  navigate(ROUTES.SEARCH);
                 }}
                 className={styles.headerActionBtn}
               />
@@ -584,7 +584,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
               size="md"
               onClick={() => {
                 onItemClick?.();
-                navigate("/search?tab=chats");
+                navigate(ROUTES.SEARCH);
               }}
               className={styles.collapsedSearchBtn}
             />
