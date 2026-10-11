@@ -9,6 +9,7 @@ import {
   Mail,
   Server,
   ChevronDown,
+  Upload,
 } from 'lucide-react';
 import { AttachContextModal } from '../ChatInput/AttachContextModal';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
@@ -17,6 +18,7 @@ import { ModelSelectorPopover } from '../ModelSelector';
 import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { libraryApi } from '@/lib/api/library.api';
 import { getGreetingContext } from './greetingHelper';
 import { cn } from '@/lib/utils/cn';
 import logoImg from '@/assets/logo.png';
@@ -213,56 +215,138 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const processAndAttachFile = (file) => {
     if (!file) return;
 
     const isText =
       file.type.startsWith('text/') ||
       file.name.match(/\.(md|txt|json|csv|js|ts|jsx|tsx|py|html|css|yaml|yml|sql|sh|env)$/i);
 
+    const isImage = file.type.startsWith('image/');
+    const type = isImage
+      ? 'image'
+      : file.type.startsWith('audio/')
+        ? 'audio'
+        : file.type.startsWith('video/')
+          ? 'video'
+          : file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf')
+            ? 'pdf'
+            : 'file';
+
+    setAttachedContext({
+      name: file.name,
+      type,
+      mimeType: file.type || (isText ? 'text/plain' : 'application/octet-stream'),
+      size: file.size,
+      isUploading: true,
+      progress: 45,
+    });
+
     if (isText) {
       const reader = new FileReader();
       reader.onload = (event) => {
+        const content = event.target.result || '';
         setAttachedContext({
           name: file.name,
           type: 'file',
           mimeType: file.type || 'text/plain',
-          content: event.target.result || '',
+          content,
+          size: file.size,
+          isUploading: false,
         });
+
+        // Persist note to user library in background
+        libraryApi
+          .createItem({
+            title: file.name,
+            type: 'note',
+            content,
+            category: 'general',
+          })
+          .catch(() => {});
       };
       reader.readAsText(file);
     } else {
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target.result || '';
-        const mimeType =
-          file.type ||
-          (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
-
-        const type = file.type.startsWith('image/')
-          ? 'image'
-          : file.type.startsWith('audio/')
-            ? 'audio'
-            : file.type.startsWith('video/')
-              ? 'video'
-              : file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf')
-                ? 'pdf'
-                : 'file';
-
         setAttachedContext({
           name: file.name,
           type,
-          mimeType,
+          mimeType:
+            file.type ||
+            (file.name.toLowerCase().endsWith('.pdf')
+              ? 'application/pdf'
+              : 'application/octet-stream'),
           data: dataUrl,
           size: file.size,
+          isUploading: false,
         });
+
+        // Persist media/file to user library in background
+        libraryApi
+          .createItem({
+            title: file.name,
+            type: 'file',
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            fileData: dataUrl,
+            category: 'general',
+          })
+          .catch(() => {});
       };
       reader.readAsDataURL(file);
     }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processAndAttachFile(file);
+    }
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      setIsDraggingOver(false);
+      dragCounterRef.current = 0;
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    dragCounterRef.current = 0;
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processAndAttachFile(files[0]);
     }
   };
 
@@ -281,7 +365,25 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
   const hasContent = Boolean(input.trim() || attachedContext);
 
   return (
-    <div className={styles.heroContainer} data-testid="chat-hero">
+    <div
+      className={styles.heroContainer}
+      data-testid="chat-hero"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {isDraggingOver && (
+        <div className={styles.dragOverlay}>
+          <div className={styles.dragCard}>
+            <div className={styles.dragIconWrapper}>
+              <Upload size={28} className={styles.dragIcon} />
+            </div>
+            <span className={styles.dragTitle}>Drop to attach files</span>
+            <span className={styles.dragSubtitle}>Images, PDFs, documents, or code</span>
+          </div>
+        </div>
+      )}
       <div className={styles.heroContent}>
         {/* Context-Aware Gemini-inspired Hero Headline */}
         <div className={styles.greetingHeader}>

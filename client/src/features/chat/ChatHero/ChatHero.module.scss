@@ -1,6 +1,7 @@
 @use '@/styles/abstracts' as *;
 
 .heroContainer {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -17,6 +18,68 @@
     transparent 65%
   );
   @include custom-scrollbar;
+}
+
+.dragOverlay {
+  position: absolute;
+  inset: var(--space-4);
+  z-index: 50;
+  border-radius: var(--radius-xl);
+  border: 2px dashed var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg-app) 85%, transparent);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fadeInDrag var(--duration-fast) var(--ease-standard);
+}
+
+.dragCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.dragIconWrapper {
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  margin-bottom: var(--space-1);
+}
+
+.dragTitle {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dragSubtitle {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+@keyframes fadeInDrag {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .heroContent {

@@ -38,15 +38,10 @@ const CODE_EXTS = /\.(js|ts|jsx|tsx|py|java|go|rb|php|c|cpp|cs|swift|kt|rs|sh|js
 const SPREADSHEET_EXTS = /\.(xls|xlsx|csv|ods)$/i;
 const ARCHIVE_EXTS = /\.(zip|tar|gz|rar|7z)$/i;
 
-/**
- * Returns { icon, label, colorKey } for a library item.
- * colorKey maps to a CSS modifier class in the SCSS.
- */
 function getFileTypeMeta(item) {
   const mime = item.mimeType || '';
   const name = item.fileName || item.title || '';
 
-  // ── By library type ──────────────────────────────────────────────
   if (item.type === 'note') {
     return { icon: <FileText size={15} />, label: 'Note', colorKey: 'note' };
   }
@@ -60,7 +55,6 @@ function getFileTypeMeta(item) {
     return { icon: <Mic size={15} />, label: 'Interview', colorKey: 'interview' };
   }
 
-  // ── type === 'file' → inspect mime / extension ───────────────────
   if (mime === 'application/pdf' || name.toLowerCase().endsWith('.pdf')) {
     return { icon: <FileText size={15} />, label: 'PDF', colorKey: 'pdf' };
   }
@@ -93,8 +87,6 @@ function getHostname(url) {
     return null;
   }
 }
-
-// ─── sub-components ──────────────────────────────────────────────────────────
 
 function SkeletonRow() {
   return (
@@ -133,8 +125,6 @@ ItemIcon.propTypes = {
   item: PropTypes.object.isRequired,
   meta: PropTypes.object.isRequired,
 };
-
-// ─── main component ───────────────────────────────────────────────────────────
 
 export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
   const [items, setItems] = useState([]);
@@ -191,11 +181,14 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
     onSelect({
       id: item._id,
       name: item.title,
-      type: item.type === 'file' && item.mimeType?.startsWith('image/')
-        ? 'image'
-        : item.type === 'file' && (item.mimeType === 'application/pdf' || item.fileName?.toLowerCase().endsWith('.pdf'))
-          ? 'pdf'
-          : item.type,
+      type:
+        item.type === 'file' && item.mimeType?.startsWith('image/')
+          ? 'image'
+          : item.type === 'file' &&
+              (item.mimeType === 'application/pdf' ||
+                item.fileName?.toLowerCase().endsWith('.pdf'))
+            ? 'pdf'
+            : item.type,
       category: item.category,
       mimeType: item.mimeType,
       data: item.fileData,
@@ -217,39 +210,38 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
       open={open}
       onClose={onClose}
       title={
-        <div className={styles.modalTitle}>
-          <Bookmark size={18} className={styles.titleIcon} />
-          <span>Attach Context to Chat</span>
+        <div className={styles.modalHeader}>
+          <div className={styles.modalTitle}>
+            <Bookmark size={17} className={styles.titleIcon} />
+            <span>Attach Context</span>
+          </div>
+          <button
+            type="button"
+            className={styles.headerUploadBtn}
+            onClick={() => {
+              onClose();
+              onUploadLocal?.();
+            }}
+            title="Upload new file from device"
+          >
+            <Upload size={13} />
+            <span>Upload from Device</span>
+          </button>
         </div>
       }
       className={styles.modalContainer}
     >
       <div className={styles.container}>
-
-        {/* Upload zone */}
-        <button
-          type="button"
-          className={styles.uploadZone}
-          onClick={() => { onClose(); onUploadLocal?.(); }}
-        >
-          <Upload size={16} className={styles.uploadIcon} />
-          <span className={styles.uploadLabel}>Upload New File from Device</span>
-          <span className={styles.uploadHint}>Images · PDFs · Code · Docs</span>
-        </button>
-
-        <div className={styles.divider}>
-          <span>OR CHOOSE FROM YOUR LIBRARY</span>
-        </div>
-
-        {/* Search */}
+        {/* Search Bar */}
         <div className={styles.searchBarWrapper}>
-          <Search size={14} className={styles.searchIcon} />
+          <Search size={15} className={styles.searchIcon} />
           <input
             type="text"
             placeholder="Search notes, documents, files…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
+            autoFocus
           />
           {search && (
             <button
@@ -263,7 +255,7 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
           )}
         </div>
 
-        {/* Tab filters */}
+        {/* Tab Filters */}
         <div className={styles.tabFilters}>
           {TABS.map(({ key, label }) => (
             <button
@@ -277,20 +269,20 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
           ))}
         </div>
 
-        {/* Items list */}
+        {/* Minimalist Items List */}
         <div className={styles.itemsList}>
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)
           ) : filteredItems.length === 0 ? (
             <div className={styles.emptyState}>
-              <PackageOpen size={32} className={styles.emptyIcon} />
+              <PackageOpen size={30} className={styles.emptyIcon} />
               <p className={styles.emptyTitle}>
                 {search ? 'No results found' : 'Your library is empty'}
               </p>
               <p className={styles.emptyHint}>
                 {search
-                  ? `Nothing matched "${search}". Try a different term.`
-                  : 'Upload a file or save notes to your library first.'}
+                  ? `Nothing matched "${search}". Try another term.`
+                  : 'Upload a file from your device to attach to chat.'}
               </p>
             </div>
           ) : (
@@ -298,6 +290,9 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
               const meta = getFileTypeMeta(item);
               const hostname = item.type === 'link' && item.url ? getHostname(item.url) : null;
               const sizeLabel = item.size ? formatBytes(item.size) : null;
+              const hasCustomCategory =
+                item.category &&
+                !['other', 'general', 'default'].includes(item.category.toLowerCase());
 
               return (
                 <div
@@ -311,50 +306,34 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
                   }}
                   aria-label={`Attach ${item.title}`}
                 >
-                  {/* Colored left accent bar */}
-                  <div className={styles.rowAccent} />
-
                   <ItemIcon item={item} meta={meta} />
 
                   <div className={styles.itemMeta}>
                     <div className={styles.itemTitleRow}>
                       <span className={styles.itemTitle}>{item.title}</span>
-                      {item.category &&
-                        !['other', 'general', 'default'].includes(
-                          item.category.toLowerCase(),
-                        ) && (
-                          <Badge variant="accent" size="sm">
-                            {item.category}
-                          </Badge>
-                        )}
+                      {hasCustomCategory && (
+                        <Badge variant="accent" size="sm">
+                          {item.category}
+                        </Badge>
+                      )}
                     </div>
 
-                    {/* Sub-info line */}
                     <div className={styles.itemSubRow}>
                       <span className={cn(styles.typePill, styles[`pill_${meta.colorKey}`])}>
                         {meta.label}
                       </span>
-                      {hostname && (
-                        <span className={styles.subHint}>{hostname}</span>
-                      )}
-                      {sizeLabel && (
-                        <span className={styles.subHint}>{sizeLabel}</span>
-                      )}
+                      {sizeLabel && <span className={styles.subHint}>· {sizeLabel}</span>}
+                      {hostname && <span className={styles.subHint}>· {hostname}</span>}
                       {item.summary && !hostname && !sizeLabel && (
-                        <span className={styles.itemSummary}>{item.summary}</span>
+                        <span className={styles.itemSummary}>· {item.summary}</span>
                       )}
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className={styles.attachBtn}
-                    onClick={(e) => { e.stopPropagation(); handleSelectItem(item); }}
-                    aria-label={`Attach ${item.title}`}
-                  >
+                  <div className={styles.attachAction}>
                     <Plus size={13} />
                     <span>Attach</span>
-                  </button>
+                  </div>
                 </div>
               );
             })
