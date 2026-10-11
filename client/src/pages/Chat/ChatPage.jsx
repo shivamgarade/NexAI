@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import { ChatHero, MessageThread, ChatInput } from '@/features/chat';
 import { useChatStore } from '@/store/chatStore';
+import { ROUTES } from '@/constants/routes';
+import { cn } from '@/lib/utils/cn';
 import styles from './ChatPage.module.scss';
 
 export default function ChatPage() {
@@ -19,6 +21,8 @@ export default function ChatPage() {
     selectChat,
     createChat,
     sendMessage,
+    isTemporaryChat,
+    clearTemporaryChat,
   } = useChatStore();
 
   const [prefillPrompt, setPrefillPrompt] = useState('');
@@ -51,8 +55,21 @@ export default function ChatPage() {
     }
   }, [chatId, selectChat]);
 
+  // Cleanup temporary chat when user leaves chat page
+  useEffect(() => {
+    return () => {
+      const store = useChatStore.getState();
+      if (store.isTemporaryChat && store.activeChatId) {
+        store.clearTemporaryChat();
+      }
+    };
+  }, []);
+
   const handleSendFromHero = async (prompt, attachments = []) => {
-    const newChat = await createChat('New Chat');
+    const isTemp = useChatStore.getState().isTemporaryChat;
+    const newChat = await createChat(
+      isTemp ? { title: 'Temporary Chat', isTemporary: true } : 'New Chat',
+    );
     if (newChat) {
       navigate(`/chat/${newChat._id}`, { replace: true });
     }
@@ -60,13 +77,20 @@ export default function ChatPage() {
   };
 
   const currentChat = chats.find((c) => c._id === (chatId || activeChatId));
-  const pageTitle = currentChat ? currentChat.title : 'AI Chat';
+  const pageTitle = isTemporaryChat
+    ? 'Temporary Chat'
+    : currentChat
+      ? currentChat.title
+      : 'AI Chat';
 
   // Hero view is only shown on the base /chat route when no chat session is active
   const isHeroView = !chatId;
 
   return (
-    <div className={styles.chatContainer} data-testid="chat-page">
+    <div
+      className={cn(styles.chatContainer, isTemporaryChat && styles.temporaryChatTheme)}
+      data-testid="chat-page"
+    >
       {isHeroView ? (
         <ChatHero
           onSendPrompt={handleSendFromHero}
@@ -75,6 +99,7 @@ export default function ChatPage() {
         />
       ) : (
         <div className={styles.activeWorkspace}>
+
           {/* Active Conversation Header */}
           <header className={styles.chatHeader}>
             <div className={styles.headerLeft}>

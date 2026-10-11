@@ -18,9 +18,18 @@
   gap: var(--space-3);
 }
 
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
 .newChatButton {
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
+
+
 
 .searchWrapper {
   display: flex;

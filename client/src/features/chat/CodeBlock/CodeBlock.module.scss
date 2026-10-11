@@ -77,15 +77,16 @@
 
 .pre {
   margin: 0;
-  padding: var(--space-4);
+  padding: 14px 18px;
   overflow-x: auto;
   border-bottom-left-radius: calc(var(--radius-lg) - 1px);
   border-bottom-right-radius: calc(var(--radius-lg) - 1px);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: var(--leading-relaxed);
+  font-size: 13.5px;
+  line-height: 1.65;
   color: var(--color-text-primary);
-  background-color: var(--color-bg-surface);
+  background-color: color-mix(in srgb, var(--color-bg-surface) 96%, black);
+  -webkit-font-smoothing: antialiased;
 
   code {
     font-family: inherit;

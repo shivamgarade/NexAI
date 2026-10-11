@@ -17,6 +17,7 @@ import {
   Brain,
   Volume2,
   VolumeX,
+  Loader2,
   HelpCircle,
   Code2,
   Mail,
@@ -30,7 +31,9 @@ import { ThinkingIndicator } from '@/components/ui/ThinkingIndicator';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ThinkingDrawer } from '../ThinkingDrawer/ThinkingDrawer';
+import { InlineThinking } from './InlineThinking';
 import { PromptFormModal } from '@/features/prompts';
+import { interviewApi } from '@/lib/api/interview.api.js';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { usePromptStore } from '@/store/promptStore';
@@ -74,6 +77,153 @@ function formatTime(timestamp) {
   }
 }
 
+let globalAudioCtx = null;
+
+function getAudioContext() {
+  if (typeof window === 'undefined') return null;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  try {
+    if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
+      globalAudioCtx = new AudioCtx();
+    }
+    return globalAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Prepares raw markdown or message text for clear speech synthesis.
+ */
+function prepareTextForSpeech(rawText) {
+  if (!rawText || typeof rawText !== 'string') return '';
+  return rawText
+    // Remove fenced code blocks
+    .replace(/```[\s\S]*?```/g, 'Code block omitted.')
+    // Remove LaTeX math blocks and expressions
+    .replace(/\$\$[\s\S]*?\$\$/g, '')
+    .replace(/\$[^$]+\$/g, '')
+    // Remove Markdown tables
+    .replace(/^\|.*?\|$/gm, '')
+    // Remove images
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    // Remove links keeping link text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove GitHub alert blocks (> [!TIP], etc.)
+    .replace(/>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/gi, '')
+    // Remove blockquote and heading markers
+    .replace(/^[>#]+\s*/gm, '')
+    // Inline code backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Horizontal rules and divider lines
+    .replace(/^[-*_]{3,}\s*$/gm, '')
+    // List bullet / numerical prefixes
+    .replace(/^[\s*+-]+(?=\S)/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    // Text formatting markers
+    .replace(/[*_~]+/g, '')
+    // Normalize extra whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Robust audio player for binary blobs:
+ * 1. Primary: Web Audio API (uncompressed PCM audio pipeline directly to hardware output).
+ * 2. Fallback: HTMLAudioElement with blob URL.
+ */
+async function playAudioBlob(blob, { onStart, onEnded, onError } = {}) {
+  const ctx = getAudioContext();
+  if (ctx) {
+    try {
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await new Promise((resolve, reject) => {
+        ctx.decodeAudioData(arrayBuffer.slice(0), resolve, reject);
+      });
+
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+
+      let ended = false;
+      const handleEnded = () => {
+        if (!ended) {
+          ended = true;
+          onEnded?.();
+        }
+      };
+
+      source.onended = handleEnded;
+      source.start(0);
+      onStart?.();
+
+      return {
+        stop: () => {
+          if (!ended) {
+            ended = true;
+            try {
+              source.stop(0);
+              source.disconnect();
+            } catch {
+              // ignore
+            }
+            onEnded?.();
+          }
+        },
+      };
+    } catch (e) {
+      console.warn('Web Audio API playback failed, trying HTMLAudio fallback:', e);
+    }
+  }
+
+  // HTMLAudioElement fallback
+  const audioUrl = URL.createObjectURL(blob);
+  const audio = new Audio(audioUrl);
+  audio.volume = 1.0;
+  audio.preload = 'auto';
+
+  let ended = false;
+  const cleanup = () => {
+    if (!ended) {
+      ended = true;
+      try {
+        audio.pause();
+        audio.src = '';
+      } catch {
+        // ignore
+      }
+      URL.revokeObjectURL(audioUrl);
+      onEnded?.();
+    }
+  };
+
+  audio.onplay = () => {
+    onStart?.();
+  };
+  audio.onended = cleanup;
+  audio.onerror = (err) => {
+    cleanup();
+    onError?.(err);
+  };
+
+  try {
+    await audio.play();
+    return {
+      stop: () => {
+        cleanup();
+      },
+    };
+  } catch (err) {
+    cleanup();
+    onError?.(err);
+    throw err;
+  }
+}
+
 export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -93,53 +243,139 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [speakingId, setSpeakingId] = useState(null);
+  const [loadingTtsId, setLoadingTtsId] = useState(null);
   const [savePromptData, setSavePromptData] = useState(null);
   const userScrolledUpRef = useRef(false);
+  const activePlaybackRef = useRef(null);
+  const ttsAbortRef = useRef(null);
 
   // Stop any active speech on unmount
   useEffect(() => {
     return () => {
+      ttsAbortRef.current?.abort();
+      if (activePlaybackRef.current) {
+        try {
+          activePlaybackRef.current.stop();
+        } catch {
+          // ignore
+        }
+        activePlaybackRef.current = null;
+      }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
     };
   }, []);
 
-  const handleToggleSpeak = (text, id) => {
-    if (!('speechSynthesis' in window)) {
-      toast.error('Text-to-speech is not supported in this browser');
+  const handleToggleSpeak = async (text, id) => {
+    // If clicking on active speaking or currently loading message, stop immediately
+    if (speakingId === id || loadingTtsId === id) {
+      ttsAbortRef.current?.abort();
+      if (activePlaybackRef.current) {
+        try {
+          activePlaybackRef.current.stop();
+        } catch {
+          // ignore
+        }
+        activePlaybackRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setSpeakingId(null);
+      setLoadingTtsId(null);
       return;
     }
 
-    if (speakingId === id) {
+    // Cancel any current audio/speech/loading before starting new
+    ttsAbortRef.current?.abort();
+    if (activePlaybackRef.current) {
+      try {
+        activePlaybackRef.current.stop();
+      } catch {
+        // ignore
+      }
+      activePlaybackRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      setSpeakingId(null);
+    }
+    setSpeakingId(null);
+    setLoadingTtsId(null);
+
+    const cleanText = prepareTextForSpeech(text);
+    if (!cleanText) {
+      toast.info('No readable text to read aloud');
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const cleanText = (text || '')
-      .replace(/```[\s\S]*?```/g, 'Code block omitted.')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/[#*_~>]/g, '')
-      .trim();
+    // Unlock/resume AudioContext immediately in user interaction gesture
+    const audioCtx = getAudioContext();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
 
-    if (!cleanText) return;
+    const abortController = new AbortController();
+    ttsAbortRef.current = abortController;
+    setLoadingTtsId(id);
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    try {
+      // 1. High-fidelity Microsoft Edge Neural TTS (~400ms ultra-low latency, studio grade)
+      // Slicing to the first ~600 chars ensures instant generation without socket timeouts
+      const textToSynthesize = cleanText.slice(0, 600);
+      const res = await interviewApi.synthesizeSpeech({
+        text: textToSynthesize,
+        engine: 'edge',
+        voice: 'en-US-ChristopherNeural',
+      });
 
-    utterance.onend = () => {
+      if (abortController.signal.aborted) return;
+
+      const rawData = res?.data ?? res;
+      const audioBlob =
+        rawData instanceof Blob
+          ? rawData.type
+            ? rawData
+            : new Blob([rawData], { type: 'audio/mpeg' })
+          : new Blob([rawData], { type: 'audio/mpeg' });
+
+      if (!audioBlob || (audioBlob.size !== undefined && audioBlob.size === 0)) {
+        throw new Error('Empty audio stream received');
+      }
+
+      if (audioBlob.type?.includes('application/json')) {
+        const textErr = await audioBlob.text();
+        throw new Error(`TTS service error: ${textErr}`);
+      }
+
+      const playback = await playAudioBlob(audioBlob, {
+        onStart: () => {
+          setLoadingTtsId(null);
+          setSpeakingId(id);
+        },
+        onEnded: () => {
+          setSpeakingId(null);
+          setLoadingTtsId(null);
+          activePlaybackRef.current = null;
+        },
+        onError: (err) => {
+          console.error('Audio playback error:', err);
+          setSpeakingId(null);
+          setLoadingTtsId(null);
+          activePlaybackRef.current = null;
+          toast.error('Audio playback failed');
+        },
+      });
+
+      activePlaybackRef.current = playback;
+    } catch (err) {
+      if (abortController.signal.aborted) return;
+      console.warn('Edge Neural TTS error:', err);
       setSpeakingId(null);
-    };
-
-    utterance.onerror = () => {
-      setSpeakingId(null);
-    };
-
-    setSpeakingId(id);
-    window.speechSynthesis.speak(utterance);
+      setLoadingTtsId(null);
+      activePlaybackRef.current = null;
+      toast.error('Unable to play audio speech');
+    }
   };
 
   const handleCopy = async (text, id) => {
@@ -308,40 +544,52 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                     >
                       {isUser ? (
                         <div className={styles.userText}>{message.content}</div>
-                      ) : isCurrentlyStreaming && !message.content ? (
-                        <div className={styles.aiMarkdown}>
-                          <span className={styles.blinkingCursor} aria-hidden="true" />
-                        </div>
-                      ) : hasError ? (
-                        <div className={styles.errorCard}>
-                          <div className={styles.errorContent}>
-                            <AlertCircle size={16} className={styles.errorIcon} />
-                            <span>{message.error}</span>
-                          </div>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<RotateCcw size={13} />}
-                            onClick={() => handleRetryAssistant(index)}
-                            disabled={isStreaming}
-                            className={styles.retryButton}
-                          >
-                            Retry
-                          </Button>
-                        </div>
                       ) : (
-                        <div className={styles.aiMarkdown}>
-                          <MarkdownRenderer
-                            content={message.content}
-                            isStreaming={isCurrentlyStreaming}
-                            onSavePrompt={(promptData) => setSavePromptData(promptData)}
-                            onUsePrompt={(template) => {
-                              selectChat(null);
-                              navigate(ROUTES.CHAT, { state: { prefill: template } });
-                            }}
-                          />
-                          {isCurrentlyStreaming && (
-                            <span className={styles.blinkingCursor} aria-hidden="true" />
+                        <div className={styles.aiContentContainer}>
+                          {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
+                            <InlineThinking
+                              thoughts={message.thoughts}
+                              isThinking={Boolean(message.isThinking || (isCurrentlyStreaming && !message.content))}
+                              isStreaming={isCurrentlyStreaming}
+                            />
+                          )}
+
+                          {isCurrentlyStreaming && !message.content && !message.thoughts ? (
+                            <div className={styles.aiMarkdown}>
+                              <span className={styles.blinkingCursor} aria-hidden="true" />
+                            </div>
+                          ) : hasError ? (
+                            <div className={styles.errorCard}>
+                              <div className={styles.errorContent}>
+                                <AlertCircle size={16} className={styles.errorIcon} />
+                                <span>{message.error}</span>
+                              </div>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                leftIcon={<RotateCcw size={13} />}
+                                onClick={() => handleRetryAssistant(index)}
+                                disabled={isStreaming}
+                                className={styles.retryButton}
+                              >
+                                Retry
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className={styles.aiMarkdown}>
+                              <MarkdownRenderer
+                                content={message.content}
+                                isStreaming={isCurrentlyStreaming}
+                                onSavePrompt={(promptData) => setSavePromptData(promptData)}
+                                onUsePrompt={(template) => {
+                                  selectChat(null);
+                                  navigate(ROUTES.CHAT, { state: { prefill: template } });
+                                }}
+                              />
+                              {isCurrentlyStreaming && (
+                                <span className={styles.blinkingCursor} aria-hidden="true" />
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
@@ -504,7 +752,13 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                               </Tooltip>
                             )}
                             <Tooltip
-                              content={speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'}
+                              content={
+                                loadingTtsId === messageId
+                                  ? 'Generating audio...'
+                                  : speakingId === messageId
+                                    ? 'Stop reading aloud'
+                                    : 'Read aloud'
+                              }
                               side="top"
                             >
                               <button
@@ -512,13 +766,20 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                                 className={cn(
                                   styles.actionBtn,
                                   speakingId === messageId && styles.speakingBtn,
+                                  loadingTtsId === messageId && styles.loadingBtn,
                                 )}
                                 onClick={() => handleToggleSpeak(message.content, messageId)}
                                 aria-label={
-                                  speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'
+                                  loadingTtsId === messageId
+                                    ? 'Generating audio'
+                                    : speakingId === messageId
+                                      ? 'Stop reading aloud'
+                                      : 'Read aloud'
                                 }
                               >
-                                {speakingId === messageId ? (
+                                {loadingTtsId === messageId ? (
+                                  <Loader2 size={15} className={styles.spinIcon} />
+                                ) : speakingId === messageId ? (
                                   <VolumeX size={15} />
                                 ) : (
                                   <Volume2 size={15} />

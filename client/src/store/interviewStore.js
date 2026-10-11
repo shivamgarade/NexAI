@@ -556,8 +556,13 @@ export const useInterviewStore = create((set, get) => ({
         useAuthStore.getState().updateCredits(Number(remainingCreditsHeader));
       }
 
-      const audioBlob = response.data;
-      if (!audioBlob || audioBlob.size === 0) {
+      const audioBlob =
+        response instanceof Blob
+          ? response
+          : response?.data instanceof Blob
+            ? response.data
+            : response?.data || response;
+      if (!audioBlob || (audioBlob.size !== undefined && audioBlob.size === 0)) {
         throw new Error('Empty audio received from TTS service');
       }
 
@@ -607,8 +612,13 @@ export const useInterviewStore = create((set, get) => ({
             voice: get().voiceName || 'en-US-ChristopherNeural',
             sessionId: get().currentSession?._id,
           });
-          const blob = edgeRes.data;
-          if (blob && blob.size > 0) {
+          const blob =
+            edgeRes instanceof Blob
+              ? edgeRes
+              : edgeRes?.data instanceof Blob
+                ? edgeRes.data
+                : edgeRes?.data || edgeRes;
+          if (blob && (blob.size === undefined || blob.size > 0)) {
             const edgeUrl = URL.createObjectURL(blob);
             const edgeAudio = new Audio(edgeUrl);
             window.__nexaiTtsAudio = edgeAudio;

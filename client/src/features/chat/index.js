@@ -7,3 +7,4 @@ export { ChatInput } from './ChatInput';
 export { ChatHero } from './ChatHero';
 export { ThinkingDrawer } from './ThinkingDrawer/ThinkingDrawer';
 export { PromptBlock } from './PromptBlock';
+export { ModelSelectorModal, ModelSelectorPopover } from './ModelSelector';

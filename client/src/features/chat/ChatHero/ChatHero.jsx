@@ -12,12 +12,16 @@ import {
   Terminal,
   Zap,
   Brain,
+  Cpu,
+  ChevronDown,
+  CornerDownLeft,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 import { AttachContextModal } from '../ChatInput/AttachContextModal';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
 import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
-import { useChatStore } from '@/store/chatStore';
+import { ModelSelectorPopover } from '../ModelSelector';
+import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { getGreetingContext } from './greetingHelper';
@@ -57,16 +61,22 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     isStreaming,
     isSimulation,
     toggleSimulation,
+    selectedModel,
     thinkingLevel,
     setThinkingLevel,
   } = useChatStore();
 
-  const handleCycleThinking = () => {
-    const levels = ['off', 'low', 'medium', 'high'];
-    const currentIndex = levels.indexOf(thinkingLevel);
-    const nextIndex = (currentIndex + 1) % levels.length;
-    setThinkingLevel(levels[nextIndex]);
-  };
+  const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
+  const modelButtonRef = useRef(null);
+
+  const currentModelObj =
+    AVAILABLE_MODELS.find((m) => m.id === selectedModel) ||
+    MORE_MODELS.find((m) => m.id === selectedModel);
+  const modelShortName = currentModelObj
+    ? currentModelObj.name.replace('NexAI 2.5 ', '')
+    : 'Flash';
+  const effortName = thinkingLevel ? thinkingLevel.charAt(0).toUpperCase() + thinkingLevel.slice(1) : 'Medium';
+  const modelPillLabel = `${modelShortName} ${effortName}`;
 
   const [input, setInput] = useState('');
   const [attachedContext, setAttachedContext] = useState(null);
@@ -312,8 +322,17 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               accept="image/*,audio/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.js,.ts,.jsx,.tsx,.py,.html,.css,.yaml,.yml,.sql"
             />
 
-            {/* Full-width Responsive Prompt Textarea */}
-            <div className={styles.inputWrapper}>
+            <div className={styles.composerInputRow}>
+              <button
+                type="button"
+                className={styles.addBtn}
+                onClick={() => setIsAttachModalOpen(true)}
+                title="Attach context file or prompt"
+                aria-label="Attach context file"
+              >
+                <Plus size={18} />
+              </button>
+
               <textarea
                 ref={textareaRef}
                 rows={1}
@@ -331,114 +350,72 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"
               />
-            </div>
 
-            {/* Bottom Actions Toolbar: Attach on left, Tools & Submit on right */}
-            <div className={styles.bottomToolbar}>
-              <div className={styles.leftActions}>
-                <IconButton
-                  type="button"
-                  icon={<Plus size={18} />}
-                  label="Attach context file or library"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsAttachModalOpen(true)}
-                  className={styles.attachBtn}
-                />
-              </div>
-
-              <div className={styles.rightActions}>
+              <div className={styles.inlineActions}>
                 <button
                   type="button"
-                  onClick={toggleSimulation}
-                  className={cn(styles.simPill, isSimulation && styles.activeSimPill)}
+                  className={cn(styles.micBtn, isListening && styles.listeningMic)}
+                  onClick={handleToggleListening}
+                  disabled={!isVoiceSupported}
                   title={
-                    isSimulation
-                      ? 'Simulation mode active (0 tokens consumed)'
-                      : 'Switch to zero-token simulation mode'
-                  }
-                  aria-label={
-                    isSimulation
-                      ? 'Disable zero-token simulation mode'
-                      : 'Enable zero-token simulation mode'
-                  }
-                >
-                  <Zap size={13} className={isSimulation ? styles.activeZap : undefined} />
-                  <span className={styles.simText}>{isSimulation ? 'Sim (0 Tokens)' : 'Sim'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={cn(
-                    styles.thinkingPill,
-                    thinkingLevel !== 'off' && styles.activeThinkingPill,
-                  )}
-                  onClick={handleCycleThinking}
-                  disabled={isStreaming}
-                  title={`Gemini Reasoning: ${thinkingLevel.toUpperCase()}. Click to cycle (Off, Low, Medium, High)`}
-                  aria-label={`Toggle thinking level, current is ${thinkingLevel}`}
-                >
-                  <Brain
-                    size={13}
-                    className={thinkingLevel !== 'off' ? styles.activeBrain : undefined}
-                  />
-                  <span className={styles.thinkingText}>
-                    {thinkingLevel === 'off'
-                      ? 'Think: Off'
-                      : `Think: ${thinkingLevel.charAt(0).toUpperCase() + thinkingLevel.slice(1)}`}
-                  </span>
-                </button>
-
-                <IconButton
-                  type="button"
-                  icon={<Terminal size={15} />}
-                  label="Use prompt template"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsPickerOpen(true)}
-                  className={styles.toolBtn}
-                />
-
-                <IconButton
-                  type="button"
-                  icon={
-                    isListening ? (
-                      <span className={styles.recordingIconWrapper}>
-                        <Mic size={16} className={styles.activeMicIcon} />
-                        <span className={styles.recordingRing} aria-hidden="true" />
-                      </span>
-                    ) : (
-                      <Mic size={16} />
-                    )
-                  }
-                  label={
                     !isVoiceSupported
                       ? 'Voice input not supported in this browser'
                       : isListening
                         ? 'Listening... Click to stop dictation'
                         : 'Voice dictation'
                   }
-                  disabled={!isVoiceSupported}
-                  variant={isListening ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={handleToggleListening}
-                  className={cn(styles.toolBtn, isListening && styles.listeningMic)}
-                />
+                  aria-label={
+                    !isVoiceSupported
+                      ? 'Voice input not supported in this browser'
+                      : isListening
+                        ? 'Listening... Click to stop dictation'
+                        : 'Voice dictation'
+                  }
+                >
+                  <Mic size={16} />
+                </button>
 
                 {hasContent && (
-                  <IconButton
+                  <button
                     type="submit"
-                    icon={<ArrowUp size={16} />}
-                    label="Send prompt"
-                    variant="primary"
-                    size="sm"
-                    disabled={!hasContent}
                     className={styles.sendBtn}
-                  />
+                    title="Send prompt (Enter)"
+                    aria-label="Send prompt"
+                  >
+                    <CornerDownLeft size={16} />
+                  </button>
                 )}
               </div>
             </div>
           </form>
+
+          {/* Bottom Footer: Disclaimer on left, Model Selector on right */}
+          <div className={styles.composerFooter}>
+            <span className={styles.disclaimerText}>
+              NexAI is an AI workspace and can make mistakes. Please double-check responses.
+            </span>
+
+            <div className={styles.popoverAnchorWrapper}>
+              <button
+                ref={modelButtonRef}
+                type="button"
+                className={styles.modelPillLink}
+                onClick={() => setIsModelPopoverOpen((prev) => !prev)}
+                disabled={isStreaming}
+                title={`Model: ${modelShortName} · Effort: ${effortName}`}
+                aria-label="Select AI model and effort"
+              >
+                <span className={styles.modelText}>{modelPillLabel}</span>
+                <ChevronDown size={13} className={styles.modelChevron} />
+              </button>
+
+              <ModelSelectorPopover
+                open={isModelPopoverOpen}
+                onClose={() => setIsModelPopoverOpen(false)}
+                anchorRef={modelButtonRef}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Minimalist Gemini Quick Prompts (clean text rows, not cards) */}
@@ -484,6 +461,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
           actionLabel="Use in Chat"
         />
       )}
+
+
     </div>
   );
 }

@@ -590,15 +590,17 @@ export function Sidebar({ onItemClick, isMobile = false }) {
             />
           </div>
         ) : (
-          <button
-            type="button"
-            className={styles.expandedNewChatBtn}
-            onClick={handleNewChat}
-            aria-label="New chat"
-          >
-            <SquarePen size={17} className={styles.newChatIcon} />
-            <span>New chat</span>
-          </button>
+          <div className={styles.newChatRow}>
+            <button
+              type="button"
+              className={styles.expandedNewChatBtn}
+              onClick={handleNewChat}
+              aria-label="New chat"
+            >
+              <SquarePen size={17} className={styles.newChatIcon} />
+              <span>New chat</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -641,6 +643,8 @@ export function Sidebar({ onItemClick, isMobile = false }) {
 
       {/* Scrollable Middle Container: Projects & Chats */}
       <div className={styles.middleScrollArea}>
+
+
         {/* Collapsible Projects Section (ChatGPT Style) */}
         {!isCollapsed && (
           <div className={styles.sectionBlock}>

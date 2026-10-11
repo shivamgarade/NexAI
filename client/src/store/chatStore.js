@@ -5,6 +5,81 @@ import { useAuthStore } from './authStore.js';
 import { useWalletStore } from './walletStore.js';
 import { toast } from './uiStore.js';
 
+export const AVAILABLE_MODELS = [
+  {
+    id: 'fable-5-1',
+    name: 'Fable 5.1',
+    tagline: 'For your toughest challenges',
+    badge: 'Pro or Max',
+    tierRequired: 'Max',
+    isLive: false,
+    backendModel: 'pro',
+  },
+  {
+    id: 'opus-5-5',
+    name: 'Opus 5.5',
+    tagline: 'For complex work and everyday tasks',
+    badge: 'Pro',
+    tierRequired: 'Pro',
+    isLive: false,
+    backendModel: 'pro',
+  },
+  {
+    id: 'sonnet-5-5',
+    name: 'Sonnet 5.5',
+    tagline: 'Most efficient for simpler tasks',
+    badge: 'Live',
+    isLive: true,
+    backendModel: 'pro',
+  },
+  {
+    id: 'haiku-5-5',
+    name: 'Haiku 5.5',
+    tagline: 'Fastest for quick answers',
+    badge: 'Fast',
+    isLive: true,
+    backendModel: 'flash',
+  },
+  {
+    id: 'pro',
+    name: 'NexAI 2.5 Pro',
+    tagline: 'Deep analytical reasoning for code & architecture',
+    badge: 'Live · Pro',
+    isLive: true,
+    backendModel: 'pro',
+  },
+  {
+    id: 'flash',
+    name: 'NexAI 2.5 Flash',
+    tagline: 'Ultra-fast multimodal reasoning engine',
+    badge: 'Live · Free',
+    isLive: true,
+    backendModel: 'flash',
+  },
+];
+
+export const MORE_MODELS = [
+  { id: 'fable-5', name: 'Fable 5', badge: 'Pro or Max', tierRequired: 'Max', backendModel: 'pro' },
+  { id: 'opus-5', name: 'Opus 5', badge: 'Pro', tierRequired: 'Pro', backendModel: 'pro' },
+  { id: 'opus-4-8', name: 'Opus 4.8', badge: 'Pro', tierRequired: 'Pro', backendModel: 'pro' },
+  { id: 'opus-4-7', name: 'Opus 4.7', badge: 'Pro', tierRequired: 'Pro', backendModel: 'pro' },
+  { id: 'opus-4-6', name: 'Opus 4.6', badge: 'Pro', tierRequired: 'Pro', backendModel: 'pro' },
+  { id: 'opus-3', name: 'Opus 3', badge: 'Pro', tierRequired: 'Pro', backendModel: 'pro' },
+  { id: 'sonnet-5', name: 'Sonnet 5', badge: '', backendModel: 'flash' },
+  { id: 'sonnet-4-6', name: 'Sonnet 4.6', badge: '', backendModel: 'flash' },
+  { id: 'haiku-4-5', name: 'Haiku 4.5', badge: '', backendModel: 'flash' },
+  { id: 'deepseek-r1', name: 'DeepSeek R1', badge: 'Reasoning', backendModel: 'pro' },
+  { id: 'gpt-4o', name: 'GPT-4o', badge: 'Omni', backendModel: 'flash' },
+];
+
+export const EFFORT_LEVELS = [
+  { id: 'low', name: 'Low', description: '' },
+  { id: 'medium', name: 'Medium', badge: 'Recommended', description: '' },
+  { id: 'high', name: 'High', description: '' },
+  { id: 'extra', name: 'Extra', description: '' },
+  { id: 'max', name: 'Max', warning: '5x or more usage', description: '' },
+];
+
 export const useChatStore = create((set, get) => ({
   chats: [],
   activeChatId: null,
@@ -19,12 +94,59 @@ export const useChatStore = create((set, get) => ({
   thinkingLevel: 'medium',
   activeDrawerThought: null,
   isSimulation: false,
+  isTemporaryChat: false,
 
   /**
-   * Set the AI model to use (flash or pro)
-   * @param {'flash' | 'pro'} model
+   * Set the AI model to use
+   * @param {string} model
    */
-  setSelectedModel: (model) => set({ selectedModel: model }),
+  setSelectedModel: (model) => {
+    const modelObj = AVAILABLE_MODELS.find((m) => m.id === model);
+    if (modelObj && !modelObj.isLive) {
+      toast.info(`⚡ ${modelObj.name} preview active (routed via NexAI engine)`);
+    }
+    set({ selectedModel: model });
+  },
+
+  /**
+   * Start an ephemeral Temporary Chat session (zero persistence)
+   */
+  startTemporaryChat: async () => {
+    const currentActiveId = get().activeChatId;
+    const wasTemporary = get().isTemporaryChat;
+    if (wasTemporary && currentActiveId) {
+      chatApi.deleteChat(currentActiveId).catch(() => {});
+    }
+    set({
+      isTemporaryChat: true,
+      activeChatId: null,
+      messages: [],
+      error: null,
+      insufficientCredits: false,
+    });
+    toast.info('🛡️ Temporary chat active — messages will not be saved.');
+  },
+
+  /**
+   * Discard and purge temporary chat session
+   */
+  clearTemporaryChat: async () => {
+    const currentActiveId = get().activeChatId;
+    if (get().isTemporaryChat && currentActiveId) {
+      await chatApi.deleteChat(currentActiveId).catch(() => {});
+    }
+    set({
+      isTemporaryChat: false,
+      activeChatId: null,
+      messages: [],
+    });
+  },
+
+  /**
+   * Set Temporary Chat flag
+   * @param {boolean} isTemporary
+   */
+  setIsTemporaryChat: (isTemporary) => set({ isTemporaryChat: isTemporary }),
 
   /**
    * Set the AI thinking / reasoning depth
@@ -74,15 +196,19 @@ export const useChatStore = create((set, get) => ({
 
   /**
    * Create a new chat session
-   * @param {string | { title?: string, projectId?: string }} [options]
+   * @param {string | { title?: string, projectId?: string, isTemporary?: boolean }} [options]
    */
   createChat: async (options = 'New Chat') => {
     try {
-      const payload = typeof options === 'string' ? { title: options } : options;
+      const isTemp = get().isTemporaryChat;
+      let payload = typeof options === 'string' ? { title: options } : options || {};
+      if (isTemp) {
+        payload = { ...payload, isTemporary: true, title: payload.title || 'Temporary Chat' };
+      }
       const response = await chatApi.createChat(payload);
       const newChat = response.data;
       set((state) => ({
-        chats: [newChat, ...state.chats],
+        chats: isTemp ? state.chats : [newChat, ...state.chats],
         activeChatId: newChat._id,
         messages: [],
         error: null,
@@ -102,13 +228,22 @@ export const useChatStore = create((set, get) => ({
    * @param {string} chatId
    */
   selectChat: async (chatId) => {
-    if (get().activeChatId === chatId) {
+    const prevActiveId = get().activeChatId;
+    const wasTemp = get().isTemporaryChat;
+
+    if (prevActiveId === chatId) {
       return;
     }
 
     // Abort active stream if user switches chat
     if (get().isStreaming && get().abortController) {
       get().abortController.abort();
+    }
+
+    // Ephemeral purge: If previous session was temporary, delete from DB immediately
+    if (wasTemp && prevActiveId && prevActiveId !== chatId) {
+      chatApi.deleteChat(prevActiveId).catch(() => {});
+      set({ isTemporaryChat: false });
     }
 
     set({
@@ -338,7 +473,9 @@ export const useChatStore = create((set, get) => ({
     }));
 
     try {
-      const model = overrideModel || get().selectedModel;
+      const rawModel = overrideModel || get().selectedModel;
+      const modelConfig = AVAILABLE_MODELS.find((m) => m.id === rawModel);
+      const model = modelConfig?.backendModel || (['flash', 'pro'].includes(rawModel) ? rawModel : 'flash');
       const thinkingLevel = get().thinkingLevel;
       const isSimulation = get().isSimulation;
 

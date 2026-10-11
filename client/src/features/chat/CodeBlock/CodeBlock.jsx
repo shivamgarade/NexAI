@@ -24,8 +24,8 @@ export function CodeBlock({ language = 'plaintext', value = '', allowSaveSnippet
   const normalizedLang = language.toLowerCase();
   const displayLang =
     language && language.toLowerCase() !== 'plaintext'
-      ? language.charAt(0).toUpperCase() + language.slice(1)
-      : 'Code';
+      ? normalizedLang
+      : 'code';
   const grammar =
     Prism.languages[normalizedLang] || Prism.languages.javascript || Prism.languages.clike;
 

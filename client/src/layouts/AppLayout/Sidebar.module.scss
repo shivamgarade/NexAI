@@ -214,6 +214,15 @@
   }
 }
 
+.newChatRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+
+
 .collapsedNewChatBtn {
   width: 40px;
   height: 40px;

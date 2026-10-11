@@ -327,6 +327,12 @@
   }
 }
 
+.aiContentContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .aiMarkdown {
   display: flex;
   flex-direction: column;
@@ -535,6 +541,26 @@
   background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
   animation: pulseSpeaker 1.5s infinite alternate;
+}
+
+.loadingBtn {
+  color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  cursor: wait;
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulseSpeaker {

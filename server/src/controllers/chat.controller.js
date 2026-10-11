@@ -16,7 +16,7 @@ import { logger } from '../utils/logger.js';
  * GET /api/chats
  */
 export const getChats = asyncHandler(async (req, res) => {
-  const filter = { userId: req.user._id };
+  const filter = { userId: req.user._id, isTemporary: { $ne: true } };
   if (req.query.projectId) {
     filter.projectId = req.query.projectId;
   }
@@ -29,11 +29,12 @@ export const getChats = asyncHandler(async (req, res) => {
  * POST /api/chats
  */
 export const createChat = asyncHandler(async (req, res) => {
-  const { title, projectId } = req.body;
+  const { title, projectId, isTemporary } = req.body;
   const chat = await Chat.create({
     userId: req.user._id,
-    title: title || 'New Chat',
+    title: title || (isTemporary ? 'Temporary Chat' : 'New Chat'),
     projectId: projectId || null,
+    isTemporary: Boolean(isTemporary),
   });
   res.status(201).json({ data: chat });
 });
@@ -171,17 +172,19 @@ export async function sendMessage(req, res, next) {
       chat.updatedAt = new Date();
       await chat.save();
 
-      // Asynchronously extract and save user memories
-      memoryService
-        .extractAndSaveMemories({
-          userId: req.user._id,
-          messageContent: content,
-          chatId: chat._id,
-          isSimulation: true,
-        })
-        .catch((memErr) => {
-          logger.warn({ error: memErr.message }, 'Simulation memory extraction warning');
-        });
+      // Asynchronously extract and save user memories (skip if temporary chat)
+      if (!chat.isTemporary) {
+        memoryService
+          .extractAndSaveMemories({
+            userId: req.user._id,
+            messageContent: content,
+            chatId: chat._id,
+            isSimulation: true,
+          })
+          .catch((memErr) => {
+            logger.warn({ error: memErr.message }, 'Simulation memory extraction warning');
+          });
+      }
 
       const currentCredits = req.user.wallet?.creditsRemaining ?? 0;
       const governance = await systemConfigService.getPublicGovernanceStatus().catch(() => null);
@@ -305,17 +308,19 @@ export async function sendMessage(req, res, next) {
     chat.updatedAt = new Date();
     await chat.save();
 
-    // Asynchronously extract and learn persistent user facts/memories from conversation
-    memoryService
-      .extractAndSaveMemories({
-        userId: req.user._id,
-        messageContent: content,
-        chatId: chat._id,
-        isSimulation: false,
-      })
-      .catch((memErr) => {
-        logger.warn({ error: memErr.message }, 'Background memory extraction warning');
-      });
+    // Asynchronously extract and learn persistent user facts/memories from conversation (skip for temporary chats)
+    if (!chat.isTemporary) {
+      memoryService
+        .extractAndSaveMemories({
+          userId: req.user._id,
+          messageContent: content,
+          chatId: chat._id,
+          isSimulation: false,
+        })
+        .catch((memErr) => {
+          logger.warn({ error: memErr.message }, 'Background memory extraction warning');
+        });
+    }
 
     // Deduct credits atomically and record UsageLog
     const deduction = await deductCredits({

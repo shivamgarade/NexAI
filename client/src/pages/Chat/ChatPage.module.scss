@@ -20,6 +20,57 @@
   width: 100%;
 }
 
+.temporaryChatTheme {
+  /* Clean grey & white / monochrome theme override */
+  --color-accent: #9ca3af;
+  --color-accent-hover: #e5e7eb;
+  --color-accent-subtle: rgba(229, 231, 235, 0.08);
+  --color-accent-glow: rgba(229, 231, 235, 0.12);
+  --color-brand-primary: #9ca3af;
+  --color-text-brand: #e5e7eb;
+  --color-border-active: #9ca3af;
+
+  :global([data-theme='light']) & {
+    --color-accent: #4b5563;
+    --color-accent-hover: #1f2937;
+    --color-accent-subtle: rgba(0, 0, 0, 0.05);
+    --color-accent-glow: rgba(0, 0, 0, 0.08);
+    --color-brand-primary: #4b5563;
+    --color-text-brand: #1f2937;
+    --color-border-active: #4b5563;
+  }
+
+  /* Monochrome accents inside temporary chat */
+  :global {
+    [class*="emblemAura"] {
+      background: radial-gradient(
+        circle,
+        rgba(255, 255, 255, 0.09) 0%,
+        rgba(156, 163, 175, 0.04) 50%,
+        transparent 70%
+      ) !important;
+    }
+
+    [class*="emblemIcon"] {
+      filter: grayscale(100%) brightness(1.2);
+    }
+
+    [class*="composerCard"]:focus-within {
+      border-color: #9ca3af !important;
+      box-shadow: 0 0 0 1px #9ca3af, 0 16px 40px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    [class*="sendBtn"]:not(:disabled) {
+      background: #e5e7eb !important;
+      color: #111827 !important;
+    }
+
+    [class*="thinkingIcon"] {
+      color: #9ca3af !important;
+    }
+  }
+}
+
 .chatHeader {
   display: flex;
   align-items: center;

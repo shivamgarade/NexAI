@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { CodeBlock } from '../CodeBlock';
+import { CodeBlock, FileTreeBlock } from '../CodeBlock';
 import { MermaidBlock } from '../MermaidBlock';
 import { PromptBlock } from '../PromptBlock';
 import { normalizeTableMarkdown } from './tableNormalizer';
@@ -13,6 +13,8 @@ const REMARK_PLUGINS = [remarkGfm];
 
 export const MarkdownRenderer = React.memo(function MarkdownRenderer({
   content = '',
+  className = '',
+  variant = 'default',
   isStreaming = false,
   allowSaveSnippet = true,
   onSavePrompt,
@@ -46,6 +48,14 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
                 onUsePrompt={onUsePrompt}
               />
             );
+          }
+
+          const isTreeStructure =
+            ['tree', 'dir', 'directory', 'folder', 'files'].includes(lang) ||
+            /([├──└──│]|\|--)/.test(codeVal);
+
+          if (isTreeStructure) {
+            return <FileTreeBlock value={codeVal} />;
           }
 
           return (
@@ -96,7 +106,14 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
   }
 
   return (
-    <div className={cn(styles.markdownContent, isStreaming && styles.streamingContent)}>
+    <div
+      className={cn(
+        styles.markdownContent,
+        variant === 'thought' && styles.thoughtVariant,
+        className,
+        isStreaming && styles.streamingContent,
+      )}
+    >
       <Markdown remarkPlugins={REMARK_PLUGINS} components={components}>
         {normalizedContent}
       </Markdown>
@@ -106,6 +123,8 @@ export const MarkdownRenderer = React.memo(function MarkdownRenderer({
 
 MarkdownRenderer.propTypes = {
   content: PropTypes.string,
+  className: PropTypes.string,
+  variant: PropTypes.oneOf(['default', 'thought']),
   isStreaming: PropTypes.bool,
   allowSaveSnippet: PropTypes.bool,
   onSavePrompt: PropTypes.func,
