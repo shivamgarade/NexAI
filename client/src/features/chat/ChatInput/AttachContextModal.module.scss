@@ -3,6 +3,18 @@
 .modalContainer {
   max-width: 580px;
   width: 92vw;
+  height: 540px;
+  max-height: calc(100vh - var(--space-8));
+  display: flex;
+  flex-direction: column;
+
+  > div:nth-child(2) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
 }
 
 .modalHeader {
@@ -20,6 +32,7 @@
   color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
+  user-select: none;
 }
 
 .titleIcon {
@@ -38,6 +51,7 @@
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   border-radius: var(--radius-full);
   cursor: pointer;
+  user-select: none;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &:hover {
@@ -54,6 +68,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 // ── Search Bar ──────────────────────────────────────────────────────────────
@@ -137,6 +154,7 @@
   cursor: pointer;
   white-space: nowrap;
   font-weight: var(--weight-medium);
+  user-select: none;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &:hover {
@@ -156,8 +174,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 380px;
-  min-height: 120px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
   @include custom-scrollbar;
@@ -173,6 +191,7 @@
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
+  user-select: none;
   flex-shrink: 0;
   min-height: 52px;
   box-sizing: border-box;
@@ -474,9 +493,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  min-height: 220px;
   padding: var(--space-8) var(--space-4);
   text-align: center;
   gap: var(--space-2);
+  user-select: none;
 }
 
 .emptyIcon {

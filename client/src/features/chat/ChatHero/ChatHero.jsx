@@ -365,25 +365,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
   const hasContent = Boolean(input.trim() || attachedContext);
 
   return (
-    <div
-      className={styles.heroContainer}
-      data-testid="chat-hero"
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-    >
-      {isDraggingOver && (
-        <div className={styles.dragOverlay}>
-          <div className={styles.dragCard}>
-            <div className={styles.dragIconWrapper}>
-              <Upload size={28} className={styles.dragIcon} />
-            </div>
-            <span className={styles.dragTitle}>Drop to attach files</span>
-            <span className={styles.dragSubtitle}>Images, PDFs, documents, or code</span>
-          </div>
-        </div>
-      )}
+    <div className={styles.heroContainer} data-testid="chat-hero">
       <div className={styles.heroContent}>
         {/* Context-Aware Gemini-inspired Hero Headline */}
         <div className={styles.greetingHeader}>
@@ -395,7 +377,21 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
         </div>
 
         {/* Modern Responsive Prompt Composer Card (Claude-inspired spacious layout) */}
-        <div className={styles.composerCard}>
+        <div
+          className={cn(styles.composerCard, isDraggingOver && styles.composerCardDragging)}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {isDraggingOver && (
+            <div className={styles.composerDragOverlay}>
+              <div className={styles.composerDragContent}>
+                <Upload size={22} className={styles.composerDragIcon} />
+                <span>Drop files here to attach</span>
+              </div>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className={styles.composerForm}>
             {/* Attached media & context preview */}
             {attachedContext && (

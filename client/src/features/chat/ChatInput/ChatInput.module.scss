@@ -53,6 +53,7 @@
 }
 
 .composerForm {
+  position: relative;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border);
@@ -63,10 +64,59 @@
   -webkit-backdrop-filter: blur(16px);
   padding: 8px 12px;
   gap: var(--space-1);
-  transition: border-color var(--duration-fast) var(--ease-standard);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+
+  &.composerFormDragging {
+    border-color: var(--color-accent) !important;
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent),
+      0 4px 14px color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+  }
 
   &:focus-within {
     border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
+  }
+}
+
+.composerDragOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-bg-surface) 95%, transparent);
+  backdrop-filter: blur(4px);
+  border: 2px dashed var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fadeInDrag var(--duration-fast) var(--ease-standard);
+}
+
+.composerDragContent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  user-select: none;
+}
+
+.composerDragIcon {
+  color: var(--color-accent);
+}
+
+@keyframes fadeInDrag {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

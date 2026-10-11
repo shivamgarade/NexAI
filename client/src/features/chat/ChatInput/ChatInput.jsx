@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Plus,
   CornerDownLeft,
+  Upload,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
@@ -21,6 +22,7 @@ import { AttachContextModal } from './AttachContextModal';
 import { AttachedContextPreview } from './AttachedContextPreview';
 import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { libraryApi } from '@/lib/api/library.api';
 import { cn } from '@/lib/utils/cn';
 import styles from './ChatInput.module.scss';
 
@@ -169,50 +171,89 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const processAndAttachFile = (file) => {
     if (!file) return;
 
     const isText =
       file.type.startsWith('text/') ||
       file.name.match(/\.(md|txt|json|csv|js|ts|jsx|tsx|py|html|css|yaml|yml|sql|sh|env)$/i);
 
+    const isImage = file.type.startsWith('image/');
+    const type = isImage
+      ? 'image'
+      : file.type.startsWith('audio/')
+        ? 'audio'
+        : file.type.startsWith('video/')
+          ? 'video'
+          : file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf')
+            ? 'pdf'
+            : 'file';
+
+    setAttachedContext({
+      name: file.name,
+      type,
+      mimeType: file.type || (isText ? 'text/plain' : 'application/octet-stream'),
+      size: file.size,
+      isUploading: true,
+      progress: 45,
+    });
+
     if (isText) {
       const reader = new FileReader();
       reader.onload = (event) => {
+        const content = event.target.result || '';
         setAttachedContext({
           name: file.name,
           type: 'file',
           mimeType: file.type || 'text/plain',
-          content: event.target.result || '',
+          content,
+          size: file.size,
+          isUploading: false,
         });
+
+        // Persist note to user library in background
+        libraryApi
+          .createItem({
+            title: file.name,
+            type: 'note',
+            content,
+            category: 'general',
+          })
+          .catch(() => {});
       };
       reader.readAsText(file);
     } else {
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target.result || '';
-        const mimeType =
-          file.type ||
-          (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
-
-        const type = file.type.startsWith('image/')
-          ? 'image'
-          : file.type.startsWith('audio/')
-            ? 'audio'
-            : file.type.startsWith('video/')
-              ? 'video'
-              : file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf')
-                ? 'pdf'
-                : 'file';
-
         setAttachedContext({
           name: file.name,
           type,
-          mimeType,
+          mimeType:
+            file.type ||
+            (file.name.toLowerCase().endsWith('.pdf')
+              ? 'application/pdf'
+              : 'application/octet-stream'),
           data: dataUrl,
           size: file.size,
+          isUploading: false,
         });
+
+        // Persist media/file to user library in background
+        libraryApi
+          .createItem({
+            title: file.name,
+            type: 'file',
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            fileData: dataUrl,
+            category: 'general',
+          })
+          .catch(() => {});
       };
       reader.readAsDataURL(file);
     }
@@ -222,9 +263,67 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     }
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processAndAttachFile(file);
+    }
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      setIsDraggingOver(false);
+      dragCounterRef.current = 0;
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    dragCounterRef.current = 0;
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processAndAttachFile(files[0]);
+    }
+  };
+
   return (
     <div className={styles.inputContainer}>
-      <form className={styles.composerForm} onSubmit={handleSubmit}>
+      <form
+        className={cn(styles.composerForm, isDraggingOver && styles.composerFormDragging)}
+        onSubmit={handleSubmit}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDraggingOver && (
+          <div className={styles.composerDragOverlay}>
+            <div className={styles.composerDragContent}>
+              <Upload size={18} className={styles.composerDragIcon} />
+              <span>Drop files here to attach</span>
+            </div>
+          </div>
+        )}
         {/* Attached context / media preview */}
         {attachedContext && (
           <AttachedContextPreview
