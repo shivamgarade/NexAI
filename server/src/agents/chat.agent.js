@@ -194,15 +194,26 @@ export async function* streamChatReply({
   while (iteration < MAX_TOOL_ITERATIONS) {
     iteration++;
     let pendingFunctionCalls = [];
+    let modelTurnParts = [];
+
+    // On final iteration, omit tools to force model synthesis of all collected findings
+    const iterationConfig =
+      iteration >= MAX_TOOL_ITERATIONS
+        ? { ...(thinkingConfig ? { thinkingConfig } : {}) }
+        : config;
 
     const stream = streamContent({
       contents: currentContents,
       model,
       systemInstruction,
-      config,
+      config: iterationConfig,
     });
 
     for await (const chunk of stream) {
+      if (chunk.candidateParts && chunk.candidateParts.length > 0) {
+        modelTurnParts.push(...chunk.candidateParts);
+      }
+
       if (chunk.groundingMetadata) {
         yield { groundingMetadata: chunk.groundingMetadata };
       }
@@ -236,12 +247,17 @@ export async function* streamChatReply({
     const toolResponseParts = [];
     for (const call of pendingFunctionCalls) {
       const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const isSearch = call.name === 'web_search';
+      const actionTitle = isSearch
+        ? `Searching web: "${call.args?.query || ''}"`
+        : `Executing ${call.name}`;
+
       yield {
         step: {
           id: stepId,
           type: 'tool_call',
           tool: call.name,
-          title: `Executing ${call.name}`,
+          title: actionTitle,
           input: call.args,
           status: 'running',
         },
@@ -249,17 +265,33 @@ export async function* streamChatReply({
 
       const result = await executeAgentTool(call.name, call.args, context);
 
+      const completedTitle = isSearch
+        ? `Found ${result.resultsCount || (result.results ? result.results.length : 0)} search results for "${call.args?.query || ''}"`
+        : `Completed ${call.name}`;
+
       yield {
         step: {
           id: stepId,
           type: 'tool_call',
           tool: call.name,
-          title: `Completed ${call.name}`,
+          title: completedTitle,
           input: call.args,
           output: result,
           status: 'completed',
         },
       };
+
+      if (isSearch && Array.isArray(result.results) && result.results.length > 0) {
+        yield {
+          groundingMetadata: {
+            webSearchQueries: [call.args?.query || ''],
+            sources: result.results.map((r) => ({
+              title: r.title,
+              url: r.url,
+            })),
+          },
+        };
+      }
 
       toolResponseParts.push({
         functionResponse: {
@@ -269,9 +301,10 @@ export async function* streamChatReply({
       });
     }
 
+    // Retain exact model turn parts (including thoughtSignature) for Gemini protocol compliance
     currentContents.push({
       role: 'model',
-      parts: pendingFunctionCalls.map((c) => ({ functionCall: c })),
+      parts: modelTurnParts.length > 0 ? modelTurnParts : pendingFunctionCalls.map((c) => ({ functionCall: c })),
     });
     currentContents.push({
       role: 'user',

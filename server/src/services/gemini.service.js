@@ -111,17 +111,38 @@ export async function* streamContent({
       break;
     } catch (err) {
       attempt++;
+
+      // If tools contained native googleSearch and failed with 429 quota exhaustion, strip it and retry immediately
+      if (
+        (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) &&
+        config?.tools?.some((t) => t.googleSearch)
+      ) {
+        logger.warn(
+          'Gemini Google Search Grounding quota exhausted (429). Retrying without native googleSearch tool...',
+        );
+        config = {
+          ...config,
+          tools: config.tools.filter((t) => !t.googleSearch),
+        };
+        if (config.tools.length === 0) {
+          delete config.tools;
+        }
+        continue;
+      }
+
       const isTransient =
         err.message?.includes('503') ||
         err.message?.includes('UNAVAILABLE') ||
-        err.message?.includes('high demand');
+        err.message?.includes('high demand') ||
+        err.message?.includes('429') ||
+        err.message?.includes('RESOURCE_EXHAUSTED');
 
       if (isTransient && attempt <= maxRetries) {
         logger.warn(
           { attempt, maxRetries },
-          'Transient Gemini 503 high demand spike, retrying after 1s...',
+          'Transient Gemini spike or limit, retrying after 1.5s...',
         );
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         continue;
       }
       logger.error({ error: err.message }, 'Gemini stream initialization error');
@@ -171,7 +192,7 @@ export async function* streamContent({
       const groundingMetadata = candidate?.groundingMetadata || null;
       const functionCalls = chunk.functionCalls || null;
 
-      if (text || thought || usageMetadata || groundingMetadata || codeStep || functionCalls) {
+      if (text || thought || usageMetadata || groundingMetadata || codeStep || functionCalls || parts.length > 0) {
         yield {
           text,
           thought,
@@ -179,6 +200,7 @@ export async function* streamContent({
           groundingMetadata,
           codeStep,
           functionCalls,
+          candidateParts: parts,
         };
       }
     }

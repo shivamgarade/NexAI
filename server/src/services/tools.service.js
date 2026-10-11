@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import { extractLinkContent, isValidUrl } from './linkExtractor.service.js';
 import * as memoryService from './memory.service.js';
 import { Project } from '../models/Project.js';
@@ -5,9 +6,100 @@ import { Document } from '../models/Document.js';
 import { logger } from '../utils/logger.js';
 
 /**
+ * Searches the web using DuckDuckGo HTML results, extracting titles, snippets, and source URLs.
+ * Works quota-free without external API tokens.
+ *
+ * @param {string} query
+ * @returns {Promise<{ query: string, resultsCount: number, results: Array<{ title: string, snippet: string, url: string }> }>}
+ */
+export async function performWebSearch(query) {
+  try {
+    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 NexAI/1.0',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { query, resultsCount: 0, results: [], error: `Search status ${response.status}` };
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const results = [];
+
+    $('.result').each((i, el) => {
+      if (results.length >= 5) return;
+      const title = $(el).find('.result__title').text().trim();
+      const snippet = $(el).find('.result__snippet').text().trim();
+      const rawUrl = $(el).find('.result__url').text().trim();
+      const href = $(el).find('.result__url').attr('href') || $(el).find('.result__title a').attr('href');
+
+      let link = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+      if (href && href.includes('uddg=')) {
+        try {
+          const match = href.match(/uddg=([^&]+)/);
+          if (match && match[1]) {
+            link = decodeURIComponent(match[1]);
+          }
+        } catch {
+          // fallback to link
+        }
+      }
+
+      if (title && snippet) {
+        results.push({
+          title,
+          snippet,
+          url: link,
+        });
+      }
+    });
+
+    return {
+      query,
+      resultsCount: results.length,
+      results,
+    };
+  } catch (err) {
+    logger.warn({ error: err.message, query }, 'Agent web search fallback triggered');
+    return {
+      query,
+      resultsCount: 0,
+      results: [],
+      error: `Search request error: ${err.message}`,
+    };
+  }
+}
+
+/**
  * Gemini-compatible Function Declarations for NexAI Agent Tools.
  */
 export const TOOL_DECLARATIONS = {
+  web_search: {
+    name: 'web_search',
+    description:
+      'Search the web for up-to-date facts, current events, technical documentation, websites, and news.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: {
+          type: 'STRING',
+          description: 'The search query or keywords to look up on the web',
+        },
+      },
+      required: ['query'],
+    },
+  },
   fetch_url: {
     name: 'fetch_url',
     description:
@@ -74,10 +166,10 @@ export function buildGeminiToolsConfig(enabledToolNames = []) {
   const functionDeclarations = [];
 
   for (const name of enabledToolNames) {
-    if (name === 'web_search') {
-      tools.push({ googleSearch: {} });
-    } else if (name === 'code_execution') {
+    if (name === 'code_execution') {
       tools.push({ codeExecution: {} });
+    } else if (name === 'google_search') {
+      tools.push({ googleSearch: {} });
     } else if (TOOL_DECLARATIONS[name]) {
       functionDeclarations.push(TOOL_DECLARATIONS[name]);
     }
@@ -105,6 +197,14 @@ export async function executeAgentTool(name, args = {}, context = {}) {
 
   try {
     switch (name) {
+      case 'web_search': {
+        const query = args.query?.trim() || '';
+        if (!query) {
+          return { error: 'Search query is required' };
+        }
+        return await performWebSearch(query);
+      }
+
       case 'fetch_url': {
         const url = args.url?.trim();
         if (!url || !isValidUrl(url)) {

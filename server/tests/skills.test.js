@@ -180,13 +180,14 @@ describe('Skills API & Agentic Tools Integration Tests', () => {
 
   describe('Agentic Tool Building & Execution Engine', () => {
     it('buildGeminiToolsConfig correctly formats tools for Google GenAI SDK', () => {
-      const configs = buildGeminiToolsConfig(['web_search', 'code_execution', 'fetch_url']);
+      const configs = buildGeminiToolsConfig(['google_search', 'code_execution', 'web_search', 'fetch_url']);
       expect(configs).toEqual(
         expect.arrayContaining([
           { googleSearch: {} },
           { codeExecution: {} },
           expect.objectContaining({
             functionDeclarations: expect.arrayContaining([
+              expect.objectContaining({ name: 'web_search' }),
               expect.objectContaining({ name: 'fetch_url' }),
             ]),
           }),
