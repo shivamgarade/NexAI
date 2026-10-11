@@ -7,7 +7,6 @@ import {
   Paperclip,
   Upload,
   Search,
-  Check,
   Globe,
   Mic,
   Video,
@@ -18,6 +17,7 @@ import {
   Archive,
   PackageOpen,
   X,
+  Plus,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
@@ -319,9 +319,14 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
                   <div className={styles.itemMeta}>
                     <div className={styles.itemTitleRow}>
                       <span className={styles.itemTitle}>{item.title}</span>
-                      {item.category && (
-                        <Badge variant="accent" size="sm">{item.category}</Badge>
-                      )}
+                      {item.category &&
+                        !['other', 'general', 'default'].includes(
+                          item.category.toLowerCase(),
+                        ) && (
+                          <Badge variant="accent" size="sm">
+                            {item.category}
+                          </Badge>
+                        )}
                     </div>
 
                     {/* Sub-info line */}
@@ -347,7 +352,7 @@ export function AttachContextModal({ open, onClose, onSelect, onUploadLocal }) {
                     onClick={(e) => { e.stopPropagation(); handleSelectItem(item); }}
                     aria-label={`Attach ${item.title}`}
                   >
-                    <Check size={12} />
+                    <Plus size={13} />
                     <span>Attach</span>
                   </button>
                 </div>

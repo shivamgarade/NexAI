@@ -247,15 +247,34 @@
 }
 
 .attachBtn {
-  color: var(--color-text-muted);
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 32px;
   height: 32px;
+  padding: 0;
+  margin: 0;
   border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  svg {
+    display: block;
+    flex-shrink: 0;
+  }
 
   &:hover {
     color: var(--color-text-primary);
     background-color: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
   }
 }
 
