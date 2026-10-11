@@ -18,7 +18,7 @@ import {
 import { IconButton } from '@/components/ui/IconButton';
 import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
 import { ModelSelectorPopover } from '../ModelSelector';
-import { AttachContextModal } from './AttachContextModal';
+import { AttachContextPopover } from './AttachContextPopover';
 import { AttachedContextPreview } from './AttachedContextPreview';
 import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -57,6 +57,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   const [selectedPromptForVariables, setSelectedPromptForVariables] = useState(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+  const attachButtonRef = useRef(null);
 
   const hasContent = Boolean(input.trim() || attachedContext);
 
@@ -342,15 +343,26 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
         />
 
         <div className={styles.composerInputRow}>
-          <button
-            type="button"
-            className={styles.addBtn}
-            onClick={() => setIsAttachModalOpen(true)}
-            title="Add attachment or prompt template"
-            aria-label="Add attachment or prompt"
-          >
-            <Plus size={18} />
-          </button>
+          <div className={styles.attachAnchorWrapper}>
+            <button
+              ref={attachButtonRef}
+              type="button"
+              className={cn(styles.addBtn, isAttachModalOpen && styles.addBtnActive)}
+              onClick={() => setIsAttachModalOpen((prev) => !prev)}
+              title="Add attachment or prompt template"
+              aria-label="Add attachment or prompt"
+            >
+              <Plus size={18} />
+            </button>
+
+            <AttachContextPopover
+              open={isAttachModalOpen}
+              onClose={() => setIsAttachModalOpen(false)}
+              anchorRef={attachButtonRef}
+              onSelect={(item) => setAttachedContext(item)}
+              onUploadLocal={() => fileInputRef.current?.click()}
+            />
+          </div>
 
           <textarea
             ref={textareaRef}
@@ -436,13 +448,6 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
         </div>
       </div>
 
-      {/* Attach Context from Library or Device Modal */}
-      <AttachContextModal
-        open={isAttachModalOpen}
-        onClose={() => setIsAttachModalOpen(false)}
-        onSelect={(item) => setAttachedContext(item)}
-        onUploadLocal={() => fileInputRef.current?.click()}
-      />
 
       {/* Prompt Selector Modal */}
       <PromptPickerModal

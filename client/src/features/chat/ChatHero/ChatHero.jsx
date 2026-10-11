@@ -11,7 +11,7 @@ import {
   ChevronDown,
   Upload,
 } from 'lucide-react';
-import { AttachContextModal } from '../ChatInput/AttachContextModal';
+import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
 import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
 import { ModelSelectorPopover } from '../ModelSelector';
@@ -61,6 +61,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
 
   const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
   const modelButtonRef = useRef(null);
+  const attachButtonRef = useRef(null);
 
   const currentModelObj =
     AVAILABLE_MODELS.find((m) => m.id === selectedModel) ||
@@ -435,15 +436,26 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
             {/* Bottom Actions Toolbar: Attach (+) on left; Model Selector, Mic, Send on right */}
             <div className={styles.composerBottomRow}>
               <div className={styles.bottomLeftActions}>
-                <button
-                  type="button"
-                  className={styles.attachBtn}
-                  onClick={() => setIsAttachModalOpen(true)}
-                  title="Attach context file or prompt"
-                  aria-label="Attach context file"
-                >
-                  <Plus size={18} />
-                </button>
+                <div className={styles.attachAnchorWrapper}>
+                  <button
+                    ref={attachButtonRef}
+                    type="button"
+                    className={cn(styles.attachBtn, isAttachModalOpen && styles.attachBtnActive)}
+                    onClick={() => setIsAttachModalOpen((prev) => !prev)}
+                    title="Attach context file or prompt"
+                    aria-label="Attach context file"
+                  >
+                    <Plus size={18} />
+                  </button>
+
+                  <AttachContextPopover
+                    open={isAttachModalOpen}
+                    onClose={() => setIsAttachModalOpen(false)}
+                    anchorRef={attachButtonRef}
+                    onSelect={(item) => setAttachedContext(item)}
+                    onUploadLocal={() => fileInputRef.current?.click()}
+                  />
+                </div>
               </div>
 
               <div className={styles.bottomRightActions}>
@@ -529,13 +541,6 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
         </p>
       </div>
 
-      {/* Attach Context from Library or Device Modal */}
-      <AttachContextModal
-        open={isAttachModalOpen}
-        onClose={() => setIsAttachModalOpen(false)}
-        onSelect={(item) => setAttachedContext(item)}
-        onUploadLocal={() => fileInputRef.current?.click()}
-      />
 
       {/* Prompt Selector Modal */}
       <PromptPickerModal
