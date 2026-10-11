@@ -11,7 +11,6 @@ import {
   ChevronDown,
   Upload,
   MessageSquareDashed,
-  ShieldAlert,
 } from 'lucide-react';
 import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
@@ -448,12 +447,6 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
 
             {/* Top Textarea Area */}
             <div className={styles.inputArea}>
-              {isTemporaryChat && (
-                <div className={styles.tempComposerPill}>
-                  <ShieldAlert size={12} className={styles.tempPillIcon} />
-                  <span>Temporary Mode · Messages not saved to history</span>
-                </div>
-              )}
               <textarea
                 ref={textareaRef}
                 rows={2}
@@ -466,9 +459,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 placeholder={
                   isSimulation
                     ? 'Simulation Mode (0 tokens) — How can I help you today?'
-                    : isTemporaryChat
-                      ? 'Ask NexAI anything (temporary chat, not saved in history)...'
-                      : 'How can I help you today?'
+                    : 'How can I help you today?'
                 }
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"

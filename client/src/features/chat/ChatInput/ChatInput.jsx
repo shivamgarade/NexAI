@@ -378,11 +378,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
               baseTextRef.current = e.target.value;
             }}
             onKeyDown={handleKeyDown}
-            placeholder={
-              isTemporaryChat
-                ? 'Ask NexAI (temporary chat, not saved in history)...'
-                : 'Write a message...'
-            }
+            placeholder="Write a message..."
             className={styles.textarea}
             aria-label="Chat input message"
           />
