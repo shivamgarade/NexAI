@@ -1,0 +1,78 @@
+@use '@/styles/abstracts' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6);
+  max-width: 1300px;
+  margin: 0 auto;
+  width: 100%;
+  gap: var(--space-6);
+}
+
+.controlsBar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.searchWrapper {
+  flex: 1;
+  max-width: 400px;
+  min-width: 240px;
+}
+
+.categoryChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.categoryChip {
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--color-surface-subtle, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+
+  &:hover {
+    background: var(--color-surface-hover, rgba(255, 255, 255, 0.08));
+    color: var(--color-text-primary);
+  }
+
+  &.active {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: var(--color-accent, #6366f1);
+    color: var(--color-accent);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.loadingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.skeletonCard {
+  height: 190px;
+  border-radius: var(--radius-xl, 16px);
+}

@@ -135,12 +135,31 @@ export async function* streamContent({
       let text = '';
       let thought = '';
 
-      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+      const candidate = chunk.candidates?.[0];
+      const parts = candidate?.content?.parts ?? [];
+      let codeStep = null;
+
       for (const part of parts) {
         if (part.thought && typeof part.text === 'string') {
           thought += part.text;
         } else if (!part.thought && typeof part.text === 'string') {
           text += part.text;
+        }
+
+        if (part.executableCode) {
+          codeStep = {
+            type: 'code_execution',
+            language: part.executableCode.language || 'python',
+            code: part.executableCode.code,
+          };
+        }
+
+        if (part.codeExecutionResult) {
+          codeStep = {
+            type: 'code_result',
+            outcome: part.codeExecutionResult.outcome,
+            output: part.codeExecutionResult.output,
+          };
         }
       }
 
@@ -149,8 +168,18 @@ export async function* streamContent({
         text = chunk.text;
       }
 
-      if (text || thought || usageMetadata) {
-        yield { text, thought, usageMetadata };
+      const groundingMetadata = candidate?.groundingMetadata || null;
+      const functionCalls = chunk.functionCalls || null;
+
+      if (text || thought || usageMetadata || groundingMetadata || codeStep || functionCalls) {
+        yield {
+          text,
+          thought,
+          usageMetadata,
+          groundingMetadata,
+          codeStep,
+          functionCalls,
+        };
       }
     }
   } catch (error) {

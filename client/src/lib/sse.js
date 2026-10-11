@@ -57,7 +57,7 @@ export function sanitizeErrorMessage(raw) {
  */
 export async function parseSseStream(
   readableStream,
-  { onThought, onToken, onDone, onError } = {},
+  { onThought, onToken, onStep, onGrounding, onDone, onError } = {},
 ) {
   const reader = readableStream.getReader();
   const decoder = new TextDecoder('utf-8');
@@ -86,6 +86,10 @@ export async function parseSseStream(
       const text =
         typeof parsed === 'object' && parsed !== null && 'text' in parsed ? parsed.text : parsed;
       onToken?.(text);
+    } else if (currentEvent === 'step') {
+      onStep?.(parsed);
+    } else if (currentEvent === 'grounding') {
+      onGrounding?.(parsed);
     } else if (currentEvent === 'done') {
       onDone?.(typeof parsed === 'object' && parsed !== null ? parsed : { raw: parsed });
     } else if (currentEvent === 'error') {
@@ -172,9 +176,13 @@ export async function streamChatMessage({
   thinkingLevel = 'off',
   attachments = [],
   isSimulation = false,
+  skillId = null,
+  enabledTools = [],
   signal,
   onThought,
   onToken,
+  onStep,
+  onGrounding,
   onDone,
   onError,
 }) {
@@ -200,6 +208,8 @@ export async function streamChatMessage({
       thinkingLevel,
       isSimulation,
       attachments: safeAttachments,
+      ...(skillId ? { skillId } : {}),
+      ...(enabledTools?.length ? { enabledTools } : {}),
     }),
     signal,
     credentials: 'include',
@@ -256,7 +266,7 @@ export async function streamChatMessage({
     throw err;
   }
 
-  await parseSseStream(response.body, { onThought, onToken, onDone, onError });
+  await parseSseStream(response.body, { onThought, onToken, onStep, onGrounding, onDone, onError });
 }
 
 /**

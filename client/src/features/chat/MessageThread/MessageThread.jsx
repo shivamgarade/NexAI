@@ -33,6 +33,7 @@ import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ThinkingDrawer } from '../ThinkingDrawer/ThinkingDrawer';
 import { InlineThinking } from './InlineThinking';
 import { MessageAttachments } from './MessageAttachments';
+import { AgentStepTimeline } from './AgentStepTimeline';
 import { PromptFormModal } from '@/features/prompts';
 import { interviewApi } from '@/lib/api/interview.api.js';
 import { useAuthStore } from '@/store/authStore';
@@ -582,6 +583,11 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                           {hasAttachments && (
                             <MessageAttachments attachments={message.attachments} />
                           )}
+                          <AgentStepTimeline
+                            steps={message.steps}
+                            groundingMetadata={message.groundingMetadata}
+                            isStreaming={isCurrentlyStreaming}
+                          />
                           {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
                             <InlineThinking
                               thoughts={message.thoughts}

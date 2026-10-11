@@ -11,12 +11,15 @@ import {
   ChevronDown,
   Upload,
   MessageSquareDashed,
+  Zap,
+  X,
 } from 'lucide-react';
 import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
-import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
+import { SkillPickerModal, VariableFillModal } from '@/features/skills';
 import { ModelSelectorPopover } from '../ModelSelector';
 import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
+import { useSkillStore } from '@/store/skillStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { libraryApi } from '@/lib/api/library.api';
@@ -81,7 +84,8 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const [attachedContext, setAttachedContext] = useState(null);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [selectedPromptForVariables, setSelectedPromptForVariables] = useState(null);
+  const { activeSkill, setActiveSkill, clearActiveSkill } = useSkillStore();
+  const [selectedSkillForVariables, setSelectedSkillForVariables] = useState(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -102,12 +106,24 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     }, 0);
   };
 
-  const handleSelectPrompt = (prompt) => {
-    if (prompt.variables && prompt.variables.length > 0) {
-      setSelectedPromptForVariables(prompt);
+  const handleSelectSkill = (skill) => {
+    if (skill.variables && skill.variables.length > 0) {
+      setSelectedSkillForVariables(skill);
     } else {
-      insertCompiledPrompt(prompt.template);
+      setActiveSkill(skill);
+      toast.info(`Active Skill: ${skill.title}`);
     }
+  };
+
+  const handleConfirmSkillVariables = (compiledInstructions) => {
+    if (selectedSkillForVariables) {
+      setActiveSkill({
+        ...selectedSkillForVariables,
+        instructions: compiledInstructions,
+      });
+      toast.info(`Active Skill: ${selectedSkillForVariables.title}`);
+    }
+    setSelectedSkillForVariables(null);
   };
 
   // Handle external prefill from Prompt Vault
@@ -226,6 +242,9 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    } else if ((e.key === '/' || e.key === '@') && (!input || input.trim() === '')) {
+      e.preventDefault();
+      setIsPickerOpen(true);
     }
   };
 
@@ -457,6 +476,28 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               />
             )}
 
+            {/* Active Tool-Enabled Skill Pill */}
+            {activeSkill && (
+              <div className={styles.activeSkillPill}>
+                <Zap size={13} className={styles.activeSkillIcon} />
+                <span className={styles.activeSkillName}>{activeSkill.title}</span>
+                {activeSkill.tools && activeSkill.tools.length > 0 && (
+                  <span className={styles.activeSkillTools}>
+                    • {activeSkill.tools.join(', ')}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={styles.activeSkillRemoveBtn}
+                  onClick={clearActiveSkill}
+                  title="Remove active skill"
+                  aria-label="Remove active skill"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+
             {/* Hidden File Input for Attachments */}
             <input
               type="file"
@@ -479,16 +520,18 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={
-                  isSimulation
-                    ? 'Simulation Mode (0 tokens) — How can I help you today?'
-                    : 'How can I help you today?'
+                  activeSkill
+                    ? `Ask ${activeSkill.title}...`
+                    : isSimulation
+                      ? 'Simulation Mode (0 tokens) — How can I help you today? (\'/\' for skills)'
+                      : "How can I help you today? ('/' for skills)"
                 }
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"
               />
             </div>
 
-            {/* Bottom Actions Toolbar: Attach (+) on left; Model Selector, Mic, Send on right */}
+            {/* Bottom Actions Toolbar: Attach (+) & Skills on left; Model Selector, Mic, Send on right */}
             <div className={styles.composerBottomRow}>
               <div className={styles.bottomLeftActions}>
                 <div className={styles.attachAnchorWrapper}>
@@ -497,7 +540,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     type="button"
                     className={cn(styles.attachBtn, isAttachModalOpen && styles.attachBtnActive)}
                     onClick={() => setIsAttachModalOpen((prev) => !prev)}
-                    title="Attach context file or prompt"
+                    title="Attach context file"
                     aria-label="Attach context file"
                   >
                     <Plus size={18} />
@@ -511,6 +554,16 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     onUploadLocal={() => fileInputRef.current?.click()}
                   />
                 </div>
+
+                <button
+                  type="button"
+                  className={cn(styles.attachBtn, activeSkill && styles.attachBtnActive)}
+                  onClick={() => setIsPickerOpen(true)}
+                  title={activeSkill ? `Active Skill: ${activeSkill.title} (Click to change)` : 'Choose Agent Skill (/)'}
+                  aria-label="Choose Agent Skill"
+                >
+                  <Zap size={17} />
+                </button>
               </div>
 
               <div className={styles.bottomRightActions}>
@@ -599,21 +652,21 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
       </div>
 
 
-      {/* Prompt Selector Modal */}
-      <PromptPickerModal
+      {/* Skill Selector Modal */}
+      <SkillPickerModal
         open={isPickerOpen}
         onClose={() => setIsPickerOpen(false)}
-        onSelectPrompt={handleSelectPrompt}
+        onSelectSkill={handleSelectSkill}
       />
 
-      {/* Variable Fill Modal */}
-      {selectedPromptForVariables && (
+      {/* Variable Fill Modal for Skill */}
+      {selectedSkillForVariables && (
         <VariableFillModal
-          open={Boolean(selectedPromptForVariables)}
-          onClose={() => setSelectedPromptForVariables(null)}
-          prompt={selectedPromptForVariables}
-          onConfirm={insertCompiledPrompt}
-          actionLabel="Use in Chat"
+          open={Boolean(selectedSkillForVariables)}
+          onClose={() => setSelectedSkillForVariables(null)}
+          skill={selectedSkillForVariables}
+          onConfirm={handleConfirmSkillVariables}
+          actionLabel="Activate Skill"
         />
       )}
 

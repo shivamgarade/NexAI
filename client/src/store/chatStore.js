@@ -3,6 +3,7 @@ import { chatApi } from '@/lib/api/chat.api.js';
 import { streamChatMessage, sanitizeErrorMessage } from '@/lib/sse.js';
 import { useAuthStore } from './authStore.js';
 import { useWalletStore } from './walletStore.js';
+import { useSkillStore } from './skillStore.js';
 import { toast } from './uiStore.js';
 
 export const AVAILABLE_MODELS = [
@@ -414,7 +415,7 @@ export const useChatStore = create((set, get) => ({
    * Send a message and stream the assistant response
    * @param {string} content
    */
-  sendMessage: async (content, attachments = []) => {
+  sendMessage: async (content, attachments = [], options = {}) => {
     const trimmed = content.trim();
     if (!trimmed || get().isStreaming) {
       return;
@@ -439,6 +440,10 @@ export const useChatStore = create((set, get) => ({
       safeAttachments = [];
     }
 
+    const activeSkill = options.skill || useSkillStore.getState().activeSkill;
+    const skillId = options.skillId || activeSkill?._id || null;
+    const enabledTools = options.enabledTools || activeSkill?.tools || [];
+
     const optimisticUserId = `temp-user-${Date.now()}`;
     const optimisticAssistantId = `temp-assistant-${Date.now()}`;
 
@@ -457,6 +462,9 @@ export const useChatStore = create((set, get) => ({
       role: 'assistant',
       content: '',
       thoughts: '',
+      steps: [],
+      groundingMetadata: null,
+      skillId,
       isThinking: get().thinkingLevel !== 'off',
       isStreaming: true,
       createdAt: new Date().toISOString(),
@@ -486,6 +494,8 @@ export const useChatStore = create((set, get) => ({
         thinkingLevel,
         attachments: safeAttachments,
         isSimulation,
+        skillId,
+        enabledTools,
         signal: abortController.signal,
         onThought: (text) => {
           set((state) => {
@@ -515,6 +525,39 @@ export const useChatStore = create((set, get) => ({
             return { messages: msgs };
           });
         },
+        onStep: (step) => {
+          set((state) => {
+            const msgs = [...state.messages];
+            const lastMsg = msgs[msgs.length - 1];
+            if (lastMsg && lastMsg.role === 'assistant') {
+              const existingSteps = Array.isArray(lastMsg.steps) ? [...lastMsg.steps] : [];
+              const idx = existingSteps.findIndex((s) => s.id && s.id === step.id);
+              if (idx >= 0) {
+                existingSteps[idx] = { ...existingSteps[idx], ...step };
+              } else {
+                existingSteps.push(step);
+              }
+              msgs[msgs.length - 1] = {
+                ...lastMsg,
+                steps: existingSteps,
+              };
+            }
+            return { messages: msgs };
+          });
+        },
+        onGrounding: (grounding) => {
+          set((state) => {
+            const msgs = [...state.messages];
+            const lastMsg = msgs[msgs.length - 1];
+            if (lastMsg && lastMsg.role === 'assistant') {
+              msgs[msgs.length - 1] = {
+                ...lastMsg,
+                groundingMetadata: grounding,
+              };
+            }
+            return { messages: msgs };
+          });
+        },
         onDone: (doneData) => {
           set((state) => {
             const msgs = [...state.messages];
@@ -526,6 +569,9 @@ export const useChatStore = create((set, get) => ({
                 thoughts: doneData.thoughts || lastMsg.thoughts || '',
                 tokensUsed: doneData.tokensUsed,
                 followUps: doneData.followUps || [],
+                steps: doneData.steps || lastMsg.steps || [],
+                groundingMetadata: doneData.groundingMetadata || lastMsg.groundingMetadata || null,
+                skillId: doneData.skillId || skillId,
                 isStreaming: false,
                 isThinking: false,
               };

@@ -58,7 +58,7 @@ describe('Sidebar Component', () => {
     // Primary nav items
     expect(screen.getByRole('link', { name: /chat/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /library/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /prompts/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /skills/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /interview/i })).toBeInTheDocument();
 
     // ChatGPT-style "... More" section

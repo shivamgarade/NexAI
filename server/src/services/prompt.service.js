@@ -95,6 +95,7 @@ export async function updatePrompt(userId, promptId, updateData) {
 
   if (updateData.template !== undefined) {
     prompt.template = updateData.template;
+    prompt.instructions = updateData.template;
     prompt.variables = extractVariables(updateData.template);
   }
 

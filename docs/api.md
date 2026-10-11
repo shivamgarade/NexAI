@@ -2043,3 +2043,77 @@ Synthesizes interview speech using **Microsoft Edge Neural TTS** (default, ~400m
 - **Response `204 No Content` (Simulation Mode):**
   - Returned when `isSimulation: true` or `x-simulation: true` header is provided.
 
+---
+
+## Agent Skills & Autonomous Tools
+
+### GET `/api/skills`
+
+List available skills (seeded system skills and user custom skills), with filtering by category or favorites.
+
+- **Auth:** Bearer Token
+- **Query Params:**
+  - `category` (optional, string): e.g. `'web'`, `'coding'`, `'writing'`, `'analysis'`, `'general'`
+  - `favorite` (optional, boolean): filter to user favorited skills only
+- **Response `200 OK`:**
+```json
+{
+  "data": [
+    {
+      "_id": "67401122aabbccddeeff2244",
+      "title": "Web Deep Researcher",
+      "description": "Autonomous web searching, multi-source fact retrieval, and page inspection",
+      "category": "web",
+      "tools": ["web_search", "fetch_url"],
+      "instructions": "Search the web for up-to-date facts...",
+      "variables": [],
+      "isSystem": true,
+      "isFavorite": false
+    }
+  ]
+}
+```
+
+### POST `/api/skills`
+
+Create a new custom tool-enabled skill.
+
+- **Auth:** Bearer Token
+- **Request Body:**
+```json
+{
+  "title": "Data Pipeline Debugger",
+  "description": "Inspect ETL scripts and test sandbox snippets",
+  "category": "coding",
+  "tools": ["code_execution", "web_search"],
+  "instructions": "Diagnose the error in {{error_message}} for {{language}}",
+  "tags": ["pipeline", "debug"]
+}
+```
+- **Response `201 Created`:** Returns created skill object with automatically extracted variables (`["error_message", "language"]`).
+
+### GET `/api/skills/:id`
+
+Retrieve a single skill by ID.
+
+### PATCH `/api/skills/:id`
+
+Update a user custom skill (system skills are protected from edit).
+
+### DELETE `/api/skills/:id`
+
+Delete a user custom skill.
+
+### POST `/api/skills/:id/favorite`
+
+Toggle favorite state for a skill.
+
+### Chat Integration: Tools & Steps in `/api/chats/:id/messages`
+
+- **Request Body Extra Options:**
+  - `skillId` (optional, ObjectId string): Active skill ID.
+  - `enabledTools` (optional, array of string): Explicitly enabled tools (`"web_search"`, `"fetch_url"`, `"workspace_search"`, `"memory_search"`, `"code_execution"`).
+- **SSE Events:**
+  - `event: step`: Real-time agent progress (`{ id, tool, type, title, status: 'running' | 'completed' | 'failed', output }`).
+  - `event: grounding`: Web citation sources (`{ webSearchQueries: [...], sources: [{ title, url }] }`).
+

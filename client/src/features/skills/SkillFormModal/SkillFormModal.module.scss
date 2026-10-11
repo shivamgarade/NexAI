@@ -1,0 +1,126 @@
+@use '@/styles/abstracts' as *;
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.select {
+  padding: 8px 12px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--color-accent);
+  }
+}
+
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+
+  &:focus {
+    border-color: var(--color-accent);
+  }
+}
+
+.toolsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.toolToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface-elevated, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  transition: all var(--duration-fast);
+
+  &:hover {
+    background: var(--color-surface-hover, rgba(255, 255, 255, 0.08));
+  }
+
+  &.active {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: var(--color-accent, #6366f1);
+    color: var(--color-text-primary);
+  }
+}
+
+.variablesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md, 8px);
+  border: 1px dashed var(--color-border-subtle, rgba(255, 255, 255, 0.1));
+}
+
+.variableChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.variableChip {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--color-accent);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}

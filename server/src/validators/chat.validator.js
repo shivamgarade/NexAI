@@ -38,6 +38,11 @@ export const sendMessageSchema = z.object({
   model: z.enum(['flash', 'pro']).optional(),
   thinkingLevel: z.enum(['off', 'low', 'medium', 'high']).optional(),
   isSimulation: z.boolean().optional(),
+  skillId: z
+    .string()
+    .regex(/^[0-9a-fA-F]{24}$/, 'Invalid skill ID format')
+    .nullish(),
+  enabledTools: z.array(z.string()).nullish(),
   attachments: z.array(z.object({
     name: z.string().optional(),
     mimeType: z.string(),

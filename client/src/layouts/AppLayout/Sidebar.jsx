@@ -155,7 +155,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
   const primaryNavItems = [
     { to: ROUTES.CHAT, label: 'Chat', icon: <MessageSquare size={17} /> },
     { to: ROUTES.LIBRARY, label: 'Library', icon: <Bookmark size={17} /> },
-    { to: ROUTES.PROMPTS, label: 'Prompts', icon: <Terminal size={17} /> },
+    { to: ROUTES.SKILLS, label: 'Skills', icon: <Zap size={17} /> },
     { to: ROUTES.INTERVIEW, label: 'Interview', icon: <Mic size={17} /> },
     { to: ROUTES.SCHEMA, label: 'Data Modeling', icon: <Database size={17} /> },
   ];

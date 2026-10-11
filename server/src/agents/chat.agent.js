@@ -1,5 +1,6 @@
 import { streamContent, generateContent } from '../services/gemini.service.js';
 import { deductCredits } from '../services/credit.service.js';
+import { buildGeminiToolsConfig, executeAgentTool } from '../services/tools.service.js';
 import { CHAT_SYSTEM_PROMPT, TITLE_SYSTEM_PROMPT } from './prompts/chat.prompt.js';
 import { getModelName } from '../config/gemini.js';
 import { logger } from '../utils/logger.js';
@@ -106,6 +107,9 @@ export async function* streamChatReply({
   sources = [],
   memories = [],
   personalization,
+  skill = null,
+  enabledTools = [],
+  context = {},
 }) {
   const contents = formatConversationHistory(messages);
 
@@ -128,7 +132,12 @@ export async function* streamChatReply({
     }
   }
 
-  // 2. Inject project-level custom instructions
+  // 2. Inject active Skill system instructions if present
+  if (skill?.instructions && skill.instructions.trim()) {
+    systemInstruction += `\n\n[ACTIVE AGENT SKILL: ${skill.title}]:\nYou are operating with the specialized skill "${skill.title}". Follow these core directives:\n${skill.instructions.trim()}`;
+  }
+
+  // 3. Inject project-level custom instructions
   if (customInstructions && customInstructions.trim()) {
     systemInstruction += `\n\n[PROJECT CUSTOM INSTRUCTIONS]:\nFollow these custom project instructions for all responses:\n${customInstructions.trim()}`;
   }
@@ -166,15 +175,109 @@ export async function* streamChatReply({
   });
   systemInstruction += `\n\n[TEMPORAL CONTEXT]:\nCurrent timestamp is ${timeString}. You are fully context-aware of the current time, day, and date when responding to user greetings, scheduling, or time-sensitive questions.`;
 
-  const thinkingConfig = buildThinkingConfig({ thinkingLevel, model });
-  const config = thinkingConfig ? { thinkingConfig } : {};
+  // Combine skill tools and directly requested tools
+  const combinedTools = Array.from(
+    new Set([...(skill?.tools || []), ...(Array.isArray(enabledTools) ? enabledTools : [])]),
+  );
 
-  yield* streamContent({
-    contents,
-    model,
-    systemInstruction,
-    config,
-  });
+  const geminiTools = buildGeminiToolsConfig(combinedTools);
+  const thinkingConfig = buildThinkingConfig({ thinkingLevel, model });
+  const config = {
+    ...(thinkingConfig ? { thinkingConfig } : {}),
+    ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
+  };
+
+  const MAX_TOOL_ITERATIONS = 5;
+  let iteration = 0;
+  let currentContents = [...contents];
+
+  while (iteration < MAX_TOOL_ITERATIONS) {
+    iteration++;
+    let pendingFunctionCalls = [];
+
+    const stream = streamContent({
+      contents: currentContents,
+      model,
+      systemInstruction,
+      config,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.groundingMetadata) {
+        yield { groundingMetadata: chunk.groundingMetadata };
+      }
+
+      if (chunk.codeStep) {
+        yield { step: chunk.codeStep };
+      }
+
+      if (chunk.thought) {
+        yield { thought: chunk.thought };
+      }
+
+      if (chunk.text) {
+        yield { text: chunk.text };
+      }
+
+      if (chunk.usageMetadata) {
+        yield { usageMetadata: chunk.usageMetadata };
+      }
+
+      if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+        pendingFunctionCalls.push(...chunk.functionCalls);
+      }
+    }
+
+    if (pendingFunctionCalls.length === 0) {
+      break;
+    }
+
+    // Execute requested tool functions
+    const toolResponseParts = [];
+    for (const call of pendingFunctionCalls) {
+      const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      yield {
+        step: {
+          id: stepId,
+          type: 'tool_call',
+          tool: call.name,
+          title: `Executing ${call.name}`,
+          input: call.args,
+          status: 'running',
+        },
+      };
+
+      const result = await executeAgentTool(call.name, call.args, context);
+
+      yield {
+        step: {
+          id: stepId,
+          type: 'tool_call',
+          tool: call.name,
+          title: `Completed ${call.name}`,
+          input: call.args,
+          output: result,
+          status: 'completed',
+        },
+      };
+
+      toolResponseParts.push({
+        functionResponse: {
+          name: call.name,
+          response: result,
+        },
+      });
+    }
+
+    currentContents.push({
+      role: 'model',
+      parts: pendingFunctionCalls.map((c) => ({ functionCall: c })),
+    });
+    currentContents.push({
+      role: 'user',
+      parts: toolResponseParts,
+    });
+  }
 }
 
 /**

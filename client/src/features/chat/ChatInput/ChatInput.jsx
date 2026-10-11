@@ -14,13 +14,15 @@ import {
   Plus,
   CornerDownLeft,
   Upload,
+  X,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
-import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
+import { SkillPickerModal, VariableFillModal } from '@/features/skills';
 import { ModelSelectorPopover } from '../ModelSelector';
 import { AttachContextPopover } from './AttachContextPopover';
 import { AttachedContextPreview } from './AttachedContextPreview';
 import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
+import { useSkillStore } from '@/store/skillStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { libraryApi } from '@/lib/api/library.api';
 import { toast } from '@/store/uiStore';
@@ -80,12 +82,27 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     }, 0);
   };
 
-  const handleSelectPrompt = (prompt) => {
-    if (prompt.variables && prompt.variables.length > 0) {
-      setSelectedPromptForVariables(prompt);
+  const { activeSkill, setActiveSkill, clearActiveSkill } = useSkillStore();
+  const [selectedSkillForVariables, setSelectedSkillForVariables] = useState(null);
+
+  const handleSelectSkill = (skill) => {
+    if (skill.variables && skill.variables.length > 0) {
+      setSelectedSkillForVariables(skill);
     } else {
-      insertCompiledPrompt(prompt.template);
+      setActiveSkill(skill);
+      toast.info(`Active Skill: ${skill.title}`);
     }
+  };
+
+  const handleConfirmSkillVariables = (compiledInstructions) => {
+    if (selectedSkillForVariables) {
+      setActiveSkill({
+        ...selectedSkillForVariables,
+        instructions: compiledInstructions,
+      });
+      toast.info(`Active Skill: ${selectedSkillForVariables.title}`);
+    }
+    setSelectedSkillForVariables(null);
   };
 
   // Web Speech API Voice Dictation Hook with Real-Time Streaming
@@ -186,13 +203,16 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     if (textareaRef.current) {
       textareaRef.current.style.height = '28px';
     }
-    await sendMessage(messageToSend, attachments);
+    await sendMessage(messageToSend, attachments, { skill: activeSkill });
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    } else if ((e.key === '/' || e.key === '@') && (!input || input.trim() === '')) {
+      e.preventDefault();
+      setIsPickerOpen(true);
     }
   };
 
@@ -372,6 +392,28 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           />
         )}
 
+        {/* Active Tool-Enabled Skill Pill */}
+        {activeSkill && (
+          <div className={styles.activeSkillPill}>
+            <Zap size={13} className={styles.activeSkillIcon} />
+            <span className={styles.activeSkillName}>{activeSkill.title}</span>
+            {activeSkill.tools && activeSkill.tools.length > 0 && (
+              <span className={styles.activeSkillTools}>
+                • {activeSkill.tools.join(', ')}
+              </span>
+            )}
+            <button
+              type="button"
+              className={styles.activeSkillRemoveBtn}
+              onClick={clearActiveSkill}
+              title="Remove active skill"
+              aria-label="Remove active skill"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         <input
           type="file"
           ref={fileInputRef}
@@ -388,8 +430,8 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
               type="button"
               className={cn(styles.addBtn, isAttachModalOpen && styles.addBtnActive)}
               onClick={() => setIsAttachModalOpen((prev) => !prev)}
-              title="Add attachment or prompt template"
-              aria-label="Add attachment or prompt"
+              title="Add attachment"
+              aria-label="Add attachment"
             >
               <Plus size={18} />
             </button>
@@ -403,6 +445,16 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
             />
           </div>
 
+          <button
+            type="button"
+            className={cn(styles.addBtn, activeSkill && styles.addBtnActive)}
+            onClick={() => setIsPickerOpen(true)}
+            title={activeSkill ? `Active Skill: ${activeSkill.title} (Click to change)` : 'Choose Agent Skill (/)'}
+            aria-label="Choose Agent Skill"
+          >
+            <Zap size={16} />
+          </button>
+
           <textarea
             ref={textareaRef}
             rows={1}
@@ -412,7 +464,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
               baseTextRef.current = e.target.value;
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Write a message..."
+            placeholder={activeSkill ? `Ask ${activeSkill.title}...` : "Write a message... ('/' for skills)"}
             className={styles.textarea}
             aria-label="Chat input message"
           />
@@ -487,22 +539,21 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
         </div>
       </div>
 
-
-      {/* Prompt Selector Modal */}
-      <PromptPickerModal
+      {/* Skill Selector Modal */}
+      <SkillPickerModal
         open={isPickerOpen}
         onClose={() => setIsPickerOpen(false)}
-        onSelectPrompt={handleSelectPrompt}
+        onSelectSkill={handleSelectSkill}
       />
 
-      {/* Variable Fill Modal */}
-      {selectedPromptForVariables && (
+      {/* Variable Fill Modal for Skill */}
+      {selectedSkillForVariables && (
         <VariableFillModal
-          open={Boolean(selectedPromptForVariables)}
-          onClose={() => setSelectedPromptForVariables(null)}
-          prompt={selectedPromptForVariables}
-          onConfirm={insertCompiledPrompt}
-          actionLabel="Insert into Chat"
+          open={Boolean(selectedSkillForVariables)}
+          onClose={() => setSelectedSkillForVariables(null)}
+          skill={selectedSkillForVariables}
+          onConfirm={handleConfirmSkillVariables}
+          actionLabel="Activate Skill"
         />
       )}
     </div>
