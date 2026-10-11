@@ -3,20 +3,13 @@ import PropTypes from 'prop-types';
 import {
   Plus,
   Mic,
-  MicOff,
   ArrowUp,
   HelpCircle,
   Code2,
   Mail,
   Server,
-  Terminal,
-  Zap,
-  Brain,
-  Cpu,
   ChevronDown,
-  CornerDownLeft,
 } from 'lucide-react';
-import { IconButton } from '@/components/ui/IconButton';
 import { AttachContextModal } from '../ChatInput/AttachContextModal';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
 import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
@@ -60,10 +53,8 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const {
     isStreaming,
     isSimulation,
-    toggleSimulation,
     selectedModel,
     thinkingLevel,
-    setThinkingLevel,
   } = useChatStore();
 
   const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
@@ -160,7 +151,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollH = textareaRef.current.scrollHeight;
-      const minH = 28;
+      const minH = 52;
       const maxH = 220;
       textareaRef.current.style.height = `${Math.min(Math.max(scrollH, minH), maxH)}px`;
     }
@@ -203,7 +194,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     baseTextRef.current = "";
     setAttachedContext(null);
     if (textareaRef.current) {
-      textareaRef.current.style.height = "28px";
+      textareaRef.current.style.height = "52px";
     }
 
     if (onSendPrompt) {
@@ -301,7 +292,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
           <p className={styles.heroSubtitle}>{greeting.subtitle}</p>
         </div>
 
-        {/* Modern Responsive Prompt Composer Card */}
+        {/* Modern Responsive Prompt Composer Card (Claude-inspired spacious layout) */}
         <div className={styles.composerCard}>
           <form onSubmit={handleSubmit} className={styles.composerForm}>
             {/* Attached media & context preview */}
@@ -322,20 +313,11 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               accept="image/*,audio/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.js,.ts,.jsx,.tsx,.py,.html,.css,.yaml,.yml,.sql"
             />
 
-            <div className={styles.composerInputRow}>
-              <button
-                type="button"
-                className={styles.addBtn}
-                onClick={() => setIsAttachModalOpen(true)}
-                title="Attach context file or prompt"
-                aria-label="Attach context file"
-              >
-                <Plus size={18} />
-              </button>
-
+            {/* Top Textarea Area */}
+            <div className={styles.inputArea}>
               <textarea
                 ref={textareaRef}
-                rows={1}
+                rows={2}
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
@@ -344,14 +326,50 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isSimulation
-                    ? 'Simulation Mode (0 tokens) — Ask anything...'
-                    : 'Ask NexAI anything...'
+                    ? 'Simulation Mode (0 tokens) — How can I help you today?'
+                    : 'How can I help you today?'
                 }
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"
               />
+            </div>
 
-              <div className={styles.inlineActions}>
+            {/* Bottom Actions Toolbar: Attach (+) on left; Model Selector, Mic, Send on right */}
+            <div className={styles.composerBottomRow}>
+              <div className={styles.bottomLeftActions}>
+                <button
+                  type="button"
+                  className={styles.attachBtn}
+                  onClick={() => setIsAttachModalOpen(true)}
+                  title="Attach context file or prompt"
+                  aria-label="Attach context file"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+
+              <div className={styles.bottomRightActions}>
+                <div className={styles.popoverAnchorWrapper}>
+                  <button
+                    ref={modelButtonRef}
+                    type="button"
+                    className={styles.modelPillLink}
+                    onClick={() => setIsModelPopoverOpen((prev) => !prev)}
+                    disabled={isStreaming}
+                    title={`AI Model: ${modelShortName} · Effort: ${effortName}`}
+                    aria-label="Select AI model and effort"
+                  >
+                    <span className={styles.modelText}>{modelPillLabel}</span>
+                    <ChevronDown size={13} className={styles.modelChevron} />
+                  </button>
+
+                  <ModelSelectorPopover
+                    open={isModelPopoverOpen}
+                    onClose={() => setIsModelPopoverOpen(false)}
+                    anchorRef={modelButtonRef}
+                  />
+                </div>
+
                 <button
                   type="button"
                   className={cn(styles.micBtn, isListening && styles.listeningMic)}
@@ -372,7 +390,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                         : 'Voice dictation'
                   }
                 >
-                  <Mic size={16} />
+                  <Mic size={17} />
                 </button>
 
                 {hasContent && (
@@ -382,40 +400,12 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     title="Send prompt (Enter)"
                     aria-label="Send prompt"
                   >
-                    <CornerDownLeft size={16} />
+                    <ArrowUp size={16} />
                   </button>
                 )}
               </div>
             </div>
           </form>
-
-          {/* Bottom Footer: Disclaimer on left, Model Selector on right */}
-          <div className={styles.composerFooter}>
-            <span className={styles.disclaimerText}>
-              NexAI is an AI workspace and can make mistakes. Please double-check responses.
-            </span>
-
-            <div className={styles.popoverAnchorWrapper}>
-              <button
-                ref={modelButtonRef}
-                type="button"
-                className={styles.modelPillLink}
-                onClick={() => setIsModelPopoverOpen((prev) => !prev)}
-                disabled={isStreaming}
-                title={`Model: ${modelShortName} · Effort: ${effortName}`}
-                aria-label="Select AI model and effort"
-              >
-                <span className={styles.modelText}>{modelPillLabel}</span>
-                <ChevronDown size={13} className={styles.modelChevron} />
-              </button>
-
-              <ModelSelectorPopover
-                open={isModelPopoverOpen}
-                onClose={() => setIsModelPopoverOpen(false)}
-                anchorRef={modelButtonRef}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Minimalist Gemini Quick Prompts (clean text rows, not cards) */}
@@ -434,6 +424,11 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
             </button>
           ))}
         </div>
+
+        {/* Clean Centered Disclaimer below quick prompts, outside the input card */}
+        <p className={styles.disclaimerText}>
+          NexAI is an AI workspace and can make mistakes. Please double-check responses.
+        </p>
       </div>
 
       {/* Attach Context from Library or Device Modal */}
