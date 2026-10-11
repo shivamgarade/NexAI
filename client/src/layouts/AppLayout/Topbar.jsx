@@ -1,42 +1,20 @@
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Sun, Moon, Search, MessageSquareDashed } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Menu, Sun, Moon, Search } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTheme } from '@/hooks/useTheme';
 import { IconButton } from '@/components/ui/IconButton';
 import { Kbd } from '@/components/ui/Kbd';
 import { CreditBadge } from '@/components/common/CreditBadge';
 import { useAuthStore } from '@/store/authStore';
-import { useChatStore } from '@/store/chatStore';
 import { ROUTES } from '@/constants/routes';
-import { cn } from '@/lib/utils/cn';
 import styles from './Topbar.module.scss';
 
 export function Topbar() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { isDark, toggleTheme } = useTheme();
   const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const user = useAuthStore((state) => state.user);
   const credits = user?.wallet?.creditsRemaining ?? 100;
-
-  const isTemporaryChat = useChatStore((state) => state.isTemporaryChat);
-  const startTemporaryChat = useChatStore((state) => state.startTemporaryChat);
-  const clearTemporaryChat = useChatStore((state) => state.clearTemporaryChat);
-
-  const isChatRoute =
-    location.pathname === '/chat' || location.pathname.startsWith('/chat/');
-
-  const handleToggleTemporaryChat = async () => {
-    if (isTemporaryChat) {
-      await clearTemporaryChat();
-      navigate(ROUTES.CHAT);
-    } else {
-      await startTemporaryChat();
-      if (!isChatRoute) {
-        navigate(ROUTES.CHAT);
-      }
-    }
-  };
 
   const openCommandPalette = () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
@@ -65,19 +43,6 @@ export function Topbar() {
       </div>
 
       <div className={styles.rightGroup}>
-        <IconButton
-          icon={<MessageSquareDashed size={18} />}
-          label={
-            isTemporaryChat
-              ? 'Temporary Chat active — Click to exit'
-              : 'Temporary Chat (incognito, not saved)'
-          }
-          onClick={handleToggleTemporaryChat}
-          className={cn(
-            styles.tempChatBtn,
-            isTemporaryChat && styles.activeTempChatBtn
-          )}
-        />
         <CreditBadge credits={credits} onClick={() => navigate(ROUTES.WALLET)} />
         <IconButton
           icon={isDark ? <Sun size={18} /> : <Moon size={18} />}

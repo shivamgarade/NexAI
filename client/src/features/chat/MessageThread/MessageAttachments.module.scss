@@ -1,0 +1,451 @@
+@use '@/styles/abstracts' as *;
+
+.attachmentsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  width: 100%;
+}
+
+/* 1. Image Attachment */
+.imageCard {
+  position: relative;
+  display: inline-block;
+  max-width: min(100%, 340px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  background-color: var(--color-bg-surface);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--color-accent) 15%, transparent);
+
+    .imageHoverOverlay {
+      opacity: 1;
+    }
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.imagePreview {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  min-height: 120px;
+  object-fit: cover;
+  background-color: var(--color-bg-app);
+}
+
+.imageHoverOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.2) 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: var(--space-3);
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+}
+
+.imageMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--gray-0);
+  min-width: 0;
+}
+
+.imageName {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.imageSize {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.expandBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  border-radius: var(--radius-full);
+  color: var(--gray-0);
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+}
+
+/* 2. Video Attachment */
+.videoCard {
+  display: flex;
+  flex-direction: column;
+  max-width: min(100%, 380px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.videoHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-2);
+}
+
+.videoHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.videoIcon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.videoTitle {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.videoSize {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.videoPlayer {
+  width: 100%;
+  max-height: 240px;
+  background-color: var(--gray-950);
+  display: block;
+}
+
+/* 3. PDF Document Card */
+.pdfCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  max-width: min(100%, 360px);
+  background-color: var(--color-bg-surface);
+  border: 1px solid color-mix(in srgb, var(--red-500) 30%, var(--color-border));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--red-500) 50%, var(--color-border));
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--red-500) 12%, transparent);
+  }
+}
+
+.pdfLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.pdfIconWrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--red-500) 12%, transparent);
+  color: var(--red-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--red-500) 25%, transparent);
+}
+
+.pdfInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pdfTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.pdfMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.pdfTag {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  color: var(--red-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pdfActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.pdfActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-elevated));
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+/* 4. Audio Attachment */
+.audioCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  max-width: min(100%, 380px);
+  background-color: var(--color-bg-surface);
+  border: 1px solid color-mix(in srgb, var(--violet-500) 30%, var(--color-border));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.audioHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.audioHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.audioIcon {
+  color: var(--violet-400);
+  flex-shrink: 0;
+}
+
+.audioTitle {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audioHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.audioBadge {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  color: var(--violet-400);
+  background-color: color-mix(in srgb, var(--violet-500) 15%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.audioSize {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.audioPlayer {
+  width: 100%;
+  height: 36px;
+  border-radius: var(--radius-md);
+}
+
+/* 5. Generic Document / Code File Card */
+.genericCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  max-width: min(100%, 340px);
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.genericLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.genericIconWrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.genericInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.genericTitle {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.genericMeta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* 6. Lightbox Preview Modal */
+.lightboxModal {
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+  width: auto !important;
+  padding: var(--space-4) !important;
+}
+
+.lightboxBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  max-height: calc(85vh - 80px);
+  overflow: auto;
+}
+
+.lightboxImage {
+  max-width: 100%;
+  max-height: calc(80vh - 100px);
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.lightboxFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-top: var(--space-2);
+}
+
+.lightboxDownloadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    opacity: 0.9;
+  }
+}

@@ -20,6 +20,7 @@ import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { libraryApi } from '@/lib/api/library.api';
+import { toast } from '@/store/uiStore';
 import { getGreetingContext } from './greetingHelper';
 import { cn } from '@/lib/utils/cn';
 import logoImg from '@/assets/logo.png';
@@ -59,6 +60,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     selectedModel,
     thinkingLevel,
     isTemporaryChat,
+    startTemporaryChat,
     clearTemporaryChat,
   } = useChatStore();
 
@@ -183,6 +185,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
           mimeType: attachedContext.mimeType,
           data: attachedContext.data,
           size: attachedContext.size,
+          type: attachedContext.type,
         });
         if (!finalPrompt) {
           finalPrompt = `[Analyzed ${attachedContext.type || "file"}: ${attachedContext.name}]`;
@@ -193,6 +196,13 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
 
 `;
         finalPrompt = `${prefix}${trimmed}`;
+        attachments.push({
+          name: attachedContext.name,
+          mimeType: attachedContext.mimeType || "text/plain",
+          size: attachedContext.size || 0,
+          type: attachedContext.type || "file",
+          content: attachedContext.content,
+        });
       }
     }
 
@@ -224,6 +234,17 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
 
   const processAndAttachFile = (file) => {
     if (!file) return;
+
+    const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB limit
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error(
+        `File "${file.name}" is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is 10 MB.`,
+      );
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     const isText =
       file.type.startsWith('text/') ||
@@ -372,38 +393,39 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     <div className={styles.heroContainer} data-testid="chat-hero">
       <div className={styles.heroContent}>
         {/* Context-Aware Gemini-inspired Hero Headline */}
-        <div className={cn(styles.greetingHeader, isTemporaryChat && styles.tempGreetingHeader)}>
-          {isTemporaryChat ? (
-            <>
-              <div className={styles.tempIconWrapper}>
-                <div className={styles.tempIconHalo}>
-                  <MessageSquareDashed size={30} className={styles.tempDashedIcon} />
-                </div>
+        <div className={styles.greetingHeader}>
+          <div className={styles.sparkleIcon}>
+            <img src={logoImg} alt="NexAI Logo" className={styles.heroLogoImg} />
+          </div>
+          <h1 className={styles.heroHeadline}>{greeting.headline}</h1>
+          <p className={styles.heroSubtitle}>{greeting.subtitle}</p>
+
+          <div className={styles.tempModeBar}>
+            {isTemporaryChat ? (
+              <div className={styles.tempActiveBanner}>
+                <MessageSquareDashed size={14} className={styles.tempActiveIcon} />
+                <span>Temporary Chat active (not saved to history)</span>
+                <button
+                  type="button"
+                  className={styles.exitTempPillBtn}
+                  onClick={clearTemporaryChat}
+                  title="Switch back to regular chat"
+                >
+                  Exit
+                </button>
               </div>
-              <h1 className={styles.heroHeadline}>Just stopping by?</h1>
-              <p className={styles.tempSubtitle}>
-                <span className={styles.dashedTerm}>Temporary chats</span> don't appear in{' '}
-                <span className={styles.dashedTerm}>recent history</span> and aren't saved to your account.
-                Messages vanish after you leave.
-              </p>
+            ) : (
               <button
                 type="button"
-                className={styles.exitTempBtn}
-                onClick={clearTemporaryChat}
-                title="Exit temporary chat and return to normal mode"
+                className={styles.tempToggleBtn}
+                onClick={startTemporaryChat}
+                title="Start a temporary chat that will not be saved"
               >
-                <span>Exit Temporary Mode</span>
+                <MessageSquareDashed size={14} />
+                <span>Temporary chat</span>
               </button>
-            </>
-          ) : (
-            <>
-              <div className={styles.sparkleIcon}>
-                <img src={logoImg} alt="NexAI Logo" className={styles.heroLogoImg} />
-              </div>
-              <h1 className={styles.heroHeadline}>{greeting.headline}</h1>
-              <p className={styles.heroSubtitle}>{greeting.subtitle}</p>
-            </>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Modern Responsive Prompt Composer Card (Claude-inspired spacious layout) */}

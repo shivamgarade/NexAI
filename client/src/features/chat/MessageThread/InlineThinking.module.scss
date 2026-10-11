@@ -7,7 +7,15 @@
   width: 100%;
 }
 
-.thinkingHeader {
+.thinkingHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-2);
+}
+
+.thinkingToggleBtn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -57,6 +65,31 @@
   }
 }
 
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--color-text-primary);
+    border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+    background-color: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
 .thinkingBody {
   margin-top: var(--space-1);
   margin-left: var(--space-1);
@@ -65,32 +98,6 @@
   background: transparent;
   max-height: 380px;
   overflow-y: auto;
-}
-
-.bodyTopRow {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-bottom: var(--space-1);
-}
-
-.copyBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-standard);
-
-  &:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-bg-hover);
-  }
 }
 
 .thoughtContentWrapper {

@@ -23,6 +23,7 @@ import { AttachedContextPreview } from './AttachedContextPreview';
 import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { libraryApi } from '@/lib/api/library.api';
+import { toast } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
 import styles from './ChatInput.module.scss';
 
@@ -152,9 +153,31 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     }
 
     let messageToSend = trimmed;
+    const attachments = [];
+
     if (attachedContext) {
-      const contextPrefix = `[Attached Context: ${attachedContext.name} (${attachedContext.type || 'file'})]\n${attachedContext.content ? attachedContext.content.slice(0, 4000) : ''}\n[End of Context]\n\n`;
-      messageToSend = `${contextPrefix}${trimmed}`;
+      if (attachedContext.data) {
+        attachments.push({
+          name: attachedContext.name,
+          mimeType: attachedContext.mimeType || 'application/octet-stream',
+          data: attachedContext.data,
+          size: attachedContext.size || 0,
+          type: attachedContext.type,
+        });
+        if (!messageToSend) {
+          messageToSend = `[Analyzed ${attachedContext.type || 'file'}: ${attachedContext.name}]`;
+        }
+      } else {
+        const contextPrefix = `[Attached Context: ${attachedContext.name} (${attachedContext.type || 'file'})]\n${attachedContext.content ? attachedContext.content.slice(0, 4000) : ''}\n[End of Context]\n\n`;
+        messageToSend = `${contextPrefix}${trimmed}`;
+        attachments.push({
+          name: attachedContext.name,
+          mimeType: attachedContext.mimeType || 'text/plain',
+          size: attachedContext.size || 0,
+          type: attachedContext.type || 'file',
+          content: attachedContext.content,
+        });
+      }
     }
 
     setInput('');
@@ -163,7 +186,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     if (textareaRef.current) {
       textareaRef.current.style.height = '28px';
     }
-    await sendMessage(messageToSend);
+    await sendMessage(messageToSend, attachments);
   };
 
   const handleKeyDown = (e) => {
@@ -178,6 +201,17 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
 
   const processAndAttachFile = (file) => {
     if (!file) return;
+
+    const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB limit
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error(
+        `File "${file.name}" is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is 10 MB.`,
+      );
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     const isText =
       file.type.startsWith('text/') ||

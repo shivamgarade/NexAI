@@ -32,6 +32,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ThinkingDrawer } from '../ThinkingDrawer/ThinkingDrawer';
 import { InlineThinking } from './InlineThinking';
+import { MessageAttachments } from './MessageAttachments';
 import { PromptFormModal } from '@/features/prompts';
 import { interviewApi } from '@/lib/api/interview.api.js';
 import { useAuthStore } from '@/store/authStore';
@@ -91,6 +92,27 @@ function getAudioContext() {
   } catch {
     return null;
   }
+}
+
+/**
+ * Strips auto-generated placeholder prefixes and legacy context blocks from display prompt
+ */
+function getDisplayPrompt(content, attachments) {
+  if (!content || typeof content !== 'string') return '';
+  const hasAtt = Array.isArray(attachments) && attachments.length > 0;
+  // If content is just an auto-generated placeholder when user submitted without typing prompt
+  const isAutoPlaceholder = /^\[(Analyzed|Attached)\s+[^\]]+\]$/i.test(content.trim());
+  if (isAutoPlaceholder && hasAtt) {
+    return '';
+  }
+  // If content has legacy "[Attached Context: ...]\n...[End of Context]\n\n<user prompt>"
+  const contextBlockMatch = content.match(/^\[Attached Context:[^\]]+\][\s\S]*?\[End of Context\]\s*/i);
+  if (contextBlockMatch) {
+    const afterContext = content.slice(contextBlockMatch[0].length).trim();
+    if (afterContext) return afterContext;
+    if (hasAtt) return '';
+  }
+  return content;
 }
 
 /**
@@ -506,6 +528,10 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
               const messageId = message._id || `msg-${index}`;
               const isCopied = copiedId === messageId;
               const timeString = formatTime(message.createdAt);
+              const hasAttachments = Array.isArray(message.attachments) && message.attachments.length > 0;
+              const displayContent = isUser
+                ? getDisplayPrompt(message.content, message.attachments)
+                : message.content;
 
               return (
                 <div
@@ -543,9 +569,19 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                       )}
                     >
                       {isUser ? (
-                        <div className={styles.userText}>{message.content}</div>
+                        <div className={styles.userContentContainer}>
+                          {hasAttachments && (
+                            <MessageAttachments attachments={message.attachments} />
+                          )}
+                          {displayContent ? (
+                            <div className={styles.userText}>{displayContent}</div>
+                          ) : null}
+                        </div>
                       ) : (
                         <div className={styles.aiContentContainer}>
+                          {hasAttachments && (
+                            <MessageAttachments attachments={message.attachments} />
+                          )}
                           {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
                             <InlineThinking
                               thoughts={message.thoughts}
@@ -604,7 +640,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                               <button
                                 type="button"
                                 className={styles.actionBtn}
-                                onClick={() => handleCopy(message.content, messageId)}
+                                onClick={() => handleCopy(displayContent || message.content, messageId)}
                                 aria-label="Copy prompt"
                               >
                                 {isCopied ? (
@@ -618,7 +654,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                               <button
                                 type="button"
                                 className={styles.actionBtn}
-                                onClick={() => onEditPrompt?.(message.content)}
+                                onClick={() => onEditPrompt?.(displayContent || message.content)}
                                 aria-label="Edit prompt"
                               >
                                 <Edit3 size={15} />
@@ -628,7 +664,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                               <button
                                 type="button"
                                 className={styles.actionBtn}
-                                onClick={() => handleResendUserPrompt(message.content)}
+                                onClick={() => handleResendUserPrompt(displayContent || message.content)}
                                 aria-label="Resend prompt"
                                 disabled={isStreaming}
                               >
@@ -642,7 +678,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                                 onClick={() =>
                                   setSavePromptData({
                                     title: 'Saved User Prompt',
-                                    template: message.content,
+                                    template: displayContent || message.content,
                                   })
                                 }
                                 aria-label="Save to Prompt Vault"
@@ -655,15 +691,16 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                                 type="button"
                                 className={styles.actionBtn}
                                 onClick={() => {
+                                  const textToSave = displayContent || message.content;
                                   const titleHint =
-                                    message.content
+                                    textToSave
                                       .split('\n')[0]
                                       .replace(/^[#*-]+\s*/, '')
                                       .slice(0, 45) || 'User Note';
                                   useLibraryStore.getState().openAddModal({
                                     type: 'note',
                                     title: titleHint,
-                                    content: message.content,
+                                    content: textToSave,
                                     tags: ['chat', 'note'],
                                   });
                                 }}
