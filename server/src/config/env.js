@@ -20,6 +20,7 @@ const envSchema = z.object({
   GEMINI_FLASH_MODEL: z.string().default('gemini-3.5-flash-lite'),
   GEMINI_PRO_MODEL: z.string().default('gemini-3.1-pro-preview'),
   GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
+  GEMINI_TTS_MODEL: z.string().default('gemini-3.8-flash-lite-tts'),
   CREDITS_PER_100_TOKENS: z.coerce.number().default(1),
   CREDIT_ENFORCEMENT_MODE: z
     .enum(['quota_free', 'credit_strict'])

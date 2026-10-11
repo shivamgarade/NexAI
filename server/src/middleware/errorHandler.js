@@ -23,6 +23,11 @@ export async function errorHandler(err, req, res, _next) {
     statusCode = 409;
     code = 'DUPLICATE_KEY_ERROR';
     message = 'A resource with that identifier already exists';
+  } else if (err.type === 'entity.too.large' || err.status === 413) {
+    statusCode = 413;
+    code = 'PAYLOAD_TOO_LARGE';
+    message =
+      'File size is too large (maximum allowed size is 10 MB). Please upload a smaller video clip or compress the file.';
   }
 
   // Log error
@@ -31,6 +36,7 @@ export async function errorHandler(err, req, res, _next) {
       statusCode,
       code,
       message: err.message,
+      details,
       stack: env.NODE_ENV === 'development' ? err.stack : undefined,
       path: req.originalUrl,
     },

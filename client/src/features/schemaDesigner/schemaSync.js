@@ -1,0 +1,551 @@
+/**
+ * Schema Code Generator and Parser for Bi-directional Synchronization
+ * Synchronizes state between ERD Canvas (entities, fields, relations)
+ * and Code Studio (Mongoose, PostgreSQL SQL, Prisma, TypeScript, Mermaid).
+ */
+
+/**
+ * Maps standard field types to Mongoose Schema types
+ */
+function mapToMongooseType(type, isForeignKey, refEntity) {
+  const t = (type || 'string').toLowerCase();
+  if (isForeignKey && refEntity) {
+    return `mongoose.Schema.Types.ObjectId, ref: '${refEntity}'`;
+  }
+  if (t.includes('uuid') || t.includes('objectid')) {
+    return 'mongoose.Schema.Types.ObjectId';
+  }
+  if (t.includes('int') || t.includes('number') || t.includes('decimal') || t.includes('float')) {
+    return 'Number';
+  }
+  if (t.includes('bool')) {
+    return 'Boolean';
+  }
+  if (t.includes('date') || t.includes('time')) {
+    return 'Date';
+  }
+  if (t.includes('json') || t.includes('object')) {
+    return 'mongoose.Schema.Types.Mixed';
+  }
+  if (t.includes('array')) {
+    return '[String]';
+  }
+  return 'String';
+}
+
+/**
+ * Maps standard field types to PostgreSQL types
+ */
+function mapToSqlType(type) {
+  const t = (type || 'varchar').toUpperCase();
+  if (t.includes('UUID')) return 'UUID';
+  if (t.includes('INT')) return t.includes('BIG') ? 'BIGINT' : 'INTEGER';
+  if (t.includes('BOOL')) return 'BOOLEAN';
+  if (t.includes('DATE') || t.includes('TIME')) return 'TIMESTAMP WITH TIME ZONE';
+  if (t.includes('JSON')) return 'JSONB';
+  if (t.includes('TEXT')) return 'TEXT';
+  if (t.includes('DECIMAL') || t.includes('NUMERIC')) return 'NUMERIC(12, 2)';
+  return 'VARCHAR(255)';
+}
+
+/**
+ * Maps standard field types to Prisma types
+ */
+function mapToPrismaType(type) {
+  const t = (type || 'string').toLowerCase();
+  if (t.includes('uuid') || t.includes('varchar') || t.includes('text') || t.includes('string')) return 'String';
+  if (t.includes('int') || t.includes('number')) return 'Int';
+  if (t.includes('float') || t.includes('decimal')) return 'Float';
+  if (t.includes('bool')) return 'Boolean';
+  if (t.includes('date') || t.includes('time')) return 'DateTime';
+  if (t.includes('json')) return 'Json';
+  return 'String';
+}
+
+/**
+ * Maps standard field types to TypeScript types
+ */
+function mapToTsType(type) {
+  const t = (type || 'string').toLowerCase();
+  if (t.includes('int') || t.includes('number') || t.includes('float') || t.includes('decimal')) return 'number';
+  if (t.includes('bool')) return 'boolean';
+  if (t.includes('date') || t.includes('time')) return 'Date';
+  if (t.includes('json') || t.includes('object')) return 'Record<string, unknown>';
+  if (t.includes('array')) return 'string[]';
+  return 'string';
+}
+
+/**
+ * Generate all 4 dialect code outputs and Mermaid ERD from entities and relationships
+ */
+export function generateAllCodeOutputs(entities = [], relationships = []) {
+  if (!entities || entities.length === 0) {
+    return {
+      mongoose: '',
+      sql: '',
+      prisma: '',
+      typescript: '',
+      mermaidErDiagram: 'erDiagram\n',
+    };
+  }
+
+  // 1. Mongoose Output
+  const mongooseLines = ["import mongoose from 'mongoose';\n"];
+  entities.forEach((entity) => {
+    const schemaVarName = `${entity.name.charAt(0).toLowerCase() + entity.name.slice(1)}Schema`;
+    mongooseLines.push(`const ${schemaVarName} = new mongoose.Schema({`);
+
+    (entity.fields || []).forEach((field) => {
+      // Don't define default _id if primary
+      if (field.name === '_id' || (field.isPrimary && field.name.toLowerCase() === 'id')) return;
+
+      const rel = relationships.find(
+        (r) => r.source === entity.name && r.sourceField === field.name
+      );
+      const refEntity = rel ? rel.target : field.references?.split('.')[0];
+      const mType = mapToMongooseType(field.type, field.isForeignKey || !!rel, refEntity);
+
+      const props = [];
+      if (mType.includes(',')) {
+        props.push(`type: ${mType}`);
+      } else {
+        props.push(`type: ${mType}`);
+      }
+
+      if (field.isRequired) props.push('required: true');
+      if (field.isUnique) props.push('unique: true');
+      if (field.isForeignKey || field.isUnique || field.name.toLowerCase().endsWith('id')) {
+        props.push('index: true');
+      }
+
+      mongooseLines.push(`  ${field.name}: { ${props.join(', ')} },`);
+    });
+
+    mongooseLines.push('}, { timestamps: true });\n');
+    mongooseLines.push(
+      `export const ${entity.name} = mongoose.model('${entity.name}', ${schemaVarName});\n`
+    );
+  });
+
+  // Append relation comments if any custom field-to-field relations exist
+  if (relationships.length > 0) {
+    relationships.forEach((rel) => {
+      mongooseLines.push(`// Relation: ${rel.source}.${rel.sourceField} -> ${rel.target}.${rel.targetField} (${rel.cardinality || '1 : N'})`);
+    });
+    mongooseLines.push('');
+  }
+
+  // 2. PostgreSQL SQL DDL Output
+  const sqlLines = ['-- PostgreSQL Schema DDL Generated by NexAI Data Modeling Studio\n'];
+  entities.forEach((entity) => {
+    const tableName = entity.name.toLowerCase() + (entity.name.endsWith('s') ? '' : 's');
+    sqlLines.push(`CREATE TABLE IF NOT EXISTS "${tableName}" (`);
+
+    const colDefs = [];
+    (entity.fields || []).forEach((field) => {
+      let col = `  "${field.name}" ${mapToSqlType(field.type)}`;
+      if (field.isPrimary) col += ' PRIMARY KEY';
+      if (field.isRequired && !field.isPrimary) col += ' NOT NULL';
+      if (field.isUnique && !field.isPrimary) col += ' UNIQUE';
+
+      const rel = relationships.find(
+        (r) => r.source === entity.name && r.sourceField === field.name
+      );
+      if (rel) {
+        const tgtTable = rel.target.toLowerCase() + (rel.target.endsWith('s') ? '' : 's');
+        col += ` REFERENCES "${tgtTable}" ("${rel.targetField}") ON DELETE CASCADE`;
+      } else if (field.references) {
+        const [refEnt, refFld = 'id'] = field.references.split('.');
+        const tgtTable = refEnt.toLowerCase() + (refEnt.endsWith('s') ? '' : 's');
+        col += ` REFERENCES "${tgtTable}" ("${refFld}") ON DELETE CASCADE`;
+      }
+
+      colDefs.push(col);
+    });
+
+    sqlLines.push(colDefs.join(',\n'));
+    sqlLines.push(');\n');
+
+    // Indexes
+    (entity.fields || []).forEach((field) => {
+      if ((field.isForeignKey || field.name.toLowerCase().endsWith('id')) && !field.isPrimary) {
+        sqlLines.push(
+          `CREATE INDEX IF NOT EXISTS "idx_${tableName}_${field.name}" ON "${tableName}" ("${field.name}");`
+        );
+      }
+    });
+    sqlLines.push('');
+  });
+
+  // 3. Prisma Schema Output
+  const prismaLines = [
+    'datasource db {',
+    '  provider = "postgresql"',
+    '  url      = env("DATABASE_URL")',
+    '}\n',
+    'generator client {',
+    '  provider = "prisma-client-js"',
+    '}\n',
+  ];
+
+  entities.forEach((entity) => {
+    prismaLines.push(`model ${entity.name} {`);
+    (entity.fields || []).forEach((field) => {
+      const pType = mapToPrismaType(field.type);
+      const attrs = [];
+      if (field.isPrimary) attrs.push('@id @default(uuid())');
+      if (field.isUnique && !field.isPrimary) attrs.push('@unique');
+
+      const rel = relationships.find(
+        (r) => r.source === entity.name && r.sourceField === field.name
+      );
+      if (rel) {
+        attrs.push(`// relation to ${rel.target}.${rel.targetField}`);
+      }
+
+      prismaLines.push(`  ${field.name.padEnd(16)} ${pType}${field.isRequired ? '' : '?'} ${attrs.join(' ')}`);
+    });
+    prismaLines.push('}\n');
+  });
+
+  // 4. TypeScript Interfaces
+  const tsLines = ['// TypeScript Entity Models Generated by NexAI\n'];
+  entities.forEach((entity) => {
+    tsLines.push(`export interface ${entity.name}Entity {`);
+    (entity.fields || []).forEach((field) => {
+      const tType = mapToTsType(field.type);
+      const optional = field.isRequired ? '' : '?';
+      tsLines.push(`  ${field.name}${optional}: ${tType};`);
+    });
+    tsLines.push('}\n');
+  });
+
+  // 5. Mermaid ERD
+  const mermaidLines = ['erDiagram'];
+  relationships.forEach((rel) => {
+    const cardSymbol =
+      rel.cardinality === '1 : 1'
+        ? '||--||'
+        : rel.cardinality === 'N : M'
+        ? '}o--o{'
+        : '||--o{';
+    mermaidLines.push(
+      `    ${rel.source.toUpperCase()} ${cardSymbol} ${rel.target.toUpperCase()} : "${rel.sourceField}_to_${rel.targetField}"`
+    );
+  });
+  if (relationships.length === 0) {
+    mermaidLines.push('');
+  }
+
+  entities.forEach((entity) => {
+    mermaidLines.push(`    ${entity.name.toUpperCase()} {`);
+    (entity.fields || []).forEach((field) => {
+      const tag = field.isPrimary ? ' PK' : field.isForeignKey ? ' FK' : field.isUnique ? ' UK' : '';
+      const sanitizedType = (field.type || 'string').replace(/[\s()]/g, '_').toLowerCase();
+      mermaidLines.push(`        ${sanitizedType} ${field.name}${tag}`);
+    });
+    mermaidLines.push('    }');
+  });
+
+  return {
+    mongoose: mongooseLines.join('\n').trim(),
+    sql: sqlLines.join('\n').trim(),
+    prisma: prismaLines.join('\n').trim(),
+    typescript: tsLines.join('\n').trim(),
+    mermaidErDiagram: mermaidLines.join('\n').trim(),
+  };
+}
+
+/**
+ * Parses code text from any dialect back into an array of entities and relationships
+ */
+export function parseCodeToEntities(code, dialect = 'mongoose') {
+  if (!code || typeof code !== 'string') return null;
+
+  try {
+    if (dialect === 'mongoose' || code.includes('new mongoose.Schema')) {
+      return parseMongooseCode(code);
+    }
+    if (dialect === 'sql' || /CREATE\s+TABLE/i.test(code)) {
+      return parseSqlCode(code);
+    }
+    if (dialect === 'prisma' || /model\s+\w+\s+\{/i.test(code)) {
+      return parsePrismaCode(code);
+    }
+    if (dialect === 'typescript' || /interface\s+\w+Entity/i.test(code)) {
+      return parseTsCode(code);
+    }
+  } catch (err) {
+    console.warn('Failed to parse code into entities:', err);
+  }
+  return null;
+}
+
+function parseMongooseCode(code) {
+  const entities = [];
+  const relationships = [];
+
+  // Match schemas: const xxxSchema = new mongoose.Schema({ ... })
+  // and model names: mongoose.model('User', userSchema)
+  const schemaRegex = /const\s+(\w+Schema)\s*=\s*new\s+mongoose\.Schema\s*\(\s*\{([\s\S]*?)\}\s*,\s*\{/g;
+  const modelRegex = /mongoose\.model\s*\(\s*['"](\w+)['"]\s*,\s*(\w+Schema)\s*\)/g;
+
+  const schemaToModel = {};
+  let mMatch;
+  while ((mMatch = modelRegex.exec(code)) !== null) {
+    schemaToModel[mMatch[2]] = mMatch[1];
+  }
+
+  let sMatch;
+  while ((sMatch = schemaRegex.exec(code)) !== null) {
+    const schemaVar = sMatch[1];
+    const body = sMatch[2];
+    const entityName =
+      schemaToModel[schemaVar] ||
+      schemaVar.replace(/Schema$/i, '').charAt(0).toUpperCase() +
+        schemaVar.replace(/Schema$/i, '').slice(1);
+
+    const fields = [
+      { name: 'id', type: 'UUID', isPrimary: true, isRequired: true, isUnique: true },
+    ];
+
+    // Parse field entries
+    const fieldLines = body.split('\n');
+    fieldLines.forEach((line) => {
+      const trimmed = line.trim();
+      const match = trimmed.match(/^(\w+)\s*:\s*\{([^}]+)\}/);
+      if (match) {
+        const fieldName = match[1];
+        const config = match[2];
+
+        let type = 'VARCHAR(255)';
+        if (/type\s*:\s*Number/i.test(config)) type = 'INTEGER';
+        else if (/type\s*:\s*Boolean/i.test(config)) type = 'BOOLEAN';
+        else if (/type\s*:\s*Date/i.test(config)) type = 'TIMESTAMP';
+        else if (/ObjectId/i.test(config)) type = 'UUID';
+
+        const isRequired = /required\s*:\s*true/i.test(config);
+        const isUnique = /unique\s*:\s*true/i.test(config);
+        const isForeignKey = /ref\s*:\s*['"](\w+)['"]/i.test(config);
+
+        let references = undefined;
+        const refMatch = config.match(/ref\s*:\s*['"](\w+)['"]/i);
+        if (refMatch) {
+          references = `${refMatch[1]}.id`;
+          relationships.push({
+            id: `${entityName}.${fieldName}->${refMatch[1]}.id`,
+            source: entityName,
+            sourceField: fieldName,
+            target: refMatch[1],
+            targetField: 'id',
+            cardinality: '1 : N',
+          });
+        }
+
+        fields.push({
+          name: fieldName,
+          type,
+          isPrimary: false,
+          isRequired,
+          isUnique,
+          isForeignKey,
+          references,
+        });
+      }
+    });
+
+    entities.push({
+      name: entityName,
+      description: `${entityName} data model`,
+      fields,
+    });
+  }
+
+  // Check for relation comments
+  const relCommentRegex = /\/\/\s*Relation:\s*(\w+)\.(\w+)\s*->\s*(\w+)\.(\w+)(?:\s*\(([^)]+)\))?/g;
+  let rcMatch;
+  while ((rcMatch = relCommentRegex.exec(code)) !== null) {
+    const src = rcMatch[1];
+    const srcFld = rcMatch[2];
+    const tgt = rcMatch[3];
+    const tgtFld = rcMatch[4];
+    const card = rcMatch[5] || '1 : N';
+
+    const existing = relationships.find(
+      (r) => r.source === src && r.sourceField === srcFld && r.target === tgt && r.targetField === tgtFld
+    );
+    if (!existing) {
+      relationships.push({
+        id: `${src}.${srcFld}->${tgt}.${tgtFld}`,
+        source: src,
+        sourceField: srcFld,
+        target: tgt,
+        targetField: tgtFld,
+        cardinality: card,
+      });
+    }
+  }
+
+  return entities.length > 0 ? { entities, relationships } : null;
+}
+
+function parseSqlCode(code) {
+  const entities = [];
+  const relationships = [];
+
+  const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?\s*\(([\s\S]*?)\);/gi;
+  let match;
+
+  while ((match = tableRegex.exec(code)) !== null) {
+    const rawTableName = match[1];
+    const body = match[2];
+    // Capitalize table name to entity name: 'users' -> 'User'
+    let entityName = rawTableName.charAt(0).toUpperCase() + rawTableName.slice(1);
+    if (entityName.endsWith('s') && entityName.length > 3) {
+      entityName = entityName.slice(0, -1);
+    }
+
+    const fields = [];
+    const colLines = body.split(',\n');
+
+    colLines.forEach((colLine) => {
+      const line = colLine.trim();
+      if (!line || line.startsWith('--')) return;
+
+      const colMatch = line.match(/^["']?(\w+)["']?\s+([A-Za-z0-9_()]+)([\s\S]*)$/);
+      if (colMatch) {
+        const name = colMatch[1];
+        const rawType = colMatch[2];
+        const rest = colMatch[3] || '';
+
+        const isPrimary = /PRIMARY\s+KEY/i.test(rest);
+        const isRequired = /NOT\s+NULL/i.test(rest) || isPrimary;
+        const isUnique = /UNIQUE/i.test(rest) || isPrimary;
+
+        let isForeignKey = false;
+        let references = undefined;
+        const fkMatch = rest.match(/REFERENCES\s+["']?(\w+)["']?\s*\(\s*["']?(\w+)["']?\s*\)/i);
+        if (fkMatch) {
+          isForeignKey = true;
+          let targetEnt = fkMatch[1].charAt(0).toUpperCase() + fkMatch[1].slice(1);
+          if (targetEnt.endsWith('s') && targetEnt.length > 3) targetEnt = targetEnt.slice(0, -1);
+          const targetFld = fkMatch[2];
+          references = `${targetEnt}.${targetFld}`;
+
+          relationships.push({
+            id: `${entityName}.${name}->${targetEnt}.${targetFld}`,
+            source: entityName,
+            sourceField: name,
+            target: targetEnt,
+            targetField: targetFld,
+            cardinality: '1 : N',
+          });
+        }
+
+        fields.push({
+          name,
+          type: rawType.toUpperCase(),
+          isPrimary,
+          isRequired,
+          isUnique,
+          isForeignKey,
+          references,
+        });
+      }
+    });
+
+    entities.push({
+      name: entityName,
+      description: `${entityName} database table`,
+      fields,
+    });
+  }
+
+  return entities.length > 0 ? { entities, relationships } : null;
+}
+
+function parsePrismaCode(code) {
+  const entities = [];
+  const relationships = [];
+
+  const modelRegex = /model\s+(\w+)\s*\{([\s\S]*?)\}/g;
+  let match;
+
+  while ((match = modelRegex.exec(code)) !== null) {
+    const entityName = match[1];
+    const body = match[2];
+    const fields = [];
+
+    const lines = body.split('\n');
+    lines.forEach((l) => {
+      const line = l.trim();
+      if (!line || line.startsWith('//') || line.startsWith('@@')) return;
+
+      const parts = line.split(/\s+/);
+      if (parts.length >= 2) {
+        const name = parts[0];
+        const rawType = parts[1].replace('?', '');
+        const isPrimary = line.includes('@id');
+        const isUnique = line.includes('@unique');
+        const isRequired = !parts[1].includes('?');
+
+        fields.push({
+          name,
+          type: rawType === 'String' ? 'VARCHAR(255)' : rawType === 'Int' ? 'INTEGER' : rawType,
+          isPrimary,
+          isRequired,
+          isUnique,
+          isForeignKey: false,
+        });
+      }
+    });
+
+    entities.push({
+      name: entityName,
+      description: `${entityName} model`,
+      fields,
+    });
+  }
+
+  return entities.length > 0 ? { entities, relationships } : null;
+}
+
+function parseTsCode(code) {
+  const entities = [];
+  const interfaceRegex = /export\s+interface\s+(\w+)(?:Entity)?\s*\{([\s\S]*?)\}/g;
+  let match;
+
+  while ((match = interfaceRegex.exec(code)) !== null) {
+    let entityName = match[1].replace(/Entity$/, '');
+    const body = match[2];
+    const fields = [];
+
+    const lines = body.split('\n');
+    lines.forEach((l) => {
+      const line = l.trim();
+      const fMatch = line.match(/^(\w+)(\??)\s*:\s*([^;]+);/);
+      if (fMatch) {
+        const name = fMatch[1];
+        const isRequired = fMatch[2] !== '?';
+        const rawType = fMatch[3].trim();
+
+        fields.push({
+          name,
+          type: rawType === 'number' ? 'INTEGER' : rawType === 'boolean' ? 'BOOLEAN' : 'VARCHAR(255)',
+          isPrimary: name.toLowerCase() === 'id',
+          isRequired,
+          isUnique: name.toLowerCase() === 'id',
+          isForeignKey: name.toLowerCase().endsWith('id') && name.toLowerCase() !== 'id',
+        });
+      }
+    });
+
+    entities.push({
+      name: entityName,
+      description: `${entityName} TypeScript interface`,
+      fields,
+    });
+  }
+
+  return entities.length > 0 ? { entities, relationships: [] } : null;
+}

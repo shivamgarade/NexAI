@@ -53,25 +53,171 @@
 }
 
 .composerForm {
+  position: relative;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background-color: var(--color-bg-surface);
-  box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-3);
-  gap: var(--space-2);
+  padding: 8px 12px;
+  gap: var(--space-1);
   transition:
     border-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
 
-  &:focus-within {
-    border-color: var(--color-accent);
+  &.composerFormDragging {
+    border-color: var(--color-accent) !important;
     box-shadow:
-      0 0 0 2px var(--color-focus-ring),
-      0 8px 30px -2px rgba(0, 0, 0, 0.6);
+      0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent),
+      0 4px 14px color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+  }
+
+  &.composerFormTemporary {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  }
+
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
+  }
+}
+
+.composerDragOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-bg-surface) 95%, transparent);
+  backdrop-filter: blur(4px);
+  border: 2px dashed var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fadeInDrag var(--duration-fast) var(--ease-standard);
+}
+
+.composerDragContent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  user-select: none;
+}
+
+.composerDragIcon {
+  color: var(--color-accent);
+}
+
+@keyframes fadeInDrag {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.composerInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.attachAnchorWrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  svg {
+    display: block;
+  }
+
+  &:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-border);
+  }
+
+  &.addBtnActive {
+    color: var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+}
+
+.inlineActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.composerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.disclaimerText {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+.modelPillLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) var(--ease-standard);
+
+  .modelChevron {
+    color: var(--color-text-muted);
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--color-text-primary);
+
+    .modelChevron {
+      color: var(--color-text-primary);
+    }
   }
 }
 
@@ -239,26 +385,134 @@
       animation: pulseBrain 2s infinite ease-in-out;
     }
   }
+}
 
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+.addBtn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
   }
 }
 
-.thinkingText {
-  white-space: nowrap;
+.modePill {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: var(--weight-medium);
+  user-select: none;
+  border: 1px solid var(--color-border);
 }
 
-@keyframes pulseBrain {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.85;
+.popoverAnchorWrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.modelPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  .modelChevron {
+    color: var(--color-text-muted);
   }
-  50% {
-    transform: scale(1.15);
-    opacity: 1;
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-bg-hover);
+    color: var(--color-text-primary);
   }
+}
+
+.micBtn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+  }
+
+  &.listeningMic {
+    color: var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  }
+}
+
+.sendBtn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-bg-app);
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    opacity: 0.9;
+    transform: scale(1.04);
+  }
+}
+
+.stopBtn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    background-color: var(--color-bg-hover);
+  }
+}
+
+.disclaimerText {
+  margin: var(--space-2) 0 0 0;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  text-align: center;
+  letter-spacing: 0.01em;
 }
 
 
@@ -331,3 +585,52 @@
     background-color: color-mix(in srgb, var(--color-danger) 15%, transparent);
   }
 }
+
+.listeningMic {
+  background-color: color-mix(in srgb, var(--color-danger) 18%, transparent) !important;
+  color: var(--color-danger) !important;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent) !important;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.recordingIconWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activeMicIcon {
+  color: var(--color-danger);
+  animation: micActivePulse 1.2s infinite alternate ease-in-out;
+}
+
+.recordingRing {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--color-danger);
+  animation: recordingRingExpand 1.5s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes micActivePulse {
+  0% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes recordingRingExpand {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+

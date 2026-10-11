@@ -17,24 +17,18 @@ import styles from './CreditBadge.module.scss';
  * @param {string} [props.className] - Additional CSS class
  */
 export function CreditBadge({
-  credits = 100,
   onClick,
   size = 'md',
   showIcon = true,
-  mode,
   dailyRequestsRemaining,
   className,
 }) {
   const storeGovernance = useWalletStore((state) => state.governance);
-  const activeMode = mode || storeGovernance?.billingEnforcementMode || 'quota_free';
-  const isQuotaMode = activeMode === 'quota_free';
   const remaining =
     dailyRequestsRemaining ?? storeGovernance?.dailyRequestsRemaining ?? 1500;
-  const isLow = credits <= 20;
+  const dailyLimit = storeGovernance?.dailyGeminiQuotaLimit ?? 1500;
 
-  const tooltip = isQuotaMode
-    ? `⚡ Quota Mode: ${remaining.toLocaleString()} / 1,500 daily calls left (Simulated balance: ${credits} credits). Click to manage wallet.`
-    : `${credits} credits remaining. Click to recharge.`;
+  const tooltip = `⚡ Google Gemini API Quota: ${remaining.toLocaleString()} / ${dailyLimit.toLocaleString()} daily requests remaining. Resets daily at 00:00 UTC.`;
 
   return (
     <button
@@ -43,8 +37,7 @@ export function CreditBadge({
       className={cn(
         styles.badge,
         styles[size],
-        isQuotaMode && styles.quotaMode,
-        isLow && styles.low,
+        styles.quotaMode,
         className,
       )}
       title={tooltip}
@@ -58,15 +51,9 @@ export function CreditBadge({
         />
       )}
       <span className={styles.label}>
-        {isQuotaMode && <span className={styles.quotaPill}>Quota Mode:</span>}
-        <strong className={styles.value}>{credits.toLocaleString()}</strong>
-        <span className={styles.unit}> credits</span>
-        {isQuotaMode && (
-          <span className={styles.callsLeft}>
-            {' '}
-            • {remaining.toLocaleString()} / 1,500 left
-          </span>
-        )}
+        <span className={styles.quotaPill}>Quota:</span>
+        <strong className={styles.value}>{remaining.toLocaleString()}</strong>
+        <span className={styles.unit}> / {dailyLimit.toLocaleString()} left</span>
       </span>
     </button>
   );

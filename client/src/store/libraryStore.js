@@ -250,11 +250,7 @@ export const useLibraryStore = create((set, get) => ({
     } catch (err) {
       const message = err.message || 'Failed to generate suggestion';
       set({ isSuggesting: false, suggestError: message });
-      if (err.code === 'INSUFFICIENT_CREDITS' || err.status === 402) {
-        toast.error('Insufficient credits. Please recharge your wallet.');
-      } else {
-        toast.error(message);
-      }
+      toast.error(message);
       throw err;
     }
   },
@@ -341,11 +337,7 @@ export const useLibraryStore = create((set, get) => ({
     } catch (err) {
       const message = err.message || 'Failed to generate document draft';
       set({ isGeneratingDoc: false, docGenError: message });
-      if (err.code === 'INSUFFICIENT_CREDITS' || err.status === 402) {
-        toast.error('Insufficient credits. Please recharge your wallet.');
-      } else {
-        toast.error(message);
-      }
+      toast.error(message);
       throw err;
     }
   },

@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
 import { QuotaTelemetryCard } from '../QuotaTelemetryCard';
 
 describe('QuotaTelemetryCard Component', () => {
@@ -24,11 +24,6 @@ describe('QuotaTelemetryCard Component', () => {
 
   const mockConfigQuotaFree = {
     billingEnforcementMode: 'quota_free',
-    dailyGeminiQuotaLimit: 1500,
-  };
-
-  const mockConfigCreditStrict = {
-    billingEnforcementMode: 'credit_strict',
     dailyGeminiQuotaLimit: 1500,
   };
 
@@ -61,7 +56,7 @@ describe('QuotaTelemetryCard Component', () => {
     expect(screen.getByText('/ 1M TPM')).toBeInTheDocument();
   });
 
-  it('renders daily token breakdown (total, input, output, flash/pro split)', () => {
+  it('renders daily token consumption and single AI engine telemetry', () => {
     render(
       <QuotaTelemetryCard
         telemetry={mockTelemetry}
@@ -70,53 +65,20 @@ describe('QuotaTelemetryCard Component', () => {
     );
 
     expect(screen.getByText('12,500')).toBeInTheDocument();
-    expect(screen.getByText('5,000')).toBeInTheDocument();
-    expect(screen.getByText('7,500')).toBeInTheDocument();
-    expect(screen.getByText('Flash: 10,000')).toBeInTheDocument();
-    expect(screen.getByText('Pro: 2,500')).toBeInTheDocument();
+    expect(screen.getByText(/42 calls/i)).toBeInTheDocument();
+    expect(screen.getByText(/Engine: gemini-3.5-flash-lite/i)).toBeInTheDocument();
+    expect(screen.getByText(/Single AI Active/i)).toBeInTheDocument();
   });
 
-  it('renders Quota-Free Active badge and triggers 1-click toggle to credit_strict', async () => {
-    const handleToggle = vi.fn().mockResolvedValue({});
-
+  it('renders 1,500 RPD active badge and engine information', () => {
     render(
       <QuotaTelemetryCard
         telemetry={mockTelemetry}
         config={mockConfigQuotaFree}
-        onModeToggle={handleToggle}
       />,
     );
 
-    expect(screen.getByText(/Quota-Free Active/i)).toBeInTheDocument();
-
-    const toggleBtn = screen.getByRole('button', { name: /Switch to Credit-Strict SaaS/i });
-    expect(toggleBtn).toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(toggleBtn);
-    });
-    expect(handleToggle).toHaveBeenCalledWith('credit_strict');
-  });
-
-  it('renders Credit-Strict Active badge and triggers 1-click toggle to quota_free', async () => {
-    const handleToggle = vi.fn().mockResolvedValue({});
-
-    render(
-      <QuotaTelemetryCard
-        telemetry={mockTelemetry}
-        config={mockConfigCreditStrict}
-        onModeToggle={handleToggle}
-      />,
-    );
-
-    expect(screen.getByText(/Credit-Strict Active/i)).toBeInTheDocument();
-
-    const toggleBtn = screen.getByRole('button', { name: /Switch to Quota-Free Demo/i });
-    expect(toggleBtn).toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(toggleBtn);
-    });
-    expect(handleToggle).toHaveBeenCalledWith('quota_free');
+    expect(screen.getByText(/1,500 RPD Active/i)).toBeInTheDocument();
+    expect(screen.getByText(/Google Gemini Free Tier \(1,500 RPD\)/i)).toBeInTheDocument();
   });
 });

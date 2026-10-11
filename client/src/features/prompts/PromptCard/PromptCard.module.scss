@@ -24,6 +24,10 @@
     outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
   }
+
+  &:has([data-dropdown-open='true']) {
+    z-index: var(--z-dropdown);
+  }
 }
 
 .favoriteCard {

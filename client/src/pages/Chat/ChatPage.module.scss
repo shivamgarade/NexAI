@@ -20,6 +20,57 @@
   width: 100%;
 }
 
+.temporaryChatTheme {
+  /* Clean grey & white / monochrome theme override */
+  --color-accent: #9ca3af;
+  --color-accent-hover: #e5e7eb;
+  --color-accent-subtle: rgba(229, 231, 235, 0.08);
+  --color-accent-glow: rgba(229, 231, 235, 0.12);
+  --color-brand-primary: #9ca3af;
+  --color-text-brand: #e5e7eb;
+  --color-border-active: #9ca3af;
+
+  :global([data-theme='light']) & {
+    --color-accent: #4b5563;
+    --color-accent-hover: #1f2937;
+    --color-accent-subtle: rgba(0, 0, 0, 0.05);
+    --color-accent-glow: rgba(0, 0, 0, 0.08);
+    --color-brand-primary: #4b5563;
+    --color-text-brand: #1f2937;
+    --color-border-active: #4b5563;
+  }
+
+  /* Monochrome accents inside temporary chat */
+  :global {
+    [class*="emblemAura"] {
+      background: radial-gradient(
+        circle,
+        rgba(255, 255, 255, 0.09) 0%,
+        rgba(156, 163, 175, 0.04) 50%,
+        transparent 70%
+      ) !important;
+    }
+
+    [class*="emblemIcon"] {
+      filter: grayscale(100%) brightness(1.2);
+    }
+
+    [class*="composerCard"]:focus-within {
+      border-color: #9ca3af !important;
+      box-shadow: 0 0 0 1px #9ca3af, 0 16px 40px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    [class*="sendBtn"]:not(:disabled) {
+      background: #e5e7eb !important;
+      color: #111827 !important;
+    }
+
+    [class*="thinkingIcon"] {
+      color: #9ca3af !important;
+    }
+  }
+}
+
 .chatHeader {
   display: flex;
   align-items: center;
@@ -60,6 +111,58 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tempTitleIcon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.tempHeaderExitBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-bg-elevated) 80%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+    border-color: var(--color-accent);
+  }
+}
+
+.temporaryChatBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-6);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-surface));
+  border-bottom: 1px dashed color-mix(in srgb, var(--color-accent) 25%, transparent);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tempBannerIcon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.tempBannerText {
+  color: var(--color-text-secondary);
+
+  strong {
+    color: var(--color-text-primary);
+  }
 }
 
 .headerRight {

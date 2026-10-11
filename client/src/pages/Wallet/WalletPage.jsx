@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   RefreshCw,
   Crown,
-  ShieldAlert,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -59,14 +58,11 @@ export default function WalletPage() {
     setIsRefreshing(false);
   };
 
-  const creditsRemaining =
-    wallet?.creditsRemaining ?? user?.wallet?.creditsRemaining ?? 0;
   const currentTier = wallet?.tier || user?.wallet?.tier || 'free';
   const totalTokens =
     wallet?.totalTokensConsumed ?? user?.wallet?.totalTokensConsumed ?? 0;
 
   const governance = useWalletStore((state) => state.governance);
-  const isQuotaMode = (governance?.billingEnforcementMode ?? 'quota_free') === 'quota_free';
   const dailyLimit = governance?.dailyGeminiQuotaLimit || 1500;
   const callsRemaining = governance?.dailyRequestsRemaining ?? dailyLimit;
 
@@ -131,21 +127,19 @@ export default function WalletPage() {
         }
       />
 
-      {/* Quota-Free Mode Governance Banner */}
-      {isQuotaMode && (
-        <div className={styles.quotaModeBanner}>
-          <div className={styles.quotaModeHeader}>
-            <Zap size={18} className={styles.quotaIcon} />
-            <div className={styles.quotaText}>
-              <strong>⚡ Quota-Free Evaluation Mode Active:</strong>
-              <span>
-                Demonstration mode enabled using Google Gemini API free-tier quota ({callsRemaining.toLocaleString()} / {dailyLimit.toLocaleString()} daily calls left today • Resets at 00:00 UTC). Credit deductions and token telemetry are simulated in real time.
-              </span>
-            </div>
-            <Badge tone="accent">1,500 RPD Active</Badge>
+      {/* Google Gemini Free-Tier Quota Banner */}
+      <div className={styles.quotaModeBanner}>
+        <div className={styles.quotaModeHeader}>
+          <Zap size={18} className={styles.quotaIcon} />
+          <div className={styles.quotaText}>
+            <strong>⚡ Google Gemini Free Tier Active:</strong>
+            <span>
+              Platform is running on Google Gemini API free-tier quota ({callsRemaining.toLocaleString()} / {dailyLimit.toLocaleString()} daily calls left today • Resets at 00:00 UTC). All AI features (chat, mock interviews, library, document drafting) run directly without credit limitations.
+            </span>
           </div>
+          <Badge tone="accent">{dailyLimit.toLocaleString()} RPD Active</Badge>
         </div>
-      )}
+      </div>
 
       {/* Global Error Banner */}
       {error && (
@@ -188,36 +182,7 @@ export default function WalletPage() {
         </div>
       )}
 
-      {/* Zero Balance / Low Balance Banner */}
-      {creditsRemaining === 0 ? (
-        isQuotaMode ? (
-          <div className={styles.quotaFreeDepletedBanner}>
-            <Zap size={20} />
-            <div>
-              <strong>Simulated Credits Depleted (0 credits) — Unrestricted Demo Active:</strong> Under Quota-Free Evaluation Mode, AI chat, mock interviews, and document drafting continue running without interruption using Google Gemini Free Tier quota ({callsRemaining.toLocaleString()} calls remaining today). You can also test a recharge package below to demonstrate the Razorpay payment gateway.
-            </div>
-          </div>
-        ) : (
-          <div className={styles.exhaustedBanner}>
-            <ShieldAlert size={20} />
-            <div>
-              <strong>Credit Balance Exhausted (0 credits):</strong> AI chat, mock interview
-              critiques, and document generations are currently paused with HTTP 402. Select a
-              recharge package below to restore instant AI access.
-            </div>
-          </div>
-        )
-      ) : creditsRemaining <= 20 ? (
-        <div className={styles.lowCreditBanner}>
-          <AlertTriangle size={18} />
-          <div>
-            <strong>Low Balance Warning:</strong> You have only {creditsRemaining} credits
-            remaining. Top up below to avoid conversation interruption.
-          </div>
-        </div>
-      ) : null}
-
-      {/* Unified "My Current Plan & Credits" Window */}
+      {/* Unified "My Current Plan & Quota" Window */}
       <Card padding="lg" className={styles.myPlanCard}>
         <div className={styles.myPlanGrid}>
           {/* Active Tier Column */}
@@ -227,38 +192,26 @@ export default function WalletPage() {
               <span className={styles.tierSubtitle}>Current Active Plan</span>
             </div>
             <div className={styles.tierTitleRow}>
-              <h2 className={styles.tierTitle}>
-                {isPro ? 'Pro Monthly Tier' : 'Free Starter Tier'}
-              </h2>
-              <Badge tone={isPro ? 'accent' : 'neutral'}>
-                {isPro ? 'Pro Member' : 'Standard'}
-              </Badge>
+              <h2 className={styles.tierTitle}>Academic Free Tier</h2>
+              <Badge tone="accent">Active</Badge>
             </div>
             <p className={styles.tierPerks}>
-              {isPro
-                ? '✓ Gemini 3.1 Pro & Flash access • Priority streaming • Unlimited workspaces'
-                : 'Standard Gemini 3.8 Flash access • Personal library • 1 credit ≈ 100 tokens'}
+              Standard Gemini 3.8 Flash access • Full feature set • {dailyLimit.toLocaleString()} daily requests
             </p>
           </div>
 
-          {/* Credits Balance Column */}
+          {/* Daily Quota Column */}
           <div className={styles.creditsCol}>
             <div className={styles.creditsHeader}>
-              <span className={styles.colLabel}>
-                {isQuotaMode ? 'Simulated Credits' : 'Available Credits'}
-              </span>
-              <Badge tone={isQuotaMode ? 'accent' : creditsRemaining > 20 ? 'accent' : 'danger'}>
-                {isQuotaMode ? 'Quota Mode' : creditsRemaining > 20 ? 'Active' : 'Depleted'}
-              </Badge>
+              <span className={styles.colLabel}>Daily API Quota Allowance</span>
+              <Badge tone="accent">{dailyLimit.toLocaleString()} RPD</Badge>
             </div>
             <div className={styles.creditValueRow}>
-              <span className={styles.creditsBig}>{creditsRemaining.toLocaleString()}</span>
-              <span className={styles.creditsUnit}>credits</span>
+              <span className={styles.creditsBig}>{callsRemaining.toLocaleString()}</span>
+              <span className={styles.creditsUnit}>calls left</span>
             </div>
             <span className={styles.creditsHint}>
-              {isQuotaMode
-                ? `1 credit ≈ 100 Gemini tokens • ⚡ ${callsRemaining.toLocaleString()} / 1,500 daily calls left`
-                : '1 credit = 100 Gemini tokens (atomic source metering)'}
+              Out of {dailyLimit.toLocaleString()} daily requests • Resets at 00:00 UTC
             </span>
           </div>
 
@@ -277,15 +230,16 @@ export default function WalletPage() {
         </div>
       </Card>
 
-      {/* Recharge & Upgrade Plans Section */}
+      {/* Recharge & Upgrade Plans Section (Future Scope / Commercial Roadmap) */}
       <section className={styles.plansSection}>
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitleRow}>
             <Zap size={22} className={styles.zapIcon} />
             <h2>Recharge &amp; Upgrade Plans</h2>
+            <Badge tone="neutral" style={{ marginLeft: 8 }}>Future Scope</Badge>
           </div>
           <p>
-            Choose a recharge top-up or upgrade to Pro Monthly. Secured via Razorpay Test Mode with dynamic UPI &amp; QR verification.
+            Future commercial monetization &amp; subscription tiers. Razorpay Test Mode checkout can be simulated below for demonstration.
           </p>
         </div>
 

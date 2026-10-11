@@ -4,6 +4,8 @@ import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { setupSse, sendSse, closeSse } from '../utils/sse.js';
 import { deductCredits } from '../services/credit.service.js';
+import { generateSpeech } from '../services/gemini.service.js';
+import { synthesizeEdgeSpeech, DEFAULT_EDGE_VOICE } from '../services/edgeTts.service.js';
 import {
   generateInterviewGreeting,
   streamInterviewTurn,
@@ -455,3 +457,83 @@ export const getInterviewById = asyncHandler(async (req, res) => {
     interview: session,
   });
 });
+
+/**
+ * Synthesize interview speech using Microsoft Edge Neural TTS or Gemini 3.8 Flash-Lite TTS.
+ * POST /api/interview/tts
+ */
+export const synthesizeInterviewSpeech = asyncHandler(async (req, res) => {
+  const {
+    text,
+    engine = 'edge',
+    voice,
+    style = 'professional and engaging interviewer',
+    isSimulation = false,
+  } = req.body;
+  const userId = req.user._id;
+
+  // In simulation mode, return 204 No Content (client uses Web Speech API)
+  if (isSimulation || req.headers['x-simulation'] === 'true') {
+    return res.status(204).end();
+  }
+
+  // Engine 1: Microsoft Edge Neural TTS (Fast ~400ms, 100% Free, 0 Credits, 0 Gemini Quota)
+  if (engine === 'edge') {
+    const edgeVoice = voice || DEFAULT_EDGE_VOICE;
+    const { audioBuffer, mimeType, voice: usedVoice } = await synthesizeEdgeSpeech({
+      text,
+      voice: edgeVoice,
+    });
+
+    const creditsRemaining = req.user.wallet?.creditsRemaining ?? 0;
+
+    res.set('Content-Type', mimeType || 'audio/mpeg');
+    res.set('Content-Length', String(audioBuffer.length));
+    res.set('X-Engine', 'edge');
+    res.set('X-Voice', usedVoice);
+    res.set('X-Credits-Remaining', String(creditsRemaining));
+    res.set('X-Credits-Deducted', '0');
+    res.set('X-Tokens-Used', '0');
+
+    return res.send(audioBuffer);
+  }
+
+  // Engine 2: Google Gemini 3.8 Flash-Lite TTS (Cloud metered)
+  const geminiVoice = voice || 'Kore';
+  const { audioBuffer, mimeType, totalTokens } = await generateSpeech({
+    text,
+    voice: geminiVoice,
+    style,
+  });
+
+  // Atomically deduct credits and write to UsageLog
+  let creditsDeducted = 0;
+  let creditsRemaining = req.user.wallet?.creditsRemaining ?? 0;
+  let usageLogId = null;
+
+  if (totalTokens > 0) {
+    const deduction = await deductCredits({
+      userId,
+      tokensUsed: totalTokens,
+      feature: 'interview',
+      model: 'tts',
+    });
+    creditsDeducted = deduction.creditsDeducted;
+    creditsRemaining = deduction.creditsRemaining;
+    usageLogId = deduction.usageLogId;
+  }
+
+  res.set('Content-Type', mimeType || 'audio/wav');
+  res.set('Content-Length', String(audioBuffer.length));
+  res.set('X-Engine', 'gemini');
+  res.set('X-Voice', geminiVoice);
+  res.set('X-Credits-Remaining', String(creditsRemaining));
+  res.set('X-Credits-Deducted', String(creditsDeducted));
+  res.set('X-Tokens-Used', String(totalTokens));
+  if (usageLogId) {
+    res.set('X-Usage-Log-Id', String(usageLogId));
+  }
+
+  return res.send(audioBuffer);
+});
+

@@ -329,7 +329,7 @@ export function CommandPalette({ defaultOpen = false } = {}) {
                     onMouseEnter={() => setSelectedIndex(index)}
                   >
                     <div className={styles.itemLeft}>
-                      {cmd.icon}
+                      <span className={styles.itemIconWrapper}>{cmd.icon}</span>
                       <div className={styles.itemText}>
                         <span className={styles.itemLabel}>{cmd.label}</span>
                         {cmd.snippet && (
@@ -337,7 +337,12 @@ export function CommandPalette({ defaultOpen = false } = {}) {
                         )}
                       </div>
                     </div>
-                    <span className={styles.itemCategory}>{cmd.category}</span>
+                    {isSelected && (
+                      <span className={styles.itemEnterHint}>
+                        <span className={styles.enterLabel}>Open</span>
+                        <Kbd>↵</Kbd>
+                      </span>
+                    )}
                   </div>
                 </div>
               );

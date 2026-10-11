@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Star, MoreHorizontal, Copy, Edit2, Trash2, Terminal, Check, BookmarkPlus, Sparkles } from 'lucide-react';
+import { Star, MoreHorizontal, Copy, Edit2, Trash2, Terminal, Check, BookmarkPlus, Sparkles, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
@@ -38,6 +38,7 @@ export function PromptCard({
     ? [
         {
           label: 'View details',
+          icon: <Eye size={14} />,
           onClick: () => onViewDetails?.(prompt),
         },
         {
@@ -54,6 +55,7 @@ export function PromptCard({
     : [
         {
           label: 'View details',
+          icon: <Eye size={14} />,
           onClick: () => onViewDetails?.(prompt),
         },
         {
@@ -145,6 +147,7 @@ export function PromptCard({
             }
             items={menuItems}
             align="right"
+            portal
           />
         </div>
       </div>

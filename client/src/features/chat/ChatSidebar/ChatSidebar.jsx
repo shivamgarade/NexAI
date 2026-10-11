@@ -26,8 +26,14 @@ function formatChatDate(timestamp) {
 }
 
 export function ChatSidebar({ onSelectChat, className }) {
-  const { chats, activeChatId, isLoadingChats, createChat, updateChatTitle, deleteChat } =
-    useChatStore();
+  const {
+    chats,
+    activeChatId,
+    isLoadingChats,
+    createChat,
+    updateChatTitle,
+    deleteChat,
+  } = useChatStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [editingChatId, setEditingChatId] = useState(null);
@@ -83,15 +89,17 @@ export function ChatSidebar({ onSelectChat, className }) {
   return (
     <aside className={cn(styles.sidebar, className)} aria-label="Chat conversations">
       <div className={styles.header}>
-        <Button
-          variant="primary"
-          leftIcon={<Plus size={16} />}
-          fullWidth
-          onClick={handleNewChat}
-          className={styles.newChatButton}
-        >
-          New Chat
-        </Button>
+        <div className={styles.actionRow}>
+          <Button
+            variant="primary"
+            leftIcon={<Plus size={16} />}
+            fullWidth
+            onClick={handleNewChat}
+            className={styles.newChatButton}
+          >
+            New Chat
+          </Button>
+        </div>
 
         {chats.length > 3 && (
           <div className={styles.searchWrapper}>
@@ -119,6 +127,7 @@ export function ChatSidebar({ onSelectChat, className }) {
       </div>
 
       <div className={styles.chatList}>
+
         {isLoadingChats ? (
           <div className={styles.skeletonList}>
             <Skeleton height="44px" radius="md" />

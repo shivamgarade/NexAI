@@ -1,0 +1,282 @@
+@use '@/styles/abstracts' as *;
+
+.popoverWrapper {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 1000;
+  animation: compactPopIn 0.14s ease-out;
+}
+
+@keyframes compactPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.compactCard {
+  width: 254px;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 8px 24px -4px rgba(0, 0, 0, 0.22),
+    0 2px 6px -1px rgba(0, 0, 0, 0.12);
+  padding: 5px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.viewContent {
+  display: flex;
+  flex-direction: column;
+  animation: viewFadeIn 0.12s ease-out;
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0.6;
+    transform: translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Selected Model in Root View */
+.selectedModelBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  background-color: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.selectedInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.titleLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.modelName {
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.tagline {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+.badge {
+  font-size: 9.5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background-color: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.02em;
+}
+
+.checkWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+.checkIcon {
+  color: var(--color-accent);
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: 4px 2px;
+}
+
+/* Navigation Rows (Effort, More models) */
+.navRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    background-color: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    background-color: var(--color-bg-hover);
+  }
+}
+
+.navLabel {
+  font-size: 12.5px;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+
+.navValueWrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--color-text-muted);
+}
+
+.navValue {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.chevronIcon {
+  color: var(--color-text-muted);
+}
+
+/* Sub-views (Effort, More models) */
+.viewHeader {
+  display: flex;
+  align-items: center;
+  padding: 3px 2px 5px 2px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--color-bg-hover);
+  }
+}
+
+.effortHint {
+  margin: 0 4px 6px 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+}
+
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scrollableList {
+  max-height: 230px;
+  overflow-y: auto;
+  @include custom-scrollbar;
+  padding-right: 2px;
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--color-bg-hover);
+  }
+
+  &.selectedOption {
+    background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+
+    .optionName {
+      color: var(--color-accent);
+      font-weight: var(--weight-semibold);
+    }
+  }
+}
+
+.optionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.optionName {
+  font-size: 12.5px;
+  color: var(--color-text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.recommendBadge {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.warningBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--amber-500, #f59e0b);
+}
+
+.actionWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+.upgradeTag {
+  font-size: 10px;
+  color: #3b82f6;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, #3b82f6 12%, transparent);
+}

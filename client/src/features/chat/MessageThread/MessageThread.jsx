@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { ROUTES } from '@/constants/routes';
 import {
   Sparkles,
   ArrowDown,
@@ -15,14 +17,24 @@ import {
   Brain,
   Volume2,
   VolumeX,
+  Loader2,
+  HelpCircle,
+  Code2,
+  Mail,
+  Server,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { ThinkingIndicator } from '@/components/ui/ThinkingIndicator';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ThinkingDrawer } from '../ThinkingDrawer/ThinkingDrawer';
+import { InlineThinking } from './InlineThinking';
+import { MessageAttachments } from './MessageAttachments';
 import { PromptFormModal } from '@/features/prompts';
+import { interviewApi } from '@/lib/api/interview.api.js';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { usePromptStore } from '@/store/promptStore';
@@ -33,21 +45,24 @@ import { cn } from '@/lib/utils/cn';
 import logoImg from '@/assets/logo.png';
 import styles from './MessageThread.module.scss';
 
-
 const PROMPT_SUGGESTIONS = [
   {
+    icon: HelpCircle,
     title: 'Explain a Concept',
     description: 'Explain quantum computing in simple, intuitive terms.',
   },
   {
+    icon: Code2,
     title: 'Code Assistance',
     description: 'Write a Python script to parse and transform a CSV dataset.',
   },
   {
+    icon: Mail,
     title: 'Professional Writing',
     description: 'Draft a polite follow-up email after a job interview.',
   },
   {
+    icon: Server,
     title: 'System Architecture',
     description: 'Design a scalable caching strategy for an API using Redis.',
   },
@@ -57,13 +72,182 @@ function formatTime(timestamp) {
   if (!timestamp) return '';
   try {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
   } catch {
     return '';
   }
 }
 
+let globalAudioCtx = null;
+
+function getAudioContext() {
+  if (typeof window === 'undefined') return null;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  try {
+    if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
+      globalAudioCtx = new AudioCtx();
+    }
+    return globalAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Strips auto-generated placeholder prefixes and legacy context blocks from display prompt
+ */
+function getDisplayPrompt(content, attachments) {
+  if (!content || typeof content !== 'string') return '';
+  const hasAtt = Array.isArray(attachments) && attachments.length > 0;
+  // If content is just an auto-generated placeholder when user submitted without typing prompt
+  const isAutoPlaceholder = /^\[(Analyzed|Attached)\s+[^\]]+\]$/i.test(content.trim());
+  if (isAutoPlaceholder && hasAtt) {
+    return '';
+  }
+  // If content has legacy "[Attached Context: ...]\n...[End of Context]\n\n<user prompt>"
+  const contextBlockMatch = content.match(/^\[Attached Context:[^\]]+\][\s\S]*?\[End of Context\]\s*/i);
+  if (contextBlockMatch) {
+    const afterContext = content.slice(contextBlockMatch[0].length).trim();
+    if (afterContext) return afterContext;
+    if (hasAtt) return '';
+  }
+  return content;
+}
+
+/**
+ * Prepares raw markdown or message text for clear speech synthesis.
+ */
+function prepareTextForSpeech(rawText) {
+  if (!rawText || typeof rawText !== 'string') return '';
+  return rawText
+    // Remove fenced code blocks
+    .replace(/```[\s\S]*?```/g, 'Code block omitted.')
+    // Remove LaTeX math blocks and expressions
+    .replace(/\$\$[\s\S]*?\$\$/g, '')
+    .replace(/\$[^$]+\$/g, '')
+    // Remove Markdown tables
+    .replace(/^\|.*?\|$/gm, '')
+    // Remove images
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    // Remove links keeping link text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove GitHub alert blocks (> [!TIP], etc.)
+    .replace(/>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/gi, '')
+    // Remove blockquote and heading markers
+    .replace(/^[>#]+\s*/gm, '')
+    // Inline code backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Horizontal rules and divider lines
+    .replace(/^[-*_]{3,}\s*$/gm, '')
+    // List bullet / numerical prefixes
+    .replace(/^[\s*+-]+(?=\S)/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    // Text formatting markers
+    .replace(/[*_~]+/g, '')
+    // Normalize extra whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Robust audio player for binary blobs:
+ * 1. Primary: Web Audio API (uncompressed PCM audio pipeline directly to hardware output).
+ * 2. Fallback: HTMLAudioElement with blob URL.
+ */
+async function playAudioBlob(blob, { onStart, onEnded, onError } = {}) {
+  const ctx = getAudioContext();
+  if (ctx) {
+    try {
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await new Promise((resolve, reject) => {
+        ctx.decodeAudioData(arrayBuffer.slice(0), resolve, reject);
+      });
+
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+
+      let ended = false;
+      const handleEnded = () => {
+        if (!ended) {
+          ended = true;
+          onEnded?.();
+        }
+      };
+
+      source.onended = handleEnded;
+      source.start(0);
+      onStart?.();
+
+      return {
+        stop: () => {
+          if (!ended) {
+            ended = true;
+            try {
+              source.stop(0);
+              source.disconnect();
+            } catch {
+              // ignore
+            }
+            onEnded?.();
+          }
+        },
+      };
+    } catch (e) {
+      console.warn('Web Audio API playback failed, trying HTMLAudio fallback:', e);
+    }
+  }
+
+  // HTMLAudioElement fallback
+  const audioUrl = URL.createObjectURL(blob);
+  const audio = new Audio(audioUrl);
+  audio.volume = 1.0;
+  audio.preload = 'auto';
+
+  let ended = false;
+  const cleanup = () => {
+    if (!ended) {
+      ended = true;
+      try {
+        audio.pause();
+        audio.src = '';
+      } catch {
+        // ignore
+      }
+      URL.revokeObjectURL(audioUrl);
+      onEnded?.();
+    }
+  };
+
+  audio.onplay = () => {
+    onStart?.();
+  };
+  audio.onended = cleanup;
+  audio.onerror = (err) => {
+    cleanup();
+    onError?.(err);
+  };
+
+  try {
+    await audio.play();
+    return {
+      stop: () => {
+        cleanup();
+      },
+    };
+  } catch (err) {
+    cleanup();
+    onError?.(err);
+    throw err;
+  }
+}
+
 export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const {
     messages,
@@ -71,6 +255,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     isStreaming,
     stopGeneration,
     resendPrompt,
+    selectChat,
     setActiveDrawerThought,
   } = useChatStore();
   const createPrompt = usePromptStore((state) => state.createPrompt);
@@ -80,53 +265,139 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [speakingId, setSpeakingId] = useState(null);
+  const [loadingTtsId, setLoadingTtsId] = useState(null);
   const [savePromptData, setSavePromptData] = useState(null);
   const userScrolledUpRef = useRef(false);
+  const activePlaybackRef = useRef(null);
+  const ttsAbortRef = useRef(null);
 
   // Stop any active speech on unmount
   useEffect(() => {
     return () => {
+      ttsAbortRef.current?.abort();
+      if (activePlaybackRef.current) {
+        try {
+          activePlaybackRef.current.stop();
+        } catch {
+          // ignore
+        }
+        activePlaybackRef.current = null;
+      }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
     };
   }, []);
 
-  const handleToggleSpeak = (text, id) => {
-    if (!('speechSynthesis' in window)) {
-      toast.error('Text-to-speech is not supported in this browser');
+  const handleToggleSpeak = async (text, id) => {
+    // If clicking on active speaking or currently loading message, stop immediately
+    if (speakingId === id || loadingTtsId === id) {
+      ttsAbortRef.current?.abort();
+      if (activePlaybackRef.current) {
+        try {
+          activePlaybackRef.current.stop();
+        } catch {
+          // ignore
+        }
+        activePlaybackRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setSpeakingId(null);
+      setLoadingTtsId(null);
       return;
     }
 
-    if (speakingId === id) {
+    // Cancel any current audio/speech/loading before starting new
+    ttsAbortRef.current?.abort();
+    if (activePlaybackRef.current) {
+      try {
+        activePlaybackRef.current.stop();
+      } catch {
+        // ignore
+      }
+      activePlaybackRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      setSpeakingId(null);
+    }
+    setSpeakingId(null);
+    setLoadingTtsId(null);
+
+    const cleanText = prepareTextForSpeech(text);
+    if (!cleanText) {
+      toast.info('No readable text to read aloud');
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const cleanText = (text || '')
-      .replace(/```[\s\S]*?```/g, 'Code block omitted.')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/[#*_~>]/g, '')
-      .trim();
+    // Unlock/resume AudioContext immediately in user interaction gesture
+    const audioCtx = getAudioContext();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
 
-    if (!cleanText) return;
+    const abortController = new AbortController();
+    ttsAbortRef.current = abortController;
+    setLoadingTtsId(id);
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    try {
+      // 1. High-fidelity Microsoft Edge Neural TTS (~400ms ultra-low latency, studio grade)
+      // Slicing to the first ~600 chars ensures instant generation without socket timeouts
+      const textToSynthesize = cleanText.slice(0, 600);
+      const res = await interviewApi.synthesizeSpeech({
+        text: textToSynthesize,
+        engine: 'edge',
+        voice: 'en-US-ChristopherNeural',
+      });
 
-    utterance.onend = () => {
+      if (abortController.signal.aborted) return;
+
+      const rawData = res?.data ?? res;
+      const audioBlob =
+        rawData instanceof Blob
+          ? rawData.type
+            ? rawData
+            : new Blob([rawData], { type: 'audio/mpeg' })
+          : new Blob([rawData], { type: 'audio/mpeg' });
+
+      if (!audioBlob || (audioBlob.size !== undefined && audioBlob.size === 0)) {
+        throw new Error('Empty audio stream received');
+      }
+
+      if (audioBlob.type?.includes('application/json')) {
+        const textErr = await audioBlob.text();
+        throw new Error(`TTS service error: ${textErr}`);
+      }
+
+      const playback = await playAudioBlob(audioBlob, {
+        onStart: () => {
+          setLoadingTtsId(null);
+          setSpeakingId(id);
+        },
+        onEnded: () => {
+          setSpeakingId(null);
+          setLoadingTtsId(null);
+          activePlaybackRef.current = null;
+        },
+        onError: (err) => {
+          console.error('Audio playback error:', err);
+          setSpeakingId(null);
+          setLoadingTtsId(null);
+          activePlaybackRef.current = null;
+          toast.error('Audio playback failed');
+        },
+      });
+
+      activePlaybackRef.current = playback;
+    } catch (err) {
+      if (abortController.signal.aborted) return;
+      console.warn('Edge Neural TTS error:', err);
       setSpeakingId(null);
-    };
-
-    utterance.onerror = () => {
-      setSpeakingId(null);
-    };
-
-    setSpeakingId(id);
-    window.speechSynthesis.speak(utterance);
+      setLoadingTtsId(null);
+      activePlaybackRef.current = null;
+      toast.error('Unable to play audio speech');
+    }
   };
 
   const handleCopy = async (text, id) => {
@@ -164,7 +435,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 120;
     userScrolledUpRef.current = !isNearBottom;
-    setShowScrollBottom(!isNearBottom);
+    setShowScrollBottom((prev) => (prev !== !isNearBottom ? !isNearBottom : prev));
   }, []);
 
   const scrollToBottom = useCallback((smooth = true) => {
@@ -217,26 +488,34 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
           </div>
         ) : messages.length === 0 ? (
           <div className={styles.emptyWelcome}>
-            <div className={styles.welcomeIcon}>
-              <Sparkles size={32} />
+            <div className={styles.welcomeLogoWrapper}>
+              <img src={logoImg} alt="NexAI" className={styles.welcomeLogo} />
             </div>
-            <h2 className={styles.welcomeTitle}>What can I help you with today?</h2>
+            <h2 className={styles.welcomeTitle}>How can NexAI assist you today?</h2>
             <p className={styles.welcomeSubtitle}>
-              NexAI is ready to brainstorm, code, analyze, and draft with metered precision.
+              Ask anything, brainstorm code, solve system architecture, or pick a starter below.
             </p>
 
             <div className={styles.suggestionsGrid}>
-              {PROMPT_SUGGESTIONS.map((item, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className={styles.suggestionCard}
-                  onClick={() => onSelectSuggestion?.(item.description)}
-                >
-                  <span className={styles.suggestionTitle}>{item.title}</span>
-                  <span className={styles.suggestionDesc}>{item.description}</span>
-                </button>
-              ))}
+              {PROMPT_SUGGESTIONS.map((item, idx) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={styles.suggestionCard}
+                    onClick={() => onSelectSuggestion?.(item.description)}
+                  >
+                    <div className={styles.suggestionHeader}>
+                      <span className={styles.suggestionIconWrapper}>
+                        <IconComponent size={16} />
+                      </span>
+                      <span className={styles.suggestionTitle}>{item.title}</span>
+                    </div>
+                    <span className={styles.suggestionDesc}>{item.description}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -249,6 +528,10 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
               const messageId = message._id || `msg-${index}`;
               const isCopied = copiedId === messageId;
               const timeString = formatTime(message.createdAt);
+              const hasAttachments = Array.isArray(message.attachments) && message.attachments.length > 0;
+              const displayContent = isUser
+                ? getDisplayPrompt(message.content, message.attachments)
+                : message.content;
 
               return (
                 <div
@@ -258,22 +541,11 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                   <div className={styles.avatarWrapper}>
                     {isUser ? (
                       <Avatar name={user?.email || 'User'} size="sm" />
+                    ) : isCurrentlyStreaming && !message.content ? (
+                      <ThinkingIndicator variant="dots" size="sm" />
                     ) : (
-                      <div
-                        className={cn(
-                          styles.aiAvatar,
-                          isCurrentlyStreaming && !message.content && styles.aiAvatarThinking,
-                        )}
-                      >
-                        {isCurrentlyStreaming && !message.content ? (
-                          <div className={styles.geminiSpinner} aria-label="Thinking...">
-                            <span className={styles.geminiDot} />
-                            <span className={styles.geminiDot} />
-                            <span className={styles.geminiDot} />
-                          </div>
-                        ) : (
-                          <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
-                        )}
+                      <div className={styles.aiAvatar}>
+                        <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
                       </div>
                     )}
                   </div>
@@ -297,50 +569,63 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                       )}
                     >
                       {isUser ? (
-                        <div className={styles.userText}>{message.content}</div>
-                      ) : isCurrentlyStreaming && !message.content ? (
-                        <div className={styles.aiMarkdown}>
-                          <span className={styles.blinkingCursor} aria-hidden="true" />
-                        </div>
-                      ) : hasError ? (
-                        <div className={styles.errorCard}>
-                          <div className={styles.errorContent}>
-                            <AlertCircle size={16} className={styles.errorIcon} />
-                            <span>{message.error}</span>
-                          </div>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<RotateCcw size={13} />}
-                            onClick={() => handleRetryAssistant(index)}
-                            disabled={isStreaming}
-                            className={styles.retryButton}
-                          >
-                            Retry
-                          </Button>
+                        <div className={styles.userContentContainer}>
+                          {hasAttachments && (
+                            <MessageAttachments attachments={message.attachments} />
+                          )}
+                          {displayContent ? (
+                            <div className={styles.userText}>{displayContent}</div>
+                          ) : null}
                         </div>
                       ) : (
-                        <div className={styles.aiMarkdown}>
-                          {isCurrentlyStreaming && (message.isThinking || message.thoughts) && (
-                            <div
-                              className={styles.liveThinkingIndicator}
-                              onClick={() =>
-                                setActiveDrawerThought(message.thoughts || message._id)
-                              }
-                              title="Click to view AI reasoning steps in drawer"
-                              role="button"
-                              tabIndex={0}
-                            >
-                              <Brain size={14} className={styles.pulsingBrain} />
-                              <span>Thinking & reasoning...</span>
-                            </div>
+                        <div className={styles.aiContentContainer}>
+                          {hasAttachments && (
+                            <MessageAttachments attachments={message.attachments} />
                           )}
-                          <MarkdownRenderer
-                            content={message.content}
-                            isStreaming={isCurrentlyStreaming}
-                          />
-                          {isCurrentlyStreaming && (
-                            <span className={styles.blinkingCursor} aria-hidden="true" />
+                          {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
+                            <InlineThinking
+                              thoughts={message.thoughts}
+                              isThinking={Boolean(message.isThinking || (isCurrentlyStreaming && !message.content))}
+                              isStreaming={isCurrentlyStreaming}
+                            />
+                          )}
+
+                          {isCurrentlyStreaming && !message.content && !message.thoughts ? (
+                            <div className={styles.aiMarkdown}>
+                              <span className={styles.blinkingCursor} aria-hidden="true" />
+                            </div>
+                          ) : hasError ? (
+                            <div className={styles.errorCard}>
+                              <div className={styles.errorContent}>
+                                <AlertCircle size={16} className={styles.errorIcon} />
+                                <span>{message.error}</span>
+                              </div>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                leftIcon={<RotateCcw size={13} />}
+                                onClick={() => handleRetryAssistant(index)}
+                                disabled={isStreaming}
+                                className={styles.retryButton}
+                              >
+                                Retry
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className={styles.aiMarkdown}>
+                              <MarkdownRenderer
+                                content={message.content}
+                                isStreaming={isCurrentlyStreaming}
+                                onSavePrompt={(promptData) => setSavePromptData(promptData)}
+                                onUsePrompt={(template) => {
+                                  selectChat(null);
+                                  navigate(ROUTES.CHAT, { state: { prefill: template } });
+                                }}
+                              />
+                              {isCurrentlyStreaming && (
+                                <span className={styles.blinkingCursor} aria-hidden="true" />
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
@@ -351,179 +636,195 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                       <div className={styles.actionToolbar}>
                         {isUser ? (
                           <>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleCopy(message.content, messageId)}
-                              title="Copy prompt"
-                              aria-label="Copy prompt"
-                            >
-                              {isCopied ? (
-                                <Check size={13} className={styles.copiedIcon} />
-                              ) : (
-                                <Copy size={13} />
-                              )}
-                              <span>{isCopied ? 'Copied' : 'Copy'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => onEditPrompt?.(message.content)}
-                              title="Edit prompt in input box"
-                              aria-label="Edit prompt in input box"
-                            >
-                              <Edit3 size={13} />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleResendUserPrompt(message.content)}
-                              title="Resend this prompt"
-                              aria-label="Resend this prompt"
-                              disabled={isStreaming}
-                            >
-                              <RotateCcw size={13} />
-                              <span>Resend</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() =>
-                                setSavePromptData({
-                                  title: 'Saved User Prompt',
-                                  template: message.content,
-                                })
-                              }
-                              title="Save to Prompt Vault"
-                              aria-label="Save to Prompt Vault"
-                            >
-                              <BookmarkPlus size={13} />
-                              <span>Save to Vault</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => {
-                                const titleHint =
-                                  message.content
-                                    .split('\n')[0]
-                                    .replace(/^[#*-]+\s*/, '')
-                                    .slice(0, 45) || 'User Note';
-                                useLibraryStore.getState().openAddModal({
-                                  type: 'note',
-                                  title: titleHint,
-                                  content: message.content,
-                                  tags: ['chat', 'note'],
-                                });
-                              }}
-                              title="Save to Library"
-                              aria-label="Save to Library"
-                            >
-                              <BookOpen size={13} />
-                              <span>Save to Library</span>
-                            </button>
+                            <Tooltip content={isCopied ? 'Copied!' : 'Copy prompt'} side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => handleCopy(displayContent || message.content, messageId)}
+                                aria-label="Copy prompt"
+                              >
+                                {isCopied ? (
+                                  <Check size={15} className={styles.copiedIcon} />
+                                ) : (
+                                  <Copy size={15} />
+                                )}
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Edit prompt" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => onEditPrompt?.(displayContent || message.content)}
+                                aria-label="Edit prompt"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Resend prompt" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => handleResendUserPrompt(displayContent || message.content)}
+                                aria-label="Resend prompt"
+                                disabled={isStreaming}
+                              >
+                                <RotateCcw size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Prompt Vault" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() =>
+                                  setSavePromptData({
+                                    title: 'Saved User Prompt',
+                                    template: displayContent || message.content,
+                                  })
+                                }
+                                aria-label="Save to Prompt Vault"
+                              >
+                                <BookmarkPlus size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Library" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => {
+                                  const textToSave = displayContent || message.content;
+                                  const titleHint =
+                                    textToSave
+                                      .split('\n')[0]
+                                      .replace(/^[#*-]+\s*/, '')
+                                      .slice(0, 45) || 'User Note';
+                                  useLibraryStore.getState().openAddModal({
+                                    type: 'note',
+                                    title: titleHint,
+                                    content: textToSave,
+                                    tags: ['chat', 'note'],
+                                  });
+                                }}
+                                aria-label="Save to Library"
+                              >
+                                <BookOpen size={15} />
+                              </button>
+                            </Tooltip>
                           </>
                         ) : (
                           <>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleCopy(message.content, messageId)}
-                              title="Copy response"
-                              aria-label="Copy response"
-                            >
-                              {isCopied ? (
-                                <Check size={13} className={styles.copiedIcon} />
-                              ) : (
-                                <Copy size={13} />
-                              )}
-                              <span>{isCopied ? 'Copied' : 'Copy'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => handleRetryAssistant(index)}
-                              title="Regenerate response"
-                              aria-label="Regenerate response"
-                              disabled={isStreaming}
-                            >
-                              <RotateCcw size={13} />
-                              <span>Regenerate</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() =>
-                                setSavePromptData({
-                                  title: 'Saved AI Response',
-                                  template: message.content,
-                                })
-                              }
-                              title="Save to Prompt Vault"
-                              aria-label="Save to Prompt Vault"
-                            >
-                              <BookmarkPlus size={13} />
-                              <span>Save to Vault</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.actionBtn}
-                              onClick={() => {
-                                const titleHint =
-                                  message.content
-                                    .split('\n')[0]
-                                    .replace(/^[#*-]+\s*/, '')
-                                    .slice(0, 45) || 'AI Solution Note';
-                                useLibraryStore.getState().openAddModal({
-                                  type: 'note',
-                                  title: titleHint,
-                                  content: message.content,
-                                  tags: ['chat', 'ai-solution'],
-                                });
-                              }}
-                              title="Save to Library"
-                              aria-label="Save to Library"
-                            >
-                              <BookOpen size={13} />
-                              <span>Save to Library</span>
-                            </button>
-                            {Boolean(message.thoughts) && (
+                            <Tooltip content={isCopied ? 'Copied!' : 'Copy response'} side="top">
                               <button
                                 type="button"
-                                className={cn(styles.actionBtn, styles.thinkingActionBtn)}
-                                onClick={() =>
-                                  setActiveDrawerThought(message.thoughts || message._id)
-                                }
-                                title="View AI Reasoning & Thinking Process"
-                                aria-label="View AI Reasoning & Thinking Process"
+                                className={styles.actionBtn}
+                                onClick={() => handleCopy(message.content, messageId)}
+                                aria-label="Copy response"
                               >
-                                <Brain size={13} className={styles.brainIcon} />
-                                <span>Show Thinking</span>
+                                {isCopied ? (
+                                  <Check size={15} className={styles.copiedIcon} />
+                                ) : (
+                                  <Copy size={15} />
+                                )}
                               </button>
+                            </Tooltip>
+                            <Tooltip content="Regenerate response" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => handleRetryAssistant(index)}
+                                aria-label="Regenerate response"
+                                disabled={isStreaming}
+                              >
+                                <RotateCcw size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Prompt Vault" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() =>
+                                  setSavePromptData({
+                                    title: 'Saved AI Response',
+                                    template: message.content,
+                                  })
+                                }
+                                aria-label="Save to Prompt Vault"
+                              >
+                                <BookmarkPlus size={15} />
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="Save to Library" side="top">
+                              <button
+                                type="button"
+                                className={styles.actionBtn}
+                                onClick={() => {
+                                  const titleHint =
+                                    message.content
+                                      .split('\n')[0]
+                                      .replace(/^[#*-]+\s*/, '')
+                                      .slice(0, 45) || 'AI Solution Note';
+                                  useLibraryStore.getState().openAddModal({
+                                    type: 'note',
+                                    title: titleHint,
+                                    content: message.content,
+                                    tags: ['chat', 'ai-solution'],
+                                  });
+                                }}
+                                aria-label="Save to Library"
+                              >
+                                <BookOpen size={15} />
+                              </button>
+                            </Tooltip>
+                            {Boolean(message.thoughts) && (
+                              <Tooltip content="Show AI Thinking & Reasoning" side="top">
+                                <button
+                                  type="button"
+                                  className={cn(styles.actionBtn, styles.thinkingActionBtn)}
+                                  onClick={() =>
+                                    setActiveDrawerThought(message.thoughts || message._id)
+                                  }
+                                  aria-label="Show AI Thinking & Reasoning"
+                                >
+                                  <Brain size={15} className={styles.brainIcon} />
+                                </button>
+                              </Tooltip>
                             )}
-                            <button
-                              type="button"
-                              className={cn(
-                                styles.actionBtn,
-                                speakingId === messageId && styles.speakingBtn,
-                              )}
-                              onClick={() => handleToggleSpeak(message.content, messageId)}
-                              title={speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'}
-                              aria-label={
-                                speakingId === messageId ? 'Stop reading aloud' : 'Read aloud'
+                            <Tooltip
+                              content={
+                                loadingTtsId === messageId
+                                  ? 'Generating audio...'
+                                  : speakingId === messageId
+                                    ? 'Stop reading aloud'
+                                    : 'Read aloud'
                               }
+                              side="top"
                             >
-                              {speakingId === messageId ? (
-                                <VolumeX size={13} />
-                              ) : (
-                                <Volume2 size={13} />
-                              )}
-                              <span>{speakingId === messageId ? 'Stop' : 'Read Aloud'}</span>
-                            </button>
+                              <button
+                                type="button"
+                                className={cn(
+                                  styles.actionBtn,
+                                  speakingId === messageId && styles.speakingBtn,
+                                  loadingTtsId === messageId && styles.loadingBtn,
+                                )}
+                                onClick={() => handleToggleSpeak(message.content, messageId)}
+                                aria-label={
+                                  loadingTtsId === messageId
+                                    ? 'Generating audio'
+                                    : speakingId === messageId
+                                      ? 'Stop reading aloud'
+                                      : 'Read aloud'
+                                }
+                              >
+                                {loadingTtsId === messageId ? (
+                                  <Loader2 size={15} className={styles.spinIcon} />
+                                ) : speakingId === messageId ? (
+                                  <VolumeX size={15} />
+                                ) : (
+                                  <Volume2 size={15} />
+                                )}
+                              </button>
+                            </Tooltip>
                           </>
                         )}
-
                       </div>
                     )}
 

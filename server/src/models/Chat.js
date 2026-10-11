@@ -23,6 +23,11 @@ const chatSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isTemporary: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true },
 );

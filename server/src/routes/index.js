@@ -11,6 +11,7 @@ import interviewRoutes from './interview.routes.js';
 import searchRoutes from './search.routes.js';
 import walletRoutes from './wallet.routes.js';
 import memoryRoutes from './memory.routes.js';
+import schemaRoutes from './schema.routes.js';
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.use('/interview', interviewRoutes);
 router.use('/search', searchRoutes);
 router.use('/wallet', walletRoutes);
 router.use('/memories', memoryRoutes);
+router.use('/schemas', schemaRoutes);
 
 export default router;
 

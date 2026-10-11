@@ -26,7 +26,11 @@ export function validate({ body, query, params } = {}) {
           path: e.path.join('.'),
           message: e.message,
         }));
-        return next(new ApiError(400, 'VALIDATION_ERROR', 'Request validation failed', details));
+        const summary = details
+          .map((d) => (d.path ? `${d.path}: ${d.message}` : d.message))
+          .join(', ');
+        const message = summary ? `Request validation failed: ${summary}` : 'Request validation failed';
+        return next(new ApiError(400, 'VALIDATION_ERROR', message, details));
       }
       next(error);
     }

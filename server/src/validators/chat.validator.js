@@ -43,7 +43,7 @@ export const sendMessageSchema = z.object({
     mimeType: z.string(),
     data: z.string().optional(),
     size: z.number().optional(),
-  })).optional(),
+  })).nullish(),
 });
 
 export const chatIdParamSchema = z.object({

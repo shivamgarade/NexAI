@@ -10,10 +10,28 @@ body,
 body {
   background-color: var(--color-bg-app);
   color: var(--color-text-primary);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
   transition:
     background-color var(--duration-base) var(--ease-standard),
     color var(--duration-base) var(--ease-standard);
   @include custom-scrollbar;
+}
+
+// Allow user text selection and standard cursor strictly where intended
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+pre,
+code,
+.selectableText {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 ::selection {
@@ -23,4 +41,19 @@ body {
 
 :focus-visible {
   @include focus-ring;
+}
+
+// Global browser autofill dark theme override
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-bg-surface) inset !important;
+  -webkit-text-fill-color: var(--color-text-primary) !important;
+  caret-color: var(--color-text-primary) !important;
+  transition: background-color 5000s ease-in-out 0s !important;
 }

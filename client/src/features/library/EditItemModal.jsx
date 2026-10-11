@@ -51,7 +51,12 @@ export function EditItemModal() {
   if (!editingItem) return null;
 
   return (
-    <Modal open={isEditModalOpen} onClose={closeEditModal} title="Edit Library Item">
+    <Modal
+      open={isEditModalOpen}
+      onClose={closeEditModal}
+      className={styles.modal}
+      title="Edit Library Item"
+    >
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.field}>
           <Input

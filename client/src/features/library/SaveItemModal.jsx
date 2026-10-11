@@ -3,6 +3,8 @@ import { Modal } from '@/components/ui/Modal';
 import { SaveItemForm } from './SaveItemForm';
 import { SuggestionReview } from './SuggestionReview';
 import { useLibraryStore } from '@/store/libraryStore';
+import { cn } from '@/lib/utils/cn';
+import styles from './SaveItemModal.module.scss';
 
 export function SaveItemModal() {
   const {
@@ -17,12 +19,17 @@ export function SaveItemModal() {
     isSaving,
   } = useLibraryStore();
 
-
   const [stepSuggestion, setStepSuggestion] = useState(null);
   const [lastPayload, setLastPayload] = useState(null);
 
   // Sync with store suggestion or local state
   const activeSuggestion = suggestion || stepSuggestion;
+
+  const isSnippet = Boolean(
+    addModalPrefill?.isSnippet ||
+      addModalPrefill?.tags?.includes('snippet') ||
+      (addModalPrefill?.type === 'note' && addModalPrefill?.content?.startsWith('```')),
+  );
 
   const handleSuggest = async (payload) => {
     setLastPayload(payload);
@@ -31,6 +38,9 @@ export function SaveItemModal() {
       setStepSuggestion({
         ...result,
         content: payload.content || result?.content,
+        tags: payload.tags?.length
+          ? [...new Set([...(result?.tags || []), ...payload.tags])]
+          : result?.tags,
       });
     } catch {
       // Handled in store toast / error state
@@ -64,11 +74,18 @@ export function SaveItemModal() {
     closeAddModal();
   };
 
+  const modalTitle = activeSuggestion
+    ? 'Review & Confirm'
+    : isSnippet
+      ? 'Save Code Snippet'
+      : 'Add to Personal Library';
+
   return (
     <Modal
       open={isAddModalOpen}
       onClose={handleClose}
-      title={activeSuggestion ? 'Review & Confirm' : 'Add to Personal Library'}
+      className={cn(styles.modal, isSnippet && styles.snippetModal)}
+      title={modalTitle}
     >
       {activeSuggestion ? (
         <SuggestionReview
@@ -88,7 +105,6 @@ export function SaveItemModal() {
           error={suggestError}
           prefill={addModalPrefill}
         />
-
       )}
     </Modal>
   );

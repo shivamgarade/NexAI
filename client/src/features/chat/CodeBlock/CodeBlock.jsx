@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Copy, Check, Bookmark } from 'lucide-react';
+import { Copy, Check, Bookmark, Code2 } from 'lucide-react';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-javascript';
 import 'prismjs/components/prism-typescript';
@@ -15,12 +15,17 @@ import 'prismjs/components/prism-css';
 import 'prismjs/components/prism-scss';
 import { useLibraryStore } from '@/store/libraryStore';
 import { toast } from '@/store/uiStore';
+import { Tooltip } from '@/components/ui/Tooltip';
 import styles from './CodeBlock.module.scss';
 
-export function CodeBlock({ language = 'plaintext', value = '' }) {
+export function CodeBlock({ language = 'plaintext', value = '', allowSaveSnippet = true }) {
   const [copied, setCopied] = useState(false);
 
   const normalizedLang = language.toLowerCase();
+  const displayLang =
+    language && language.toLowerCase() !== 'plaintext'
+      ? normalizedLang
+      : 'code';
   const grammar =
     Prism.languages[normalizedLang] || Prism.languages.javascript || Prism.languages.clike;
 
@@ -49,42 +54,52 @@ export function CodeBlock({ language = 'plaintext', value = '' }) {
       title: snippetTitle,
       content: `\`\`\`${language || 'plaintext'}\n${value}\n\`\`\``,
       tags: ['snippet', (language || 'code').toLowerCase().trim()],
+      isSnippet: true,
+      language: (language || 'plaintext').toLowerCase(),
     });
   };
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <span className={styles.language}>{language || 'code'}</span>
+        <div className={styles.languageBadge}>
+          <Code2 size={14} className={styles.codeIcon} />
+          <span className={styles.languageText}>{displayLang}</span>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <button
-            type="button"
-            onClick={handleSaveSnippet}
-            className={styles.copyButton}
-            aria-label="Save snippet to library"
-            title="Save snippet to library"
-          >
-            <Bookmark size={14} />
-            <span>Save Snippet</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className={styles.copyButton}
-            aria-label="Copy code to clipboard"
-          >
-            {copied ? (
-              <>
-                <Check size={14} className={styles.checkIcon} />
-                <span>Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy size={14} />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
+          {allowSaveSnippet && (
+            <Tooltip content="Save snippet to library" side="top">
+              <button
+                type="button"
+                onClick={handleSaveSnippet}
+                className={styles.copyButton}
+                aria-label="Save snippet to library"
+              >
+                <Bookmark size={14} />
+                <span>Save Snippet</span>
+              </button>
+            </Tooltip>
+          )}
+          <Tooltip content={copied ? 'Copied!' : 'Copy code'} side="top">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={styles.copyButton}
+              aria-label="Copy code to clipboard"
+            >
+              {copied ? (
+                <>
+                  <Check size={14} className={styles.checkIcon} />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={14} />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -101,4 +116,5 @@ export function CodeBlock({ language = 'plaintext', value = '' }) {
 CodeBlock.propTypes = {
   language: PropTypes.string,
   value: PropTypes.string.isRequired,
+  allowSaveSnippet: PropTypes.bool,
 };

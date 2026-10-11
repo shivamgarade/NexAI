@@ -17,6 +17,7 @@ import {
   Clock,
   ArrowLeft,
   Plus,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -41,6 +42,9 @@ export function InterviewArena({
   isSpeaking = false,
   speakingSource = null,
   isTtsEnabled = true,
+  isTtsLoading = false,
+  voiceEngine = 'edge',
+  onToggleVoiceEngine,
   onToggleTts,
   onSpeakText,
 }) {
@@ -80,16 +84,25 @@ export function InterviewArena({
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
+        let lastProcessedIndex = 0;
 
         recognition.onstart = () => {
+          lastProcessedIndex = 0;
           setIsListening(true);
         };
 
         recognition.onresult = (event) => {
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const startIndex = Math.max(
+            lastProcessedIndex,
+            typeof event.resultIndex === 'number' ? event.resultIndex : 0,
+          );
+          for (let i = startIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
-              const text = event.results[i][0].transcript;
-              setResponseText((prev) => (prev ? `${prev} ${text}` : text));
+              const text = event.results[i][0]?.transcript?.trim();
+              if (text) {
+                setResponseText((prev) => (prev ? `${prev} ${text}` : text));
+              }
+              lastProcessedIndex = i + 1;
             }
           }
         };
@@ -222,9 +235,17 @@ export function InterviewArena({
             <Badge variant="accent" size="sm" className={styles.diffBadge}>
               {session?.difficulty}
             </Badge>
-            {session?.isSimulation && (
+            {session?.isSimulation ? (
               <Badge tone="warning" size="sm" className={styles.simBadge}>
                 ⚡ Simulation (0 Credits)
+              </Badge>
+            ) : voiceEngine === 'edge' ? (
+              <Badge tone="accent" size="sm" className={styles.simBadge}>
+                ⚡ Edge Neural (Fast & Free)
+              </Badge>
+            ) : (
+              <Badge tone="success" size="sm" className={styles.simBadge}>
+                🎙️ Gemini 3.8 Flash-Lite TTS
               </Badge>
             )}
           </div>
@@ -239,11 +260,59 @@ export function InterviewArena({
             <span>{formatTimer(elapsedSeconds)}</span>
           </div>
 
+          {/* Dual-Engine Voice Selector */}
+          {!session?.isSimulation && (
+            <div className={styles.engineToggleGroup} role="radiogroup" aria-label="Voice Engine">
+              <button
+                type="button"
+                className={cn(
+                  styles.enginePillBtn,
+                  voiceEngine === 'edge' && styles.enginePillActive,
+                )}
+                onClick={() => onToggleVoiceEngine && onToggleVoiceEngine('edge')}
+                title="⚡ Edge Neural: ~400ms ultra-low latency, studio-quality, 0 credits"
+                aria-pressed={voiceEngine === 'edge'}
+              >
+                <Zap size={12} />
+                <span>Edge Neural</span>
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  styles.enginePillBtn,
+                  voiceEngine === 'gemini' && styles.enginePillActive,
+                )}
+                onClick={() => onToggleVoiceEngine && onToggleVoiceEngine('gemini')}
+                title="🎙️ Gemini 3.8 Flash-Lite TTS: Cloud neural voice (Metered credits)"
+                aria-pressed={voiceEngine === 'gemini'}
+              >
+                <Bot size={12} />
+                <span>Gemini 3.8 TTS</span>
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
-            className={cn(styles.audioToggleBtn, isTtsEnabled && styles.ttsActive)}
+            className={cn(
+              styles.audioToggleBtn,
+              isTtsEnabled && styles.ttsActive,
+              isTtsLoading && styles.ttsLoading,
+            )}
             onClick={onToggleTts}
-            title={isTtsEnabled ? 'Mute AI voice readout' : 'Enable AI voice readout'}
+            title={
+              isTtsLoading
+                ? voiceEngine === 'edge'
+                  ? 'Synthesizing voice with Edge Neural TTS...'
+                  : 'Synthesizing voice with Gemini 3.8 Flash-Lite TTS...'
+                : isTtsEnabled
+                  ? session?.isSimulation
+                    ? 'AI Voice: Browser Web Speech (Simulation) - Click to Mute'
+                    : voiceEngine === 'edge'
+                      ? 'AI Voice: Edge Neural TTS (Free) - Click to Mute'
+                      : 'AI Voice: Gemini 3.8 Flash-Lite TTS - Click to Mute'
+                  : 'AI Voice Muted - Click to Enable'
+            }
             aria-label="Toggle voice readout"
           >
             {isTtsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -290,9 +359,17 @@ export function InterviewArena({
                   ? 'Interviewer is thinking & formulating critique...'
                   : isListening
                     ? 'Microphone active — speaking answer...'
-                    : isSpeaking && speakingSource === 'interviewer'
-                      ? 'Interviewer is speaking...'
-                      : 'Interviewer waiting for your response'
+                    : isTtsLoading
+                      ? voiceEngine === 'edge'
+                        ? 'Synthesizing Edge Neural voice...'
+                        : 'Generating Gemini 3.8 Flash-Lite TTS audio...'
+                      : isSpeaking && speakingSource === 'interviewer'
+                        ? session?.isSimulation
+                          ? 'Interviewer is speaking (Web Speech Simulation)...'
+                          : voiceEngine === 'edge'
+                            ? 'Interviewer is speaking (Edge Neural)...'
+                            : 'Interviewer is speaking (Gemini 3.8 Flash-Lite TTS)...'
+                        : 'Interviewer waiting for your response'
               }
             />
           </div>
@@ -502,6 +579,9 @@ InterviewArena.propTypes = {
   isSpeaking: PropTypes.bool,
   speakingSource: PropTypes.string,
   isTtsEnabled: PropTypes.bool,
+  isTtsLoading: PropTypes.bool,
+  voiceEngine: PropTypes.oneOf(['edge', 'gemini']),
+  onToggleVoiceEngine: PropTypes.func,
   onToggleTts: PropTypes.func.isRequired,
   onSpeakText: PropTypes.func.isRequired,
 };

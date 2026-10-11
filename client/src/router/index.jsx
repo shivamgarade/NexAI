@@ -14,6 +14,7 @@ const LibraryPage = lazy(() => import('@/pages/Library/LibraryPage'));
 const DocumentsPage = lazy(() => import('@/pages/Documents/DocumentsPage'));
 const PromptsPage = lazy(() => import('@/pages/Prompts/PromptsPage'));
 const InterviewPage = lazy(() => import('@/pages/Interview/InterviewPage'));
+const SchemaPage = lazy(() => import('@/pages/Schema/SchemaPage'));
 const ProjectPage = lazy(() => import('@/pages/Project/ProjectPage'));
 const ProjectsGalleryPage = lazy(() => import('@/pages/Project/ProjectsGalleryPage'));
 const SearchPage = lazy(() => import('@/pages/Search/SearchPage'));
@@ -36,6 +37,7 @@ const appChildren = [
   { path: ROUTES.DOCUMENT_ID, element: <DocumentsPage /> },
   { path: ROUTES.PROMPTS, element: <PromptsPage /> },
   { path: ROUTES.INTERVIEW, element: <InterviewPage /> },
+  { path: ROUTES.SCHEMA, element: <SchemaPage /> },
   { path: ROUTES.PROJECT_ID, element: <ProjectPage /> },
   { path: ROUTES.PROJECTS, element: <ProjectsGalleryPage /> },
   { path: ROUTES.SEARCH, element: <SearchPage /> },

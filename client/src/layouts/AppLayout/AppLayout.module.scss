@@ -47,7 +47,24 @@
     height: calc(100vh - var(--topbar-height));
   }
 
+  &.searchContent {
+    height: calc(100vh - var(--topbar-height));
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+
   &.wideContent {
     max-width: 1540px;
+  }
+
+  &.fullWidthContent {
+    max-width: 1720px;
+    width: 100%;
+    margin: 0 auto;
+    padding: var(--space-4) var(--space-8);
+
+    @media (max-width: 1400px) {
+      padding: var(--space-3) var(--space-5);
+    }
   }
 }

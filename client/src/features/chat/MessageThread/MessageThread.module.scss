@@ -13,12 +13,12 @@
 .scrollArea {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-3) var(--space-4) calc(var(--space-24) + var(--space-12));
+  padding: 0 var(--space-4) calc(var(--space-24) + var(--space-12));
   display: flex;
   flex-direction: column;
 
   @include up(md) {
-    padding: var(--space-4) var(--space-6) calc(var(--space-24) + var(--space-12));
+    padding: 0 var(--space-6) calc(var(--space-24) + var(--space-12));
   }
 }
 
@@ -29,6 +29,7 @@
   max-width: 980px;
   margin: 0 auto;
   width: 100%;
+  padding-top: var(--space-4);
 }
 
 .skeletonMessageUser {
@@ -47,22 +48,26 @@
   align-items: center;
   justify-content: center;
   margin: auto;
-  max-width: 680px;
+  max-width: 720px;
   text-align: center;
   padding: var(--space-8) var(--space-4);
 }
 
-.welcomeIcon {
+.welcomeLogoWrapper {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 60px;
-  height: 60px;
-  border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, var(--color-accent), var(--green-600));
-  color: var(--color-accent-contrast);
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
   margin-bottom: var(--space-4);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  filter: drop-shadow(0 4px 20px color-mix(in srgb, var(--color-accent) 45%, transparent));
+}
+
+.welcomeLogo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
 }
 
 .welcomeTitle {
@@ -70,13 +75,15 @@
   font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
+  letter-spacing: -0.02em;
   line-height: var(--leading-tight);
 }
 
 .welcomeSubtitle {
   margin: 0 0 var(--space-8);
-  font-size: var(--text-md);
-  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  max-width: 480px;
   line-height: var(--leading-relaxed);
 }
 
@@ -97,7 +104,7 @@
   align-items: flex-start;
   padding: var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background-color: var(--color-bg-surface);
   text-align: left;
   cursor: pointer;
@@ -108,6 +115,11 @@
     border-color: var(--color-accent);
     transform: translateY(-2px);
     box-shadow: var(--shadow-sm);
+
+    .suggestionIconWrapper {
+      color: var(--color-accent);
+      background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    }
   }
 
   &:focus-visible {
@@ -115,17 +127,37 @@
   }
 }
 
+.suggestionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.suggestionIconWrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-muted);
+  transition: all var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+}
+
 .suggestionTitle {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
-  margin-bottom: var(--space-1);
 }
 
 .suggestionDesc {
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   line-height: var(--leading-normal);
+  padding-left: calc(28px + var(--space-2));
 }
 
 .messageList {
@@ -135,6 +167,7 @@
   max-width: 980px;
   margin: 0 auto;
   width: 100%;
+  padding-top: var(--space-4);
 }
 
 .messageRow {
@@ -167,7 +200,7 @@
     }
 
     .metaHeader {
-      margin-bottom: var(--space-2);
+      margin-bottom: var(--space-1);
     }
   }
 
@@ -181,35 +214,45 @@
 
 .avatarWrapper {
   flex-shrink: 0;
-  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 
 .aiAvatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  padding: 4px;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+  padding: 0;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &.aiAvatarThinking {
-    background-color: color-mix(in srgb, var(--color-bg-elevated) 90%, transparent);
-    border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
-    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 20%, transparent);
+    background: transparent;
+    border: none;
+    box-shadow: none;
     padding: 0;
   }
 }
 
 .avatarLogo {
-  width: 100%;
-  height: 100%;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 45%, transparent));
+  transition: transform var(--duration-fast) var(--ease-standard), filter var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 80%, transparent));
+  }
 }
 
 .messageContentWrapper {
@@ -221,6 +264,7 @@
 .metaHeader {
   display: flex;
   align-items: center;
+  height: 28px;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
 }
@@ -245,21 +289,34 @@
 .bubble {
   position: relative;
   word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
   transition: box-shadow var(--duration-fast) var(--ease-standard);
 
   &.userBubble {
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-xl);
-    background: linear-gradient(135deg, var(--color-accent), var(--green-600));
-    color: var(--color-accent-contrast);
+    background-color: var(--color-bg-elevated);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+    color: var(--color-text-primary);
     border-bottom-right-radius: var(--radius-sm);
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 25%, transparent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 10%, transparent);
+
+    .userContentContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      width: 100%;
+    }
 
     .userText {
       white-space: pre-wrap;
       font-size: var(--text-sm);
       line-height: var(--leading-normal);
       font-weight: var(--weight-regular);
+      color: var(--color-text-primary);
+      width: 100%;
+      text-align: left;
     }
   }
 
@@ -281,6 +338,12 @@
   }
 }
 
+.aiContentContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .aiMarkdown {
   display: flex;
   flex-direction: column;
@@ -288,8 +351,8 @@
 
 .blinkingCursor {
   display: inline-block;
-  width: 6px;
-  height: 15px;
+  width: 2px;
+  height: 14px;
   background-color: var(--color-accent);
   margin-left: 4px;
   vertical-align: middle;
@@ -309,31 +372,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: geminiRotate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: geminiRotate 3.6s linear infinite;
 }
 
 .geminiDot {
   position: absolute;
   width: 5px;
   height: 5px;
+  top: 8.5px;
+  left: 8.5px;
   border-radius: 50%;
   background-color: var(--color-accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 60%, transparent);
+  box-shadow: none;
 
   &:nth-child(1) {
-    top: 2px;
-    left: 8.5px;
-    animation: geminiPulse 1.5s ease-in-out infinite 0s;
+    animation: geminiOrbitOne 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
   }
   &:nth-child(2) {
-    bottom: 3px;
-    left: 2px;
-    animation: geminiPulse 1.5s ease-in-out infinite 0.25s;
+    animation: geminiOrbitTwo 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
   }
   &:nth-child(3) {
-    bottom: 3px;
-    right: 2px;
-    animation: geminiPulse 1.5s ease-in-out infinite 0.5s;
+    animation: geminiOrbitThree 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
   }
 }
 
@@ -346,14 +405,60 @@
   }
 }
 
-@keyframes geminiPulse {
-  0%, 100% {
-    transform: scale(0.85);
-    opacity: 0.7;
+@keyframes geminiOrbitOne {
+  0% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
   }
-  50% {
-    transform: scale(1.15);
+  33.3% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
+  }
+  66.6% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
     opacity: 1;
+  }
+  100% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
+  }
+}
+
+@keyframes geminiOrbitTwo {
+  0% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
+    opacity: 1;
+  }
+  33.3% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
+  }
+  66.6% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes geminiOrbitThree {
+  0% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
+  }
+  33.3% {
+    transform: translate(-5.6px, 3.3px) scale(1.15);
+    opacity: 1;
+  }
+  66.6% {
+    transform: translate(0, -6.5px) scale(1);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(5.6px, 3.3px) scale(0.85);
+    opacity: 0.8;
   }
 }
 
@@ -401,13 +506,14 @@
 .actionBtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
-  font-size: 11px;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-standard);
 
@@ -446,6 +552,26 @@
   background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
   animation: pulseSpeaker 1.5s infinite alternate;
+}
+
+.loadingBtn {
+  color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  cursor: wait;
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulseSpeaker {

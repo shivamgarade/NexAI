@@ -3,23 +3,24 @@ import PropTypes from 'prop-types';
 import {
   Plus,
   Mic,
-  MicOff,
   ArrowUp,
   HelpCircle,
   Code2,
   Mail,
   Server,
-  Terminal,
-  Zap,
-  Brain,
+  ChevronDown,
+  Upload,
+  MessageSquareDashed,
 } from 'lucide-react';
-import { IconButton } from '@/components/ui/IconButton';
-import { AttachContextModal } from '../ChatInput/AttachContextModal';
+import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
 import { PromptPickerModal, VariableFillModal } from '@/features/prompts';
-import { useChatStore } from '@/store/chatStore';
+import { ModelSelectorPopover } from '../ModelSelector';
+import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { libraryApi } from '@/lib/api/library.api';
+import { toast } from '@/store/uiStore';
 import { getGreetingContext } from './greetingHelper';
 import { cn } from '@/lib/utils/cn';
 import logoImg from '@/assets/logo.png';
@@ -54,20 +55,27 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const greeting = getGreetingContext(user);
 
   const {
-    insufficientCredits,
     isStreaming,
     isSimulation,
-    toggleSimulation,
+    selectedModel,
     thinkingLevel,
-    setThinkingLevel,
+    isTemporaryChat,
+    startTemporaryChat,
+    clearTemporaryChat,
   } = useChatStore();
 
-  const handleCycleThinking = () => {
-    const levels = ['off', 'low', 'medium', 'high'];
-    const currentIndex = levels.indexOf(thinkingLevel);
-    const nextIndex = (currentIndex + 1) % levels.length;
-    setThinkingLevel(levels[nextIndex]);
-  };
+  const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
+  const modelButtonRef = useRef(null);
+  const attachButtonRef = useRef(null);
+
+  const currentModelObj =
+    AVAILABLE_MODELS.find((m) => m.id === selectedModel) ||
+    MORE_MODELS.find((m) => m.id === selectedModel);
+  const modelShortName = currentModelObj
+    ? currentModelObj.name.replace('NexAI 2.5 ', '')
+    : 'Flash';
+  const effortName = thinkingLevel ? thinkingLevel.charAt(0).toUpperCase() + thinkingLevel.slice(1) : 'Medium';
+  const modelPillLabel = `${modelShortName} ${effortName}`;
 
   const [input, setInput] = useState('');
   const [attachedContext, setAttachedContext] = useState(null);
@@ -77,8 +85,14 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const baseTextRef = useRef('');
+
   const insertCompiledPrompt = (compiledText) => {
-    setInput((prev) => (prev ? `${prev}\n\n${compiledText}` : compiledText));
+    setInput((prev) => {
+      const next = prev ? `${prev}\n\n${compiledText}` : compiledText;
+      baseTextRef.current = next;
+      return next;
+    });
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -100,6 +114,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   useEffect(() => {
     if (initialPrompt) {
       setInput(initialPrompt);
+      baseTextRef.current = initialPrompt;
       onClearInitialPrompt?.();
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -107,23 +122,44 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     }
   }, [initialPrompt, onClearInitialPrompt]);
 
-  // Web Speech API Voice Dictation Hook
-  const { isSupported: isVoiceSupported, isListening, toggleListening } = useSpeechRecognition({
+  // Web Speech API Voice Dictation Hook with Real-Time Streaming
+  const { isSupported: isVoiceSupported, isListening, stopListening, toggleListening } = useSpeechRecognition({
+    continuous: true,
+    onInterim: (interim) => {
+      const base = baseTextRef.current;
+      if (interim) {
+        setInput(base ? `${base} ${interim}` : interim);
+      } else {
+        setInput(base);
+      }
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    },
     onResult: (transcription) => {
-      setInput((prev) => (prev ? `${prev} ${transcription}` : transcription));
+      const base = baseTextRef.current;
+      const updated = base ? `${base} ${transcription}` : transcription;
+      baseTextRef.current = updated;
+      setInput(updated);
       if (textareaRef.current) {
         textareaRef.current.focus();
       }
     },
   });
 
+  const handleToggleListening = () => {
+    if (!isListening) {
+      baseTextRef.current = input;
+    }
+    toggleListening();
+  };
 
   // Adjust textarea height dynamically with smooth auto-grow up to 220px
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollH = textareaRef.current.scrollHeight;
-      const minH = 28;
+      const minH = 52;
       const maxH = 220;
       textareaRef.current.style.height = `${Math.min(Math.max(scrollH, minH), maxH)}px`;
     }
@@ -131,8 +167,11 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
 
   const handleSubmit = (e) => {
     e?.preventDefault();
+    if (isListening) {
+      stopListening();
+    }
     const trimmed = input.trim();
-    if ((!trimmed && !attachedContext) || isStreaming || (insufficientCredits && !isSimulation)) {
+    if ((!trimmed && !attachedContext) || isStreaming) {
       return;
     }
 
@@ -146,6 +185,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
           mimeType: attachedContext.mimeType,
           data: attachedContext.data,
           size: attachedContext.size,
+          type: attachedContext.type,
         });
         if (!finalPrompt) {
           finalPrompt = `[Analyzed ${attachedContext.type || "file"}: ${attachedContext.name}]`;
@@ -156,13 +196,21 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
 
 `;
         finalPrompt = `${prefix}${trimmed}`;
+        attachments.push({
+          name: attachedContext.name,
+          mimeType: attachedContext.mimeType || "text/plain",
+          size: attachedContext.size || 0,
+          type: attachedContext.type || "file",
+          content: attachedContext.content,
+        });
       }
     }
 
     setInput("");
+    baseTextRef.current = "";
     setAttachedContext(null);
     if (textareaRef.current) {
-      textareaRef.current.style.height = "28px";
+      textareaRef.current.style.height = "52px";
     }
 
     if (onSendPrompt) {
@@ -181,50 +229,100 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const processAndAttachFile = (file) => {
     if (!file) return;
+
+    const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB limit
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error(
+        `File "${file.name}" is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Maximum allowed size is 10 MB.`,
+      );
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     const isText =
       file.type.startsWith('text/') ||
       file.name.match(/\.(md|txt|json|csv|js|ts|jsx|tsx|py|html|css|yaml|yml|sql|sh|env)$/i);
 
+    const isImage = file.type.startsWith('image/');
+    const type = isImage
+      ? 'image'
+      : file.type.startsWith('audio/')
+        ? 'audio'
+        : file.type.startsWith('video/')
+          ? 'video'
+          : file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf')
+            ? 'pdf'
+            : 'file';
+
+    setAttachedContext({
+      name: file.name,
+      type,
+      mimeType: file.type || (isText ? 'text/plain' : 'application/octet-stream'),
+      size: file.size,
+      isUploading: true,
+      progress: 45,
+    });
+
     if (isText) {
       const reader = new FileReader();
       reader.onload = (event) => {
+        const content = event.target.result || '';
         setAttachedContext({
           name: file.name,
           type: 'file',
           mimeType: file.type || 'text/plain',
-          content: event.target.result || '',
+          content,
+          size: file.size,
+          isUploading: false,
         });
+
+        // Persist note to user library in background
+        libraryApi
+          .createItem({
+            title: file.name,
+            type: 'note',
+            content,
+            category: 'general',
+          })
+          .catch(() => {});
       };
       reader.readAsText(file);
     } else {
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target.result || '';
-        const mimeType =
-          file.type ||
-          (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
-
-        const type = file.type.startsWith('image/')
-          ? 'image'
-          : file.type.startsWith('audio/')
-            ? 'audio'
-            : file.type.startsWith('video/')
-              ? 'video'
-              : file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf')
-                ? 'pdf'
-                : 'file';
-
         setAttachedContext({
           name: file.name,
           type,
-          mimeType,
+          mimeType:
+            file.type ||
+            (file.name.toLowerCase().endsWith('.pdf')
+              ? 'application/pdf'
+              : 'application/octet-stream'),
           data: dataUrl,
           size: file.size,
+          isUploading: false,
         });
+
+        // Persist media/file to user library in background
+        libraryApi
+          .createItem({
+            title: file.name,
+            type: 'file',
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            fileData: dataUrl,
+            category: 'general',
+          })
+          .catch(() => {});
       };
       reader.readAsDataURL(file);
     }
@@ -234,8 +332,51 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     }
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processAndAttachFile(file);
+    }
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      setIsDraggingOver(false);
+      dragCounterRef.current = 0;
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    dragCounterRef.current = 0;
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processAndAttachFile(files[0]);
+    }
+  };
+
   const handleSelectChip = (promptText) => {
-    if (isStreaming || (insufficientCredits && !isSimulation)) return;
+    if (isStreaming) return;
     if (onSendPrompt) {
       onSendPrompt(promptText);
     } else {
@@ -258,10 +399,55 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
           </div>
           <h1 className={styles.heroHeadline}>{greeting.headline}</h1>
           <p className={styles.heroSubtitle}>{greeting.subtitle}</p>
+
+          <div className={styles.tempModeBar}>
+            {isTemporaryChat ? (
+              <div className={styles.tempActiveBanner}>
+                <MessageSquareDashed size={14} className={styles.tempActiveIcon} />
+                <span>Temporary Chat active (not saved to history)</span>
+                <button
+                  type="button"
+                  className={styles.exitTempPillBtn}
+                  onClick={clearTemporaryChat}
+                  title="Switch back to regular chat"
+                >
+                  Exit
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={styles.tempToggleBtn}
+                onClick={startTemporaryChat}
+                title="Start a temporary chat that will not be saved"
+              >
+                <MessageSquareDashed size={14} />
+                <span>Temporary chat</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Modern Responsive Prompt Composer Card */}
-        <div className={styles.composerCard}>
+        {/* Modern Responsive Prompt Composer Card (Claude-inspired spacious layout) */}
+        <div
+          className={cn(
+            styles.composerCard,
+            isDraggingOver && styles.composerCardDragging,
+            isTemporaryChat && styles.composerCardTemporary
+          )}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {isDraggingOver && (
+            <div className={styles.composerDragOverlay}>
+              <div className={styles.composerDragContent}>
+                <Upload size={22} className={styles.composerDragIcon} />
+                <span>Drop files here to attach</span>
+              </div>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className={styles.composerForm}>
             {/* Attached media & context preview */}
             {attachedContext && (
@@ -281,157 +467,137 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               accept="image/*,audio/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.js,.ts,.jsx,.tsx,.py,.html,.css,.yaml,.yml,.sql"
             />
 
-            {/* Full-width Responsive Prompt Textarea */}
-            <div className={styles.inputWrapper}>
+            {/* Top Textarea Area */}
+            <div className={styles.inputArea}>
               <textarea
                 ref={textareaRef}
-                rows={1}
+                rows={2}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  baseTextRef.current = e.target.value;
+                }}
                 onKeyDown={handleKeyDown}
-                disabled={insufficientCredits && !isSimulation}
                 placeholder={
-                  insufficientCredits && !isSimulation
-                    ? 'Recharge your credits to send messages...'
-                    : isSimulation
-                      ? 'Simulation Mode (0 tokens) — Ask anything...'
-                      : 'Ask NexAI anything...'
+                  isSimulation
+                    ? 'Simulation Mode (0 tokens) — How can I help you today?'
+                    : 'How can I help you today?'
                 }
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"
               />
             </div>
 
-            {/* Bottom Actions Toolbar: Attach on left, Tools & Submit on right */}
-            <div className={styles.bottomToolbar}>
-              <div className={styles.leftActions}>
-                <IconButton
-                  type="button"
-                  icon={<Plus size={18} />}
-                  label="Attach context file or library"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsAttachModalOpen(true)}
-                  className={styles.attachBtn}
-                />
+            {/* Bottom Actions Toolbar: Attach (+) on left; Model Selector, Mic, Send on right */}
+            <div className={styles.composerBottomRow}>
+              <div className={styles.bottomLeftActions}>
+                <div className={styles.attachAnchorWrapper}>
+                  <button
+                    ref={attachButtonRef}
+                    type="button"
+                    className={cn(styles.attachBtn, isAttachModalOpen && styles.attachBtnActive)}
+                    onClick={() => setIsAttachModalOpen((prev) => !prev)}
+                    title="Attach context file or prompt"
+                    aria-label="Attach context file"
+                  >
+                    <Plus size={18} />
+                  </button>
+
+                  <AttachContextPopover
+                    open={isAttachModalOpen}
+                    onClose={() => setIsAttachModalOpen(false)}
+                    anchorRef={attachButtonRef}
+                    onSelect={(item) => setAttachedContext(item)}
+                    onUploadLocal={() => fileInputRef.current?.click()}
+                  />
+                </div>
               </div>
 
-              <div className={styles.rightActions}>
-                <button
-                  type="button"
-                  onClick={toggleSimulation}
-                  className={cn(styles.simPill, isSimulation && styles.activeSimPill)}
-                  title={
-                    isSimulation
-                      ? 'Simulation mode active (0 tokens consumed)'
-                      : 'Switch to zero-token simulation mode'
-                  }
-                  aria-label={
-                    isSimulation
-                      ? 'Disable zero-token simulation mode'
-                      : 'Enable zero-token simulation mode'
-                  }
-                >
-                  <Zap size={13} className={isSimulation ? styles.activeZap : undefined} />
-                  <span className={styles.simText}>{isSimulation ? 'Sim (0 Tokens)' : 'Sim'}</span>
-                </button>
+              <div className={styles.bottomRightActions}>
+                <div className={styles.popoverAnchorWrapper}>
+                  <button
+                    ref={modelButtonRef}
+                    type="button"
+                    className={styles.modelPillLink}
+                    onClick={() => setIsModelPopoverOpen((prev) => !prev)}
+                    disabled={isStreaming}
+                    title={`AI Model: ${modelShortName} · Effort: ${effortName}`}
+                    aria-label="Select AI model and effort"
+                  >
+                    <span className={styles.modelText}>{modelPillLabel}</span>
+                    <ChevronDown size={13} className={styles.modelChevron} />
+                  </button>
 
-                <button
-                  type="button"
-                  className={cn(
-                    styles.thinkingPill,
-                    thinkingLevel !== 'off' && styles.activeThinkingPill,
-                  )}
-                  onClick={handleCycleThinking}
-                  disabled={isStreaming}
-                  title={`Gemini Reasoning: ${thinkingLevel.toUpperCase()}. Click to cycle (Off, Low, Medium, High)`}
-                  aria-label={`Toggle thinking level, current is ${thinkingLevel}`}
-                >
-                  <Brain
-                    size={13}
-                    className={thinkingLevel !== 'off' ? styles.activeBrain : undefined}
+                  <ModelSelectorPopover
+                    open={isModelPopoverOpen}
+                    onClose={() => setIsModelPopoverOpen(false)}
+                    anchorRef={modelButtonRef}
                   />
-                  <span className={styles.thinkingText}>
-                    {thinkingLevel === 'off'
-                      ? 'Think: Off'
-                      : `Think: ${thinkingLevel.charAt(0).toUpperCase() + thinkingLevel.slice(1)}`}
-                  </span>
-                </button>
+                </div>
 
-                <IconButton
+                <button
                   type="button"
-                  icon={<Terminal size={15} />}
-                  label="Use prompt template"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsPickerOpen(true)}
-                  className={styles.toolBtn}
-                />
-
-                <IconButton
-                  type="button"
-                  icon={
-                    isListening ? (
-                      <MicOff size={16} className={styles.activeMicIcon} />
-                    ) : (
-                      <Mic size={16} />
-                    )
-                  }
-                  label={
+                  className={cn(styles.micBtn, isListening && styles.listeningMic)}
+                  onClick={handleToggleListening}
+                  disabled={!isVoiceSupported}
+                  title={
                     !isVoiceSupported
                       ? 'Voice input not supported in this browser'
                       : isListening
-                        ? 'Stop listening'
+                        ? 'Listening... Click to stop dictation'
                         : 'Voice dictation'
                   }
-                  disabled={!isVoiceSupported}
-                  variant={isListening ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={toggleListening}
-                  className={cn(styles.toolBtn, isListening && styles.listeningMic)}
-                />
+                  aria-label={
+                    !isVoiceSupported
+                      ? 'Voice input not supported in this browser'
+                      : isListening
+                        ? 'Listening... Click to stop dictation'
+                        : 'Voice dictation'
+                  }
+                >
+                  <Mic size={17} />
+                </button>
 
                 {hasContent && (
-                  <IconButton
+                  <button
                     type="submit"
-                    icon={<ArrowUp size={16} />}
-                    label="Send prompt"
-                    variant="primary"
-                    size="sm"
-                    disabled={!hasContent || (insufficientCredits && !isSimulation)}
                     className={styles.sendBtn}
-                  />
+                    title="Send prompt (Enter)"
+                    aria-label="Send prompt"
+                  >
+                    <ArrowUp size={16} />
+                  </button>
                 )}
               </div>
             </div>
           </form>
         </div>
 
-        {/* Minimalist Gemini Quick Prompts (clean text rows, not cards) */}
-        <div className={styles.quickPromptsList} aria-label="Suggested starter prompts">
-          {STARTER_PROMPTS.map((item, index) => (
-            <button
-              key={index}
-              type="button"
-              className={styles.quickPromptRow}
-              onClick={() => handleSelectChip(item.prompt)}
-              aria-label={item.title}
-            >
-              <span className={styles.promptIcon}>{item.icon}</span>
-              <span className={styles.promptText}>{item.prompt}</span>
-              <span className={styles.promptCategory}>{item.title}</span>
-            </button>
-          ))}
-        </div>
+        {/* Minimalist Gemini Quick Prompts (hidden in temporary chat for a clean focused layout) */}
+        {!isTemporaryChat && (
+          <div className={styles.quickPromptsList} aria-label="Suggested starter prompts">
+            {STARTER_PROMPTS.map((item, index) => (
+              <button
+                key={index}
+                type="button"
+                className={styles.quickPromptRow}
+                onClick={() => handleSelectChip(item.prompt)}
+                aria-label={item.title}
+              >
+                <span className={styles.promptIcon}>{item.icon}</span>
+                <span className={styles.promptText}>{item.prompt}</span>
+                <span className={styles.promptCategory}>{item.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Clean Centered Disclaimer below quick prompts, outside the input card */}
+        <p className={styles.disclaimerText}>
+          NexAI is an AI workspace and can make mistakes. Please double-check responses.
+        </p>
       </div>
 
-      {/* Attach Context from Library or Device Modal */}
-      <AttachContextModal
-        open={isAttachModalOpen}
-        onClose={() => setIsAttachModalOpen(false)}
-        onSelect={(item) => setAttachedContext(item)}
-        onUploadLocal={() => fileInputRef.current?.click()}
-      />
 
       {/* Prompt Selector Modal */}
       <PromptPickerModal
@@ -450,6 +616,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
           actionLabel="Use in Chat"
         />
       )}
+
+
     </div>
   );
 }

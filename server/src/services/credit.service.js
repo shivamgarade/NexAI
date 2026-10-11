@@ -57,7 +57,7 @@ export async function assertBalance(userId) {
  */
 export async function deductCredits({ userId, tokensUsed, feature, model }) {
   const creditsDeducted = tokensToCredits(tokensUsed);
-  const normalizedModel = model === 'pro' ? 'pro' : 'flash';
+  const normalizedModel = model === 'pro' ? 'pro' : model === 'tts' ? 'tts' : 'flash';
 
   const updatedUser = await User.findByIdAndUpdate(
     userId,

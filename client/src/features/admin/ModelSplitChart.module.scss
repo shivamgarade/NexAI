@@ -28,6 +28,21 @@
   margin-top: var(--space-1);
 }
 
+.engineBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+  font-weight: var(--weight-medium);
+  width: fit-content;
+  margin-top: var(--space-2);
+}
+
 .content {
   display: flex;
   flex-direction: column;

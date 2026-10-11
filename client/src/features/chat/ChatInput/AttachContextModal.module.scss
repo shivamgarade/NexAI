@@ -1,8 +1,28 @@
 @use '@/styles/abstracts' as *;
 
 .modalContainer {
-  max-width: 640px;
-  width: 94vw;
+  max-width: 580px;
+  width: 92vw;
+  height: 540px;
+  max-height: calc(100vh - var(--space-8));
+  display: flex;
+  flex-direction: column;
+
+  > div:nth-child(2) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-3);
 }
 
 .modalTitle {
@@ -12,91 +32,45 @@
   color: var(--color-text-primary);
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
+  user-select: none;
 }
 
 .titleIcon {
   color: var(--color-accent);
 }
 
+.headerUploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    border-color: var(--color-accent);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
 .container {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-// ── Upload drop-zone styled button ──────────────────────────────────────────
-.uploadZone {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-bg-surface));
-  border: 1.5px dashed color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  text-align: left;
-  transition: all var(--duration-fast) var(--ease-standard);
-
-  &:hover {
-    background: color-mix(in srgb, var(--color-accent) 9%, var(--color-bg-surface));
-    border-color: var(--color-accent);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 12%, transparent);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-}
-
-.uploadIcon {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-  padding: 6px;
-  box-sizing: content-box;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-  transition: transform var(--duration-fast) var(--ease-standard);
-
-  .uploadZone:hover & {
-    transform: scale(1.08);
-  }
-}
-
-.uploadLabel {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--color-text-primary);
   flex: 1;
-}
-
-.uploadHint {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  font-weight: var(--weight-regular);
-}
-
-// ── Divider ─────────────────────────────────────────────────────────────────
-.divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 10px;
-  letter-spacing: 0.07em;
-  font-weight: var(--weight-bold);
-  margin: var(--space-1) 0;
-
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  span {
-    padding: 0 var(--space-3);
-  }
+  min-height: 0;
+  height: 100%;
 }
 
 // ── Search Bar ──────────────────────────────────────────────────────────────
@@ -108,13 +82,14 @@
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  height: 40px;
-  transition: border-color var(--duration-fast) var(--ease-standard),
-              box-shadow var(--duration-fast) var(--ease-standard);
+  height: 38px;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
 
   &:focus-within {
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
   }
 }
 
@@ -146,8 +121,9 @@
   justify-content: center;
   padding: 3px;
   border-radius: var(--radius-full);
-  transition: color var(--duration-fast) var(--ease-standard),
-              background var(--duration-fast) var(--ease-standard);
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
 
   &:hover {
     color: var(--color-text-primary);
@@ -170,26 +146,25 @@
 
 .tabChip {
   font-size: var(--text-xs);
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: var(--radius-full);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-surface);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
   white-space: nowrap;
   font-weight: var(--weight-medium);
+  user-select: none;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &:hover {
     color: var(--color-text-primary);
     background: var(--color-bg-hover);
-    border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
   }
 
   &.activeTab {
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
     font-weight: var(--weight-semibold);
   }
 }
@@ -198,159 +173,120 @@
 .itemsList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  max-height: 340px;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding-right: var(--space-1);
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: var(--radius-full);
-  }
+  padding-right: 2px;
+  @include custom-scrollbar;
 }
 
 // ── Item Row ────────────────────────────────────────────────────────────────
 .itemRow {
-  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 10px 14px 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-surface);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid transparent;
   cursor: pointer;
-  overflow: hidden;
-  transition: all var(--duration-fast) var(--ease-standard);
+  user-select: none;
+  flex-shrink: 0;
+  min-height: 52px;
+  box-sizing: border-box;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
 
   &:hover {
-    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-    background: var(--color-bg-hover);
-    transform: translateX(2px);
-    box-shadow: var(--shadow-sm);
+    background-color: var(--color-bg-hover);
 
-    .rowAccent {
+    .attachAction {
       opacity: 1;
-      transform: scaleY(1);
-    }
-
-    .attachBtn {
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-      background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+      transform: translateX(0);
     }
   }
 
   &:focus-visible {
     outline: none;
+    background-color: var(--color-bg-hover);
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
   }
 }
-
-// Left Accent Indicator bar per row
-.rowAccent {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--color-accent);
-  opacity: 0;
-  transform: scaleY(0.4);
-  transition: all var(--duration-fast) var(--ease-standard);
-  border-radius: var(--radius-full);
-}
-
-.row_pdf .rowAccent { background: var(--red-500); }
-.row_image .rowAccent { background: var(--blue-500); }
-.row_video .rowAccent { background: var(--violet-500); }
-.row_audio .rowAccent { background: var(--amber-500); }
-.row_code .rowAccent { background: #06b6d4; }
-.row_document .rowAccent { background: var(--blue-500); }
-.row_interview .rowAccent { background: var(--green-500); }
-.row_link .rowAccent { background: #38bdf8; }
-.row_note .rowAccent { background: var(--color-accent); }
 
 // ── Icons & Thumbnails ──────────────────────────────────────────────────────
 .itemIcon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-md);
   flex-shrink: 0;
   transition: transform var(--duration-fast) var(--ease-standard);
 
   .itemRow:hover & {
-    transform: scale(1.05);
+    transform: scale(1.04);
   }
 }
 
 .icon_pdf {
-  background: color-mix(in srgb, var(--red-500) 15%, transparent);
+  background: color-mix(in srgb, var(--red-500) 12%, transparent);
   color: var(--red-500);
 }
 
 .icon_image {
-  background: color-mix(in srgb, var(--blue-500) 15%, transparent);
+  background: color-mix(in srgb, var(--blue-500) 12%, transparent);
   color: var(--blue-500);
 }
 
 .icon_video {
-  background: color-mix(in srgb, var(--violet-500) 15%, transparent);
+  background: color-mix(in srgb, var(--violet-500) 12%, transparent);
   color: var(--violet-400);
 }
 
 .icon_audio {
-  background: color-mix(in srgb, var(--amber-500) 15%, transparent);
+  background: color-mix(in srgb, var(--amber-500) 12%, transparent);
   color: var(--amber-500);
 }
 
 .icon_code {
-  background: color-mix(in srgb, #06b6d4 15%, transparent);
+  background: color-mix(in srgb, #06b6d4 12%, transparent);
   color: #06b6d4;
 }
 
 .icon_sheet {
-  background: color-mix(in srgb, var(--green-500) 15%, transparent);
+  background: color-mix(in srgb, var(--green-500) 12%, transparent);
   color: var(--green-500);
 }
 
 .icon_archive {
-  background: color-mix(in srgb, #eab308 15%, transparent);
+  background: color-mix(in srgb, #eab308 12%, transparent);
   color: #eab308;
 }
 
 .icon_document {
-  background: color-mix(in srgb, var(--blue-500) 15%, transparent);
+  background: color-mix(in srgb, var(--blue-500) 12%, transparent);
   color: var(--blue-500);
 }
 
 .icon_interview {
-  background: color-mix(in srgb, var(--green-500) 15%, transparent);
+  background: color-mix(in srgb, var(--green-500) 12%, transparent);
   color: var(--green-500);
 }
 
 .icon_link {
-  background: color-mix(in srgb, #38bdf8 15%, transparent);
+  background: color-mix(in srgb, #38bdf8 12%, transparent);
   color: #38bdf8;
 }
 
 .icon_note,
 .icon_file {
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
 }
 
-// Image Thumbnail inside icon slot
 .iconThumb {
   padding: 0;
   overflow: hidden;
@@ -369,7 +305,7 @@
 .itemMeta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -378,6 +314,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .itemTitle {
@@ -392,17 +329,16 @@
 .itemSubRow {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
   min-width: 0;
 }
 
-// Type pills
 .typePill {
   font-size: 10px;
   font-weight: var(--weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1px 6px;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
   border-radius: var(--radius-sm);
   line-height: 1.4;
   flex-shrink: 0;
@@ -410,48 +346,48 @@
 
 .pill_pdf {
   color: var(--red-500);
-  background: color-mix(in srgb, var(--red-500) 12%, transparent);
+  background: color-mix(in srgb, var(--red-500) 10%, transparent);
 }
 .pill_image {
   color: var(--blue-500);
-  background: color-mix(in srgb, var(--blue-500) 12%, transparent);
+  background: color-mix(in srgb, var(--blue-500) 10%, transparent);
 }
 .pill_video {
   color: var(--violet-400);
-  background: color-mix(in srgb, var(--violet-500) 12%, transparent);
+  background: color-mix(in srgb, var(--violet-500) 10%, transparent);
 }
 .pill_audio {
   color: var(--amber-500);
-  background: color-mix(in srgb, var(--amber-500) 12%, transparent);
+  background: color-mix(in srgb, var(--amber-500) 10%, transparent);
 }
 .pill_code {
   color: #06b6d4;
-  background: color-mix(in srgb, #06b6d4 12%, transparent);
+  background: color-mix(in srgb, #06b6d4 10%, transparent);
 }
 .pill_sheet {
   color: var(--green-500);
-  background: color-mix(in srgb, var(--green-500) 12%, transparent);
+  background: color-mix(in srgb, var(--green-500) 10%, transparent);
 }
 .pill_archive {
   color: #eab308;
-  background: color-mix(in srgb, #eab308 12%, transparent);
+  background: color-mix(in srgb, #eab308 10%, transparent);
 }
 .pill_document {
   color: var(--blue-500);
-  background: color-mix(in srgb, var(--blue-500) 12%, transparent);
+  background: color-mix(in srgb, var(--blue-500) 10%, transparent);
 }
 .pill_interview {
   color: var(--green-500);
-  background: color-mix(in srgb, var(--green-500) 12%, transparent);
+  background: color-mix(in srgb, var(--green-500) 10%, transparent);
 }
 .pill_link {
   color: #38bdf8;
-  background: color-mix(in srgb, #38bdf8 12%, transparent);
+  background: color-mix(in srgb, #38bdf8 10%, transparent);
 }
 .pill_note,
 .pill_file {
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
 .subHint {
@@ -466,30 +402,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 320px;
+  max-width: 280px;
 }
 
-// ── Attach Button ───────────────────────────────────────────────────────────
-.attachBtn {
+// ── Action on Hover ─────────────────────────────────────────────────────────
+.attachAction {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-secondary);
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
-  cursor: pointer;
-  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(4px);
   transition: all var(--duration-fast) var(--ease-standard);
-
-  &:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  }
+  flex-shrink: 0;
 }
 
 // ── Skeletons ───────────────────────────────────────────────────────────────
@@ -497,10 +427,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 10px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-surface);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  flex-shrink: 0;
+  min-height: 52px;
+  box-sizing: border-box;
 }
 
 .skeletonBox {
@@ -525,8 +457,8 @@
 }
 
 .skeletonIcon {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-md);
   flex-shrink: 0;
 }
@@ -540,7 +472,7 @@
 
 .skeletonTitle {
   width: 55%;
-  height: 14px;
+  height: 13px;
 }
 
 .skeletonSub {
@@ -549,9 +481,9 @@
 }
 
 .skeletonBtn {
-  width: 60px;
-  height: 26px;
-  border-radius: var(--radius-md);
+  width: 52px;
+  height: 22px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -561,9 +493,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  min-height: 220px;
   padding: var(--space-8) var(--space-4);
   text-align: center;
   gap: var(--space-2);
+  user-select: none;
 }
 
 .emptyIcon {

@@ -303,4 +303,67 @@ This log tracks architectural and design decisions made for the NexAI project, p
   4. **Transparent Wallet & Topbar UI:**
      - Clearly communicates mode status: `⚡ Quota Mode: X / 1,500 Daily Calls Left`, allowing evaluators to see simulated credit deductions alongside real quota headroom.
 
+## ADR-028: Dynamic Architecture & Flow Visualizer via Client-Side Mermaid.js Integration
+
+- **Date:** 2026-10-04
+- **Status:** Accepted (Implemented on `feature/mermaid-visualizer`)
+- **Context:** Text-only explanations of complex software architectures, sequence flows, database schemas, and state transitions are difficult for students and developers to parse and lack visual impact during academic viva evaluations. A native diagramming solution was needed that renders declarative markdown diagrams directly inside chats, library notes, and documents with zero additional backend compute cost or server load.
+- **Decision:**
+  1. **Zero-Compute Client-Side Rendering (`mermaid`):**
+     - Adopted `mermaid` directly on the client. Rendering happens entirely in the browser using SVG output with $0 backend compute cost and zero additional token overhead.
+  2. **Dynamic Semantic Theme Adaptation:**
+     - Re-initializes Mermaid dynamically upon theme toggles (`isDark` from `useTheme`), applying NexAI's semantic CSS design tokens (purple/violet primary `#8b5cf6`, dark blueprint `#1c2029`, light surface `#f7f7f9`, and custom fonts).
+  3. **Streaming & Incomplete Syntax Resilience:**
+     - Guards parsing with `mermaid.parse` and short debouncing (250ms during SSE streaming). During active token generation, incomplete syntax fails gracefully without error flickers. Only upon completed generation will syntax errors display a polite inspection banner.
+  4. **Interactive Architecture Canvas (`MermaidBlock`):**
+     - Pan & zoom controls (0.5x to 2.5x with percentage display and 1-click reset).
+     - "Diagram" and "Code" tab toggle allowing users to view and copy the raw Mermaid source.
+     - "Copy SVG" and "Export SVG" actions for instant integration into external documentation, LaTeX, and presentations.
+     - "Save to Library" integration respecting the human-in-the-loop *Suggest → Review → Confirm* pattern by pre-populating an architectural note modal.
+  5. **Prompt Engineering Alignment:**
+     - Updated `CHAT_SYSTEM_PROMPT` in `server/src/agents/prompts/chat.prompt.js` guiding Gemini to produce structured Mermaid diagrams when explaining workflows, architectures, algorithms, sequence flows, or schemas.
+
+## ADR-029: Dual-Mode Voice Architecture with Gemini 3.8 Flash-Lite TTS and Web Speech Fallback
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Context:** The AI Mock Interview Platform requires realistic voice readout for interviewer critiques and technical questions. However, high-throughput text-to-speech APIs have rate limits (e.g. 100 RPD on free tiers) and consume credits, while testing/demo modes require offline zero-cost execution.
+- **Decision:**
+  1. **Dual-Mode Voice Strategy:**
+     - **Simulation Mode (isSimulation === true):** Employs browser-native Web Speech API (window.speechSynthesis). Consumes 0 API tokens, 0 user credits, and functions 100% offline.
+     - **Live Mode (isSimulation === false):** Powered by Google's gemini-3.8-flash-lite-tts via @google/genai on POST /api/interview/tts. Returns natural, high-fidelity audio/wav audio with RIFF header directly to an HTML5 Audio player on the client.
+  2. **Token Metering & Atomic Deductions:**
+     - Tracks real Gemini token usage (promptTokenCount + audio candidatesTokenCount at 25 tokens/sec).
+     - Deducts credits atomically according to the platform standard: credits = Math.ceil(totalTokens / 100).
+     - Logs each generation into UsageLog with model: 'tts', feature: 'interview', and full audit timestamps.
+  3. **Seamless Fault-Tolerant Fallback:**
+     - If the Gemini TTS API encounters a rate limit (HTTP 429 RESOURCE_EXHAUSTED / 100 RPD cap) or insufficient credits (HTTP 402), the frontend automatically falls back to browser-side speechSynthesis with an informative toast notification, ensuring the interview assessment is never stalled or disrupted.
+  4. **Visual Telemetry & Controls:**
+     - InterviewArena presents engine status (Gemini 3.8 Flash-Lite TTS vs Simulation), animated loading pulse during audio synthesis, and single-click muting / replay.
+
+## ADR-030: Dual-Engine Voice Architecture with Microsoft Edge Neural TTS and Gemini 3.8 Flash-Lite TTS
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Context:** Gemini 3.8 Flash-Lite TTS provides high quality audio but exhibits a 5–7 second cascade delay (LLM completion + TTS generation) and is constrained by Google's Free Tier 100 requests/day cap. For real-time technical interviews and live capstone viva evaluations, an ultra-fast, quota-free, studio-grade neural voice engine was needed as the default primary option, while retaining Gemini Flash-Lite TTS as an opt-in cloud engine.
+- **Decision:**
+  1. **Dual-Engine Architecture (`edge` vs `gemini`):**
+     - **Engine 1: Microsoft Edge Neural TTS (`msedge-tts`) [Default / Primary]:**
+       - Integrated lightweight Node.js service (`server/src/services/edgeTts.service.js`).
+       - 100% Free, zero API key required, zero daily request ceiling.
+       - Ultra-low latency (~400ms turnaround) with 24 kHz 96 kbps mono MP3 streaming.
+       - Studio-grade examiner voices: `en-US-ChristopherNeural` (Male Tech Examiner Lead, default), `en-US-GuyNeural`, and `en-US-JennyNeural` (Female Tech Examiner).
+       - Consumes 0 user credits and 0 Gemini quota.
+     - **Engine 2: Google Gemini 3.8 Flash-Lite TTS (`gemini-3.8-flash-lite-tts`) [Opt-in via Toggle]:**
+       - Cloud neural generation via `@google/genai` returning 24 kHz WAV audio with RIFF header.
+       - Tracks real prompt and audio candidate tokens, deducts credits atomically (`ceil(totalTokens / 100)`), and records `UsageLog` with `model: 'tts'`.
+  2. **Zero-Friction Credit Check Policy:**
+     - When `engine === 'edge'`, `creditCheck` middleware allows execution regardless of wallet credit balance, ensuring students and examiners can run comprehensive voice interviews even with 0 credits.
+  3. **Multi-Tier Fault Recovery:**
+     - If the user selects Gemini TTS and exhausts their wallet credits (HTTP 402) or reaches Google's daily quota (HTTP 429), the client automatically recovers by falling back to Edge Neural TTS instantly, and subsequently to browser-side Web Speech synthesis if offline.
+  4. **Accessible UI Voice Toggle:**
+     - Integrated sleek pill-based voice engine selectors into both `InterviewSetup` and `InterviewArena` top action bars:
+       - `⚡ Edge Neural (Fast & Free)` [Default]
+       - `🎙️ Gemini 3.8 Flash-Lite TTS (Cloud)`
+     - Dynamic telemetry badges and `VoiceRipple` visualizer status strings reflect the active voice engine in real time.
 

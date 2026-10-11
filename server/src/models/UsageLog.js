@@ -10,12 +10,12 @@ const usageLogSchema = new mongoose.Schema(
     },
     model: {
       type: String,
-      enum: ['flash', 'pro'],
+      enum: ['flash', 'pro', 'tts'],
       required: true,
     },
     feature: {
       type: String,
-      enum: ['chat', 'library', 'docgen', 'document', 'interview'],
+      enum: ['chat', 'library', 'docgen', 'document', 'interview', 'schema'],
       required: true,
     },
     tokensUsed: {

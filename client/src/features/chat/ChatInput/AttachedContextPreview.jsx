@@ -7,7 +7,6 @@ import {
   FileText,
   Bookmark,
   FileCode,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import styles from './AttachedContextPreview.module.scss';
@@ -58,6 +57,11 @@ export function AttachedContextPreview({ context, onRemove, className }) {
             <span className={styles.fileName} title={context.name}>
               {context.name}
             </span>
+            {context.isUploading && (
+              <div className={styles.progressBar}>
+                <div className={styles.progressFill} style={{ width: `${context.progress || 60}%` }} />
+              </div>
+            )}
           </div>
           <button
             type="button"
