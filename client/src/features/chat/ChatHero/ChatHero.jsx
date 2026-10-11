@@ -10,6 +10,8 @@ import {
   Server,
   ChevronDown,
   Upload,
+  MessageSquareDashed,
+  ShieldAlert,
 } from 'lucide-react';
 import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
@@ -57,6 +59,8 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     isSimulation,
     selectedModel,
     thinkingLevel,
+    isTemporaryChat,
+    clearTemporaryChat,
   } = useChatStore();
 
   const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
@@ -369,17 +373,47 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     <div className={styles.heroContainer} data-testid="chat-hero">
       <div className={styles.heroContent}>
         {/* Context-Aware Gemini-inspired Hero Headline */}
-        <div className={styles.greetingHeader}>
-          <div className={styles.sparkleIcon}>
-            <img src={logoImg} alt="NexAI Logo" className={styles.heroLogoImg} />
-          </div>
-          <h1 className={styles.heroHeadline}>{greeting.headline}</h1>
-          <p className={styles.heroSubtitle}>{greeting.subtitle}</p>
+        <div className={cn(styles.greetingHeader, isTemporaryChat && styles.tempGreetingHeader)}>
+          {isTemporaryChat ? (
+            <>
+              <div className={styles.tempIconWrapper}>
+                <div className={styles.tempIconHalo}>
+                  <MessageSquareDashed size={30} className={styles.tempDashedIcon} />
+                </div>
+              </div>
+              <h1 className={styles.heroHeadline}>Just stopping by?</h1>
+              <p className={styles.tempSubtitle}>
+                <span className={styles.dashedTerm}>Temporary chats</span> don't appear in{' '}
+                <span className={styles.dashedTerm}>recent history</span> and aren't saved to your account.
+                Messages vanish after you leave.
+              </p>
+              <button
+                type="button"
+                className={styles.exitTempBtn}
+                onClick={clearTemporaryChat}
+                title="Exit temporary chat and return to normal mode"
+              >
+                <span>Exit Temporary Mode</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className={styles.sparkleIcon}>
+                <img src={logoImg} alt="NexAI Logo" className={styles.heroLogoImg} />
+              </div>
+              <h1 className={styles.heroHeadline}>{greeting.headline}</h1>
+              <p className={styles.heroSubtitle}>{greeting.subtitle}</p>
+            </>
+          )}
         </div>
 
         {/* Modern Responsive Prompt Composer Card (Claude-inspired spacious layout) */}
         <div
-          className={cn(styles.composerCard, isDraggingOver && styles.composerCardDragging)}
+          className={cn(
+            styles.composerCard,
+            isDraggingOver && styles.composerCardDragging,
+            isTemporaryChat && styles.composerCardTemporary
+          )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
@@ -414,6 +448,12 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
 
             {/* Top Textarea Area */}
             <div className={styles.inputArea}>
+              {isTemporaryChat && (
+                <div className={styles.tempComposerPill}>
+                  <ShieldAlert size={12} className={styles.tempPillIcon} />
+                  <span>Temporary Mode · Messages not saved to history</span>
+                </div>
+              )}
               <textarea
                 ref={textareaRef}
                 rows={2}
@@ -426,7 +466,9 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 placeholder={
                   isSimulation
                     ? 'Simulation Mode (0 tokens) — How can I help you today?'
-                    : 'How can I help you today?'
+                    : isTemporaryChat
+                      ? 'Ask NexAI anything (temporary chat, not saved in history)...'
+                      : 'How can I help you today?'
                 }
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"
@@ -518,22 +560,24 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
           </form>
         </div>
 
-        {/* Minimalist Gemini Quick Prompts (clean text rows, not cards) */}
-        <div className={styles.quickPromptsList} aria-label="Suggested starter prompts">
-          {STARTER_PROMPTS.map((item, index) => (
-            <button
-              key={index}
-              type="button"
-              className={styles.quickPromptRow}
-              onClick={() => handleSelectChip(item.prompt)}
-              aria-label={item.title}
-            >
-              <span className={styles.promptIcon}>{item.icon}</span>
-              <span className={styles.promptText}>{item.prompt}</span>
-              <span className={styles.promptCategory}>{item.title}</span>
-            </button>
-          ))}
-        </div>
+        {/* Minimalist Gemini Quick Prompts (hidden in temporary chat for a clean focused layout) */}
+        {!isTemporaryChat && (
+          <div className={styles.quickPromptsList} aria-label="Suggested starter prompts">
+            {STARTER_PROMPTS.map((item, index) => (
+              <button
+                key={index}
+                type="button"
+                className={styles.quickPromptRow}
+                onClick={() => handleSelectChip(item.prompt)}
+                aria-label={item.title}
+              >
+                <span className={styles.promptIcon}>{item.icon}</span>
+                <span className={styles.promptText}>{item.prompt}</span>
+                <span className={styles.promptCategory}>{item.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Clean Centered Disclaimer below quick prompts, outside the input card */}
         <p className={styles.disclaimerText}>

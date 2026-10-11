@@ -75,6 +75,11 @@
       0 4px 14px color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
   }
 
+  &.composerFormTemporary {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  }
+
   &:focus-within {
     border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
   }

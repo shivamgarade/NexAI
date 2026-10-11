@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, MessageSquareDashed } from 'lucide-react';
 import { ChatHero, MessageThread, ChatInput } from '@/features/chat';
 import { useChatStore } from '@/store/chatStore';
 import { ROUTES } from '@/constants/routes';
@@ -104,11 +104,38 @@ export default function ChatPage() {
           <header className={styles.chatHeader}>
             <div className={styles.headerLeft}>
               <div className={styles.titleInfo}>
-                <MessageSquare size={16} className={styles.titleIcon} />
+                {isTemporaryChat ? (
+                  <MessageSquareDashed size={16} className={styles.tempTitleIcon} />
+                ) : (
+                  <MessageSquare size={16} className={styles.titleIcon} />
+                )}
                 <h1 className={styles.titleText}>{pageTitle}</h1>
               </div>
             </div>
+            {isTemporaryChat && (
+              <button
+                type="button"
+                className={styles.tempHeaderExitBtn}
+                onClick={async () => {
+                  await clearTemporaryChat();
+                  navigate(ROUTES.CHAT);
+                }}
+                title="Exit temporary chat and return to normal mode"
+              >
+                Exit Temporary Mode
+              </button>
+            )}
           </header>
+
+          {/* Ephemeral alert banner for active temporary chat thread */}
+          {isTemporaryChat && (
+            <div className={styles.temporaryChatBanner}>
+              <MessageSquareDashed size={14} className={styles.tempBannerIcon} />
+              <span className={styles.tempBannerText}>
+                <strong>Temporary Chat Active:</strong> Messages will not appear in recent history and will vanish when you leave.
+              </span>
+            </div>
+          )}
 
           {/* Full-width conversation canvas */}
           <div className={styles.threadArea}>

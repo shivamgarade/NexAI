@@ -36,6 +36,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     selectedModel,
     thinkingLevel,
     setThinkingLevel,
+    isTemporaryChat,
   } = useChatStore();
 
   const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
@@ -310,7 +311,11 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   return (
     <div className={styles.inputContainer}>
       <form
-        className={cn(styles.composerForm, isDraggingOver && styles.composerFormDragging)}
+        className={cn(
+          styles.composerForm,
+          isDraggingOver && styles.composerFormDragging,
+          isTemporaryChat && styles.composerFormTemporary
+        )}
         onSubmit={handleSubmit}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -373,7 +378,11 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
               baseTextRef.current = e.target.value;
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Write a message..."
+            placeholder={
+              isTemporaryChat
+                ? 'Ask NexAI (temporary chat, not saved in history)...'
+                : 'Write a message...'
+            }
             className={styles.textarea}
             aria-label="Chat input message"
           />
