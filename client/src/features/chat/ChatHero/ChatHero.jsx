@@ -8,7 +8,6 @@ import {
   Code2,
   Mail,
   Server,
-  ChevronDown,
   Upload,
   MessageSquareDashed,
   Zap,
@@ -17,8 +16,7 @@ import {
 import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
 import { SlashSkillsPopover, VariableFillModal } from '@/features/skills';
-import { ModelSelectorPopover } from '../ModelSelector';
-import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
+import { useChatStore } from '@/store/chatStore';
 import { useSkillStore } from '@/store/skillStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -65,25 +63,12 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const {
     isStreaming,
     isSimulation,
-    selectedModel,
-    thinkingLevel,
     isTemporaryChat,
     startTemporaryChat,
     clearTemporaryChat,
   } = useChatStore();
 
-  const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
-  const modelButtonRef = useRef(null);
   const attachButtonRef = useRef(null);
-
-  const currentModelObj =
-    AVAILABLE_MODELS.find((m) => m.id === selectedModel) ||
-    MORE_MODELS.find((m) => m.id === selectedModel);
-  const modelShortName = currentModelObj
-    ? currentModelObj.name.replace('NexAI 2.5 ', '')
-    : 'Flash';
-  const effortName = thinkingLevel ? thinkingLevel.charAt(0).toUpperCase() + thinkingLevel.slice(1) : 'Medium';
-  const modelPillLabel = `${modelShortName} ${effortName}`;
 
   const [input, setInput] = useState('');
   const [attachedContext, setAttachedContext] = useState(null);
@@ -584,11 +569,32 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               searchQuery={slashQuery}
             />
 
-            {/* Top Textarea Area */}
-            <div className={styles.inputArea}>
+            {/* Compact single-row capsule input (matching ChatInput and Gemini) */}
+            <div className={styles.composerInputRow}>
+              <div className={styles.attachAnchorWrapper}>
+                <button
+                  ref={attachButtonRef}
+                  type="button"
+                  className={cn(styles.attachBtn, isAttachModalOpen && styles.attachBtnActive)}
+                  onClick={() => setIsAttachModalOpen((prev) => !prev)}
+                  title="Attach context file"
+                  aria-label="Attach context file"
+                >
+                  <Plus size={18} />
+                </button>
+
+                <AttachContextPopover
+                  open={isAttachModalOpen}
+                  onClose={() => setIsAttachModalOpen(false)}
+                  anchorRef={attachButtonRef}
+                  onSelect={(item) => setAttachedContext(item)}
+                  onUploadLocal={() => fileInputRef.current?.click()}
+                />
+              </div>
+
               <textarea
                 ref={textareaRef}
-                rows={2}
+                rows={1}
                 value={input}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -611,55 +617,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"
               />
-            </div>
 
-            {/* Bottom Actions Toolbar: Attach (+) on left; Model Selector, Mic, Send on right */}
-            <div className={styles.composerBottomRow}>
-              <div className={styles.bottomLeftActions}>
-                <div className={styles.attachAnchorWrapper}>
-                  <button
-                    ref={attachButtonRef}
-                    type="button"
-                    className={cn(styles.attachBtn, isAttachModalOpen && styles.attachBtnActive)}
-                    onClick={() => setIsAttachModalOpen((prev) => !prev)}
-                    title="Attach context file"
-                    aria-label="Attach context file"
-                  >
-                    <Plus size={18} />
-                  </button>
-
-                  <AttachContextPopover
-                    open={isAttachModalOpen}
-                    onClose={() => setIsAttachModalOpen(false)}
-                    anchorRef={attachButtonRef}
-                    onSelect={(item) => setAttachedContext(item)}
-                    onUploadLocal={() => fileInputRef.current?.click()}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.bottomRightActions}>
-                <div className={styles.popoverAnchorWrapper}>
-                  <button
-                    ref={modelButtonRef}
-                    type="button"
-                    className={styles.modelPillLink}
-                    onClick={() => setIsModelPopoverOpen((prev) => !prev)}
-                    disabled={isStreaming}
-                    title={`AI Model: ${modelShortName} · Effort: ${effortName}`}
-                    aria-label="Select AI model and effort"
-                  >
-                    <span className={styles.modelText}>{modelPillLabel}</span>
-                    <ChevronDown size={13} className={styles.modelChevron} />
-                  </button>
-
-                  <ModelSelectorPopover
-                    open={isModelPopoverOpen}
-                    onClose={() => setIsModelPopoverOpen(false)}
-                    anchorRef={modelButtonRef}
-                  />
-                </div>
-
+              <div className={styles.inlineActions}>
                 <button
                   type="button"
                   className={cn(styles.micBtn, isListening && styles.listeningMic)}
