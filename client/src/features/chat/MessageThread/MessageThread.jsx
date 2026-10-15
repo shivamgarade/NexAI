@@ -22,23 +22,27 @@ import {
   Code2,
   Mail,
   Server,
+  MessageSquareDashed,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ThinkingIndicator } from '@/components/ui/ThinkingIndicator';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ThinkingDrawer } from '../ThinkingDrawer/ThinkingDrawer';
 import { InlineThinking } from './InlineThinking';
 import { MessageAttachments } from './MessageAttachments';
+import { AgentStepTimeline } from './AgentStepTimeline';
 import { PromptFormModal } from '@/features/prompts';
 import { interviewApi } from '@/lib/api/interview.api.js';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { usePromptStore } from '@/store/promptStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { useMemoryStore } from '@/store/memoryStore';
 import { toast } from '@/store/uiStore';
 
 import { cn } from '@/lib/utils/cn';
@@ -246,6 +250,135 @@ async function playAudioBlob(blob, { onStart, onEnded, onError } = {}) {
   }
 }
 
+/**
+ * Truncates text up to maxChars at natural sentence/word boundary
+ */
+function truncateToBoundary(text, maxChars = 2500) {
+  if (!text || text.length <= maxChars) return text;
+  const truncated = text.slice(0, maxChars);
+  const lastPunctuation = Math.max(
+    truncated.lastIndexOf('. '),
+    truncated.lastIndexOf('? '),
+    truncated.lastIndexOf('! '),
+    truncated.lastIndexOf('। '),
+    truncated.lastIndexOf('\n')
+  );
+  if (lastPunctuation > maxChars * 0.7) {
+    return truncated.slice(0, lastPunctuation + 1).trim();
+  }
+  const lastSpace = truncated.lastIndexOf(' ');
+  if (lastSpace > maxChars * 0.7) {
+    return truncated.slice(0, lastSpace).trim() + '...';
+  }
+  return truncated;
+}
+
+/**
+ * Selects the highest quality natural/language-appropriate voice for Web Speech API
+ */
+function getBestSpeechVoice(text = '') {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const hasDevanagari = /[\u0900-\u097F]/.test(text || '');
+  if (hasDevanagari) {
+    const hindiVoice = voices.find(
+      (v) => v.lang.startsWith('hi') || v.lang.includes('IN')
+    );
+    if (hindiVoice) return hindiVoice;
+  }
+
+  // 1. Natural / Online Neural voices (Windows 11 / Edge / Chrome)
+  const natural = voices.find(
+    (v) => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Online'))
+  );
+  if (natural) return natural;
+
+  // 2. Google US / UK English (Chrome)
+  const google = voices.find((v) => v.name.includes('Google') && v.lang.startsWith('en'));
+  if (google) return google;
+
+  // 3. Clear US or GB English voices
+  const standardEnglish = voices.find(
+    (v) => v.lang === 'en-US' || v.lang === 'en-GB' || v.lang.startsWith('en')
+  );
+  if (standardEnglish) return standardEnglish;
+
+  return voices[0] || null;
+}
+
+/**
+ * Fallback Web Speech API player
+ */
+function playBrowserSpeech(text, { onStart, onEnded, onError } = {}) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    onError?.(new Error('Speech synthesis not supported in this browser'));
+    return null;
+  }
+
+  try {
+    window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voice = getBestSpeechVoice(text);
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      const hasDevanagari = /[\u0900-\u097F]/.test(text || '');
+      utterance.lang = hasDevanagari ? 'hi-IN' : 'en-US';
+    }
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    let ended = false;
+    const handleEnd = () => {
+      if (!ended) {
+        ended = true;
+        onEnded?.();
+      }
+    };
+
+    utterance.onstart = () => {
+      onStart?.();
+    };
+    utterance.onend = handleEnd;
+    utterance.onerror = (e) => {
+      if (e.error === 'canceled' || e.error === 'interrupted') {
+        handleEnd();
+        return;
+      }
+      if (!ended) {
+        ended = true;
+        onError?.(e);
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+
+    return {
+      stop: () => {
+        if (!ended) {
+          ended = true;
+          try {
+            window.speechSynthesis.cancel();
+          } catch {
+            // ignore
+          }
+          onEnded?.();
+        }
+      },
+    };
+  } catch (err) {
+    onError?.(err);
+    return null;
+  }
+}
+
 export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -341,14 +474,47 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     ttsAbortRef.current = abortController;
     setLoadingTtsId(id);
 
+    const textToSynthesize = truncateToBoundary(cleanText, 2500);
+    const hasHindi = /[\u0900-\u097F]/.test(textToSynthesize);
+    const selectedVoice = hasHindi ? 'hi-IN-MadhurNeural' : 'en-US-ChristopherNeural';
+
+    const fallbackToBrowserSpeech = () => {
+      if (abortController.signal.aborted) return;
+      const browserPlayback = playBrowserSpeech(textToSynthesize, {
+        onStart: () => {
+          setLoadingTtsId(null);
+          setSpeakingId(id);
+        },
+        onEnded: () => {
+          setSpeakingId(null);
+          setLoadingTtsId(null);
+          activePlaybackRef.current = null;
+        },
+        onError: (speechErr) => {
+          console.warn('Browser speech synthesis fallback error:', speechErr);
+          setSpeakingId(null);
+          setLoadingTtsId(null);
+          activePlaybackRef.current = null;
+          toast.error('Unable to play audio speech');
+        },
+      });
+
+      if (browserPlayback) {
+        activePlaybackRef.current = browserPlayback;
+      } else {
+        setSpeakingId(null);
+        setLoadingTtsId(null);
+        activePlaybackRef.current = null;
+        toast.error('Unable to play audio speech');
+      }
+    };
+
     try {
-      // 1. High-fidelity Microsoft Edge Neural TTS (~400ms ultra-low latency, studio grade)
-      // Slicing to the first ~600 chars ensures instant generation without socket timeouts
-      const textToSynthesize = cleanText.slice(0, 600);
+      // 1. High-fidelity Microsoft Edge Neural TTS (~400ms ultra-low latency, studio grade 24kHz)
       const res = await interviewApi.synthesizeSpeech({
         text: textToSynthesize,
         engine: 'edge',
-        voice: 'en-US-ChristopherNeural',
+        voice: selectedVoice,
       });
 
       if (abortController.signal.aborted) return;
@@ -381,22 +547,16 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
           activePlaybackRef.current = null;
         },
         onError: (err) => {
-          console.error('Audio playback error:', err);
-          setSpeakingId(null);
-          setLoadingTtsId(null);
-          activePlaybackRef.current = null;
-          toast.error('Audio playback failed');
+          console.warn('Audio playback error, falling back to Web Speech API:', err);
+          fallbackToBrowserSpeech();
         },
       });
 
       activePlaybackRef.current = playback;
     } catch (err) {
       if (abortController.signal.aborted) return;
-      console.warn('Edge Neural TTS error:', err);
-      setSpeakingId(null);
-      setLoadingTtsId(null);
-      activePlaybackRef.current = null;
-      toast.error('Unable to play audio speech');
+      console.warn('Edge Neural TTS error, falling back to Web Speech API:', err);
+      fallbackToBrowserSpeech();
     }
   };
 
@@ -426,6 +586,27 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
 
     if (precedingUserMsg?.content) {
       resendPrompt(precedingUserMsg.content);
+    }
+  };
+
+  const handleUndoMemory = async (memoryId, msgIndex) => {
+    try {
+      if (memoryId) {
+        await useMemoryStore.getState().deleteMemory(memoryId);
+      }
+      useChatStore.setState((state) => {
+        const msgs = [...state.messages];
+        if (msgs[msgIndex]) {
+          msgs[msgIndex] = {
+            ...msgs[msgIndex],
+            memoriesUpdated: [],
+          };
+        }
+        return { messages: msgs };
+      });
+      toast.success('Memory undone and removed from profile');
+    } catch {
+      toast.error('Failed to undo memory');
     }
   };
 
@@ -487,36 +668,12 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
             </div>
           </div>
         ) : messages.length === 0 ? (
-          <div className={styles.emptyWelcome}>
-            <div className={styles.welcomeLogoWrapper}>
-              <img src={logoImg} alt="NexAI" className={styles.welcomeLogo} />
-            </div>
-            <h2 className={styles.welcomeTitle}>How can NexAI assist you today?</h2>
-            <p className={styles.welcomeSubtitle}>
-              Ask anything, brainstorm code, solve system architecture, or pick a starter below.
-            </p>
-
-            <div className={styles.suggestionsGrid}>
-              {PROMPT_SUGGESTIONS.map((item, idx) => {
-                const IconComponent = item.icon;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={styles.suggestionCard}
-                    onClick={() => onSelectSuggestion?.(item.description)}
-                  >
-                    <div className={styles.suggestionHeader}>
-                      <span className={styles.suggestionIconWrapper}>
-                        <IconComponent size={16} />
-                      </span>
-                      <span className={styles.suggestionTitle}>{item.title}</span>
-                    </div>
-                    <span className={styles.suggestionDesc}>{item.description}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className={styles.emptyThreadNotice}>
+            <EmptyState
+              icon={<MessageSquareDashed size={36} />}
+              title="No messages yet"
+              description="Start the conversation by typing a prompt below."
+            />
           </div>
         ) : (
           <div className={styles.messageList}>
@@ -582,6 +739,17 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                           {hasAttachments && (
                             <MessageAttachments attachments={message.attachments} />
                           )}
+                          {Boolean(message.contextSource || message.groundedSource) && (
+                            <div className={styles.groundedSourceBadge} title="Grounded with verified knowledge from Knowledge Vault">
+                              <BookOpen size={12} className={styles.groundedSourceIcon} />
+                              <span>Grounded with: {message.contextSource || message.groundedSource}</span>
+                            </div>
+                          )}
+                          <AgentStepTimeline
+                            steps={message.steps}
+                            groundingMetadata={message.groundingMetadata}
+                            isStreaming={isCurrentlyStreaming}
+                          />
                           {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
                             <InlineThinking
                               thoughts={message.thoughts}
@@ -625,6 +793,23 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                               {isCurrentlyStreaming && (
                                 <span className={styles.blinkingCursor} aria-hidden="true" />
                               )}
+                            </div>
+                          )}
+
+                          {Array.isArray(message.memoriesUpdated) && message.memoriesUpdated.length > 0 && (
+                            <div className={styles.memoryUpdatedBanner}>
+                              <Sparkles size={13} className={styles.memoryUpdatedIcon} />
+                              <span className={styles.memoryUpdatedText}>
+                                Memory updated: <em>{message.memoriesUpdated[0].fact}</em>
+                              </span>
+                              <button
+                                type="button"
+                                className={styles.memoryUndoBtn}
+                                onClick={() => handleUndoMemory(message.memoriesUpdated[0].id, index)}
+                                title="Undo this saved memory"
+                              >
+                                Undo
+                              </button>
                             </div>
                           )}
                         </div>

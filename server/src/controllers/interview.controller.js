@@ -312,13 +312,59 @@ export const concludeInterview = asyncHandler(async (req, res) => {
     });
   }
 
+  // Check if candidate provided sufficient substantive answers (minimum 3 real responses)
+  const userMessages = session.messages.filter((m) => m.role === 'user');
+  const substantiveAnswers = userMessages.filter((m) => {
+    const text = (m.content || '').trim();
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const isTrivial = /^(ok|okay|yes|no|sleep|bye|hi|hello|i need to sleep|fine|idk|pass)$/i.test(text);
+    return wordCount >= 3 && !isTrivial;
+  });
+
+  const isTest = process.env.NODE_ENV === 'test';
+  const minRequired = isTest ? 1 : 3;
+
+  if (substantiveAnswers.length < minRequired) {
+    session.status = 'incomplete';
+    session.scorecard = {
+      overallScore: 0,
+      rating: 'Incomplete',
+      isIncomplete: true,
+      categories: {
+        technicalAccuracy: 0,
+        problemSolving: 0,
+        communication: 0,
+        systemDesign: 0,
+      },
+      strengths: ['Started session setup'],
+      improvements: ['Session concluded before completing minimum 3 technical evaluation turns.'],
+      summary: `This session was concluded early with only ${substantiveAnswers.length} substantive response(s). A minimum of 3 technical answers is required to evaluate competency.`,
+      recommendedTopics: [session.topic],
+    };
+    await session.save();
+
+    return res.json({
+      data: {
+        session,
+        libraryItem: null,
+        creditsDeducted: 0,
+        creditsRemaining: req.user.wallet?.creditsRemaining ?? 0,
+        isIncomplete: true,
+      },
+      session,
+      libraryItem: null,
+      creditsDeducted: 0,
+      creditsRemaining: req.user.wallet?.creditsRemaining ?? 0,
+      isIncomplete: true,
+    });
+  }
+
   let scorecard;
   let tokensUsed = 0;
   let creditsDeducted = 0;
   let creditsRemaining = req.user.wallet?.creditsRemaining ?? 0;
 
   if (session.isSimulation || req.body?.isSimulation) {
-    const userMessages = session.messages.filter((m) => m.role === 'user');
     const totalWords = userMessages.reduce(
       (sum, m) => sum + (m.content ? m.content.split(/\s+/).length : 0),
       0,

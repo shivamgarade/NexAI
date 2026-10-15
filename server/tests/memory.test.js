@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/app.js';
 import { connectDB, disconnectDB } from '../src/config/db.js';
@@ -8,6 +8,7 @@ import { Chat } from '../src/models/Chat.js';
 import { Message } from '../src/models/Message.js';
 import { generateAccessToken } from '../src/utils/token.js';
 import { memoryService } from '../src/services/memory.service.js';
+import * as geminiService from '../src/services/gemini.service.js';
 
 describe('Long-Term Memory API & Workflow Tests', () => {
   let userA = null;
@@ -237,6 +238,15 @@ describe('Long-Term Memory API & Workflow Tests', () => {
     });
 
     it('POST /api/memories/consolidate should return status 200 with result message', async () => {
+      vi.spyOn(geminiService, 'generateContent').mockResolvedValue({
+        text: JSON.stringify({
+          consolidated: [
+            { fact: 'User works with React and Next.js', category: 'preference', pinned: false },
+          ],
+        }),
+        totalTokens: 60,
+      });
+
       await Memory.create([
         { userId: userA._id, fact: 'User works with React', category: 'preference' },
         { userId: userA._id, fact: 'User works with Next.js', category: 'preference' },

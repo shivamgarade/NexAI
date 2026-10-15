@@ -98,6 +98,34 @@
   min-width: 0;
 }
 
+.titleDropdownBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  max-width: 420px;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-border);
+
+    .titleChevron {
+      color: var(--color-text-primary);
+    }
+  }
+}
+
+.titleChevron {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
 .titleIcon {
   color: var(--color-accent);
   flex-shrink: 0;
@@ -106,15 +134,43 @@
 .titleText {
   margin: 0;
   font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.shareButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+}
+
 .tempTitleIcon {
-  color: var(--color-accent);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -136,32 +192,6 @@
     color: var(--color-text-primary);
     background: var(--color-bg-hover);
     border-color: var(--color-accent);
-  }
-}
-
-.temporaryChatBanner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-6);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-surface));
-  border-bottom: 1px dashed color-mix(in srgb, var(--color-accent) 25%, transparent);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.tempBannerIcon {
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.tempBannerText {
-  color: var(--color-text-secondary);
-
-  strong {
-    color: var(--color-text-primary);
   }
 }
 

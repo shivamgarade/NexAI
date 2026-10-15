@@ -7,6 +7,7 @@ import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { ApiError } from './utils/ApiError.js';
 import apiRoutes from './routes/index.js';
+import healthRoutes from './routes/health.routes.js';
 import webhookRoutes from './routes/webhook.routes.js';
 
 export const app = express();
@@ -31,6 +32,9 @@ app.use('/webhooks', express.raw({ type: '*/*' }), webhookRoutes);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(requestLogger);
+
+// Health check route (supports both /health and /api/health for Render/Uptime monitors)
+app.use('/health', healthRoutes);
 
 // API routes
 app.use('/api', apiRoutes);

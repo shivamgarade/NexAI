@@ -10,6 +10,7 @@ import {
 import { useInterviewStore } from '@/store/interviewStore';
 import { useAuthStore } from '@/store/authStore';
 import { ROUTES } from '@/constants/routes';
+import { cn } from '@/lib/utils/cn';
 import styles from './InterviewPage.module.scss';
 
 export default function InterviewPage() {
@@ -70,24 +71,40 @@ export default function InterviewPage() {
     navigate(ROUTES.WALLET);
   };
 
+  const isArenaActive = Boolean(currentSession && !scorecard);
+
+  // Lock outer window scroll when inside active interview arena
+  useEffect(() => {
+    if (isArenaActive) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isArenaActive]);
+
   return (
-    <div className={styles.pageContainer}>
-      <PageHeader
-        title="AI Mock Interview Platform"
-        subtitle="Simulate technical screenings and viva defense with real-time speech visualizer and automated competency scorecards."
-        actions={
-          <div className={styles.headerActions}>
-            <div className={styles.creditPill} onClick={handleRechargeClick} role="button" tabIndex={0}>
-              <CreditCard size={14} />
-              <span>{creditsRemaining} credits</span>
+    <div className={cn(styles.pageContainer, isArenaActive && styles.arenaPageContainer)}>
+      {!currentSession && (
+        <PageHeader
+          title="AI Mock Interview Platform"
+          subtitle="Simulate technical screenings and viva defense with real-time speech visualizer and automated competency scorecards."
+          actions={
+            <div className={styles.headerActions}>
+              <div className={styles.creditPill} onClick={handleRechargeClick} role="button" tabIndex={0}>
+                <CreditCard size={14} />
+                <span>{creditsRemaining} credits</span>
+              </div>
             </div>
-          </div>
-        }
-      />
+          }
+        />
+      )}
 
 
       {/* Main Content View Switcher */}
-      <div className={styles.contentArea}>
+      <div className={cn(styles.contentArea, isArenaActive && styles.arenaContentArea)}>
         {scorecard ? (
           <Scorecard
             session={currentSession}

@@ -32,6 +32,37 @@ export function AppLayout() {
     setDrawerOpen(false);
   }, [location.pathname, setDrawerOpen]);
 
+  // Global Ctrl+B shortcut to toggle sidebar & Auto-collapse below 1100px width
+  const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed);
+  const setSidebarCollapsed = useUiStore((state) => state.setSidebarCollapsed);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebarCollapsed();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebarCollapsed]);
+
+  useEffect(() => {
+    let prevWidth = window.innerWidth;
+    const handleResize = () => {
+      const currentWidth = window.innerWidth;
+      // Auto-collapse when crossing below 1100px threshold
+      if (currentWidth < 1100 && prevWidth >= 1100) {
+        setSidebarCollapsed(true);
+      }
+      prevWidth = currentWidth;
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [setSidebarCollapsed]);
+
   const isChatRoute =
     location.pathname === '/chat' || location.pathname.startsWith('/chat/');
   const isSearchRoute = location.pathname === '/search';

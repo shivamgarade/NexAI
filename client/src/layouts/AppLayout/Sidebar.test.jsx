@@ -58,7 +58,7 @@ describe('Sidebar Component', () => {
     // Primary nav items
     expect(screen.getByRole('link', { name: /chat/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /library/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /prompts/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /prompt vault/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /interview/i })).toBeInTheDocument();
 
     // ChatGPT-style "... More" section
@@ -121,9 +121,15 @@ describe('Sidebar Component', () => {
     fireEvent.click(toggleBtn);
     expect(useUiStore.getState().isSidebarCollapsed).toBe(true);
 
-    // In collapsed state, "+ New chat" is an icon button
-    expect(screen.getByRole('button', { name: /expand sidebar/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /new chat/i })).toBeInTheDocument();
+    // In collapsed state, New chat and expand sidebar toggle and Settings are present
+    const expandBtn = screen.getByRole('button', { name: /expand sidebar/i });
+    expect(expandBtn).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /new chat/i }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: /^settings$/i })).toBeInTheDocument();
+
+    // Clicking expand sidebar re-opens the sidebar
+    fireEvent.click(expandBtn);
+    expect(useUiStore.getState().isSidebarCollapsed).toBe(false);
   });
 
   it('filters chat history using the three-dots filter menu', () => {
@@ -227,5 +233,34 @@ describe('Sidebar Component', () => {
     fireEvent.click(recentToggle);
     expect(screen.getByText('React Architecture Review')).toBeInTheDocument();
     expect(screen.getByText('Python Web Scraping')).toBeInTheDocument();
+  });
+
+  it('keeps the exact same nav items and data-tip tooltips in both open and collapsed states', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    // Verify all primary items and more have data-tip
+    expect(screen.getByRole('link', { name: /chat/i })).toHaveAttribute('data-tip', 'Chat');
+    expect(screen.getByRole('link', { name: /library/i })).toHaveAttribute('data-tip', 'Library');
+    expect(screen.getByRole('link', { name: /prompt vault/i })).toHaveAttribute('data-tip', 'Prompt Vault');
+    expect(screen.getByRole('link', { name: /interview/i })).toHaveAttribute('data-tip', 'Interview');
+    expect(screen.getByRole('button', { name: /toggle more navigation links/i })).toHaveAttribute('data-tip', 'More');
+
+    // Toggle collapse
+    const toggleBtn = screen.getByRole('button', { name: /collapse sidebar/i });
+    fireEvent.click(toggleBtn);
+
+    // Sidebar has .collapsed class
+    const aside = container.querySelector('aside');
+    expect(aside.className).toContain('collapsed');
+
+    // All items remain in the exact same order in DOM
+    const navLinks = screen.getAllByRole('link');
+    const labels = navLinks.map((l) => l.getAttribute('data-tip')).filter(Boolean);
+    expect(labels).toEqual(['Chat', 'Library', 'Prompt Vault', 'Interview']);
+    expect(screen.getByRole('button', { name: /toggle more navigation links/i })).toHaveAttribute('data-tip', 'More');
   });
 });

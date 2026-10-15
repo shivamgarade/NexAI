@@ -54,6 +54,11 @@ const userSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+      toolExecutionMode: {
+        type: String,
+        enum: ['auto', 'confirm', 'manual'],
+        default: 'auto',
+      },
       personalization: {
         customInstructions: {
           type: String,

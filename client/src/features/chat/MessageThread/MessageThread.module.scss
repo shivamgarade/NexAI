@@ -42,6 +42,15 @@
   justify-content: flex-start;
 }
 
+.emptyThreadNotice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  min-height: 280px;
+  width: 100%;
+}
+
 .emptyWelcome {
   display: flex;
   flex-direction: column;
@@ -246,12 +255,10 @@
   width: 26px;
   height: 26px;
   object-fit: contain;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 45%, transparent));
-  transition: transform var(--duration-fast) var(--ease-standard), filter var(--duration-fast) var(--ease-standard);
+  transition: transform var(--duration-fast) var(--ease-standard);
 
   &:hover {
     transform: scale(1.08);
-    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 80%, transparent));
   }
 }
 
@@ -733,3 +740,76 @@
   min-height: 1px;
   scroll-margin-bottom: 140px;
 }
+
+.groundedSourceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px 8px;
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+
+  .groundedSourceIcon {
+    flex-shrink: 0;
+  }
+}
+
+.memoryUpdatedBanner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: 4px 10px;
+  background-color: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-subtle));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  animation: fadeIn 200ms ease-out;
+
+  .memoryUpdatedIcon {
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .memoryUpdatedText {
+    max-width: 380px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    em {
+      font-style: normal;
+      color: var(--color-text-primary);
+      font-weight: var(--weight-medium);
+    }
+  }
+
+  .memoryUndoBtn {
+    background: transparent;
+    border: none;
+    color: var(--color-accent);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: var(--radius-xs);
+    text-decoration: underline;
+    transition: opacity var(--duration-fast);
+
+    &:hover {
+      opacity: 0.75;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-accent);
+    }
+  }
+}
+

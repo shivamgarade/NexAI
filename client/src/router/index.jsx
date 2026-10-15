@@ -13,6 +13,7 @@ const ChatPage = lazy(() => import('@/pages/Chat/ChatPage'));
 const LibraryPage = lazy(() => import('@/pages/Library/LibraryPage'));
 const DocumentsPage = lazy(() => import('@/pages/Documents/DocumentsPage'));
 const PromptsPage = lazy(() => import('@/pages/Prompts/PromptsPage'));
+const AutomationsPage = lazy(() => import('@/pages/Automations/AutomationsPage'));
 const InterviewPage = lazy(() => import('@/pages/Interview/InterviewPage'));
 const SchemaPage = lazy(() => import('@/pages/Schema/SchemaPage'));
 const ProjectPage = lazy(() => import('@/pages/Project/ProjectPage'));

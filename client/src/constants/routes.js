@@ -8,6 +8,8 @@ export const ROUTES = {
   DOCUMENTS: '/documents',
   DOCUMENT_ID: '/documents/:id',
   PROMPTS: '/prompts',
+  SKILLS: '/skills',
+  AUTOMATIONS: '/automations',
   INTERVIEW: '/interview',
   SEARCH: '/search',
   WALLET: '/wallet',

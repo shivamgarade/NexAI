@@ -2,10 +2,11 @@ import { ApiError } from '../utils/ApiError.js';
 import { systemConfigService } from '../services/systemConfig.service.js';
 
 /**
- * Middleware that governs access based on active daily request quota (default: 50,000 requests/day):
- * - Checks that daily requests have not exceeded the daily quota ceiling.
- * - Does not block with 402 INSUFFICIENT_CREDITS or require recharge,
- *   as subscription/recharge plans are for demonstration / future scope.
+ * Middleware that enforces access governance across Dual-Mode Billing tiers:
+ * - When creditsRemaining > 0: Permits request immediately.
+ * - When mode is 'quota_free': Bypasses 402 gate and verifies total platform calls remain within the daily Gemini API quota ceiling (default: 50,000 req/day).
+ * - When mode is 'credit_strict': Strictly enforces wallet balance and rejects zero-balance requests with HTTP 402 INSUFFICIENT_CREDITS.
+ * - Exempts free-tier operations (isSimulation, Edge Neural TTS).
  */
 export function creditCheck(req, _res, next) {
   try {

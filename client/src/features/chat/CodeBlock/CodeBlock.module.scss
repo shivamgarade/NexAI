@@ -6,64 +6,53 @@
   border: 1px solid var(--color-border);
   background-color: var(--color-bg-surface);
   position: relative;
-  // Note: do not set overflow: hidden so position: sticky on .header works within scroll containers
+  overflow: hidden;
 }
 
 .header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
-  background-color: var(--color-bg-elevated);
-  border-bottom: 1px solid var(--color-border);
-  border-top-left-radius: calc(var(--radius-lg) - 1px);
-  border-top-right-radius: calc(var(--radius-lg) - 1px);
-  font-family: var(--font-sans);
+  padding: 10px 14px 4px 16px;
+  background-color: transparent;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  transition: background-color var(--duration-fast) var(--ease-standard);
-}
-
-.languageBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: var(--weight-medium);
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
+  color: var(--color-text-muted);
   user-select: none;
-
-  .codeIcon {
-    color: var(--color-accent);
-    opacity: 0.9;
-  }
-
-  .languageText {
-    letter-spacing: 0.02em;
-  }
 }
 
-.copyButton {
+.languageText {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconButton {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: 4px 8px;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
+  color: var(--color-text-muted);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &:hover {
     background-color: var(--color-bg-hover);
     color: var(--color-text-primary);
-    border-color: var(--color-border);
   }
 
   &:focus-visible {
@@ -77,43 +66,44 @@
 
 .pre {
   margin: 0;
-  padding: 14px 18px;
+  padding: 4px 16px 14px 16px;
   overflow-x: auto;
-  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
-  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.65;
   color: var(--color-text-primary);
-  background-color: color-mix(in srgb, var(--color-bg-surface) 96%, black);
+  background-color: transparent;
   -webkit-font-smoothing: antialiased;
 
   code {
     font-family: inherit;
   }
 
-  // Syntax highlighting mapped to semantic design tokens
+  // Syntax highlighting mapped to Claude / Plotly dark code aesthetics
   :global {
     .token.comment,
     .token.prolog,
     .token.doctype,
     .token.cdata {
-      color: var(--color-text-muted);
+      color: #64748b;
       font-style: italic;
     }
 
     .token.punctuation {
-      color: var(--color-text-secondary);
+      color: #71717a;
     }
 
     .token.property,
     .token.tag,
-    .token.boolean,
-    .token.number,
     .token.constant,
     .token.symbol,
     .token.deleted {
-      color: var(--color-warning);
+      color: #e2e8f0;
+    }
+
+    .token.number,
+    .token.boolean {
+      color: #f59e0b;
     }
 
     .token.selector,
@@ -122,33 +112,57 @@
     .token.char,
     .token.builtin,
     .token.inserted {
-      color: var(--color-success);
+      color: #86efac;
     }
 
     .token.operator,
     .token.entity,
-    .token.url,
+    .token.url {
+      color: #cbd5e1;
+    }
+
     .language-css .token.string,
     .style .token.string {
-      color: var(--color-info);
+      color: #86efac;
     }
 
     .token.atrule,
     .token.attr-value,
     .token.keyword {
-      color: var(--color-accent);
+      color: #c084fc;
       font-weight: var(--weight-medium);
     }
 
     .token.function,
     .token.class-name {
-      color: var(--color-accent-hover);
+      color: #67e8f9;
     }
 
     .token.regex,
     .token.important,
     .token.variable {
-      color: var(--color-danger);
+      color: #f87171;
     }
   }
+}
+
+.mermaidContainer {
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  background-color: var(--color-bg-elevated);
+
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+.mermaidError {
+  padding: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }

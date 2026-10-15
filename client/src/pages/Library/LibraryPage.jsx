@@ -192,6 +192,7 @@ export default function LibraryPage() {
     switch (activeTab) {
       case 'documents':
         return {
+          icon: <BookOpen size={32} />,
           title: 'No structured documents yet',
           description: 'Draft structured resumes, reports, and study notes with AI assistance and export them directly to PDF.',
           action: (
@@ -202,6 +203,7 @@ export default function LibraryPage() {
         };
       case 'files':
         return {
+          icon: <Paperclip size={32} />,
           title: 'No files uploaded',
           description: 'Upload markdown notes, text files, JSON, CSV, or PDFs to your personal library.',
           action: (
@@ -212,6 +214,7 @@ export default function LibraryPage() {
         };
       case 'interviews':
         return {
+          icon: <Mic size={32} />,
           title: 'No interview sessions archived',
           description: 'Completed mock technical interviews and viva scorecards will automatically be archived here.',
           action: (
@@ -222,6 +225,7 @@ export default function LibraryPage() {
         };
       case 'notes_links':
         return {
+          icon: <Bookmark size={32} />,
           title: 'No notes or links saved',
           description: 'Save articles, documentation, or personal notes with AI-generated summaries and auto-tags.',
           action: (
@@ -232,6 +236,7 @@ export default function LibraryPage() {
         };
       default:
         return {
+          icon: <Layers size={32} />,
           title: 'Your Knowledge Hub is empty',
           description: 'Save bookmarks, notes, files, or generate structured documents with instant PDF export.',
           action: (
@@ -268,7 +273,7 @@ export default function LibraryPage() {
     },
     {
       icon: <Mic size={15} />,
-      label: 'Start Mock Interview',
+      label: 'Mock interview',
       onClick: () => navigate(ROUTES.INTERVIEW),
     },
   ];
@@ -428,7 +433,7 @@ export default function LibraryPage() {
       ) : items.length === 0 ? (
         /* Empty State */
         <EmptyState
-          icon={<Bookmark size={32} />}
+          icon={emptyDetails.icon || <Bookmark size={32} />}
           title={emptyDetails.title}
           description={emptyDetails.description}
           action={emptyDetails.action}

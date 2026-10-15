@@ -44,7 +44,7 @@ export function getModelName(type = 'flash') {
   if (type === 'tts') {
     return env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-lite-tts';
   }
-  return env.GEMINI_FLASH_MODEL || 'gemini-3.5-flash-lite';
+  return env.GEMINI_FLASH_MODEL || 'gemini-3.1-flash-lite';
 }
 
 if (!env.GEMINI_API_KEY && env.NODE_ENV !== 'test') {

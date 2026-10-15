@@ -3,12 +3,12 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  width: var(--sidebar-width-expanded, 260px);
+  width: var(--sidebar-width-expanded, 240px);
   height: 100vh;
   background-color: var(--color-bg-surface);
   border-right: 1px solid var(--color-border);
   flex-shrink: 0;
-  transition: width var(--duration-base) var(--ease-standard);
+  transition: width var(--duration-base, 0.2s) cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   user-select: none;
   box-sizing: border-box;
@@ -16,58 +16,99 @@
   &.collapsed {
     width: var(--sidebar-width-collapsed, 64px);
 
-    .brandHeader {
-      padding: 0;
-      justify-content: center;
-    }
-
-    .brandTitle {
-      display: none !important;
+    .brandName {
       opacity: 0;
       pointer-events: none;
+      transition: opacity 0.08s ease;
     }
 
-    .headerActions {
-      display: none !important;
+    .headerSearchBtn {
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
     }
 
-    .collapsedToggleBtn {
-      margin: 0 auto;
-    }
-
-    .newChatWrapper {
-      padding: var(--space-3) 0;
-    }
-
-    .navSection {
-      padding: 0;
-    }
-
-    .navItem {
-      justify-content: center;
-      width: 42px;
-      height: 38px;
-      margin: 0 auto;
-      padding: 0;
-      gap: 0;
-
-      .navLabel {
-        display: none !important;
-        opacity: 0;
-        pointer-events: none;
-      }
-    }
-
-    .moreDropdownWrapper {
-      display: none !important;
+    .labelCell {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease;
     }
 
     .middleScrollArea {
-      display: none !important;
+      max-height: 0;
+      opacity: 0;
+      pointer-events: none;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-bottom-color: transparent;
+      transition:
+        max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.08s ease,
+        padding 0.2s ease;
     }
 
-    .footerSection {
-      padding: var(--space-3) 0;
+    .middleDivider {
+      display: block;
+      opacity: 1;
+    }
+
+    .userInfo,
+    .creditChip {
+      opacity: 0;
+      pointer-events: none;
+      display: none;
+    }
+
+    .footerNavBtn {
+      .labelCell {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.08s ease;
+      }
+
+      &.active {
+        background-color: transparent;
+
+        .iconCell {
+          background-color: color-mix(in srgb, var(--color-accent) 14%, transparent);
+          border-radius: var(--radius-md);
+          color: var(--color-accent);
+        }
+      }
+    }
+
+    .navItem.active {
+      background-color: transparent;
+
+      .iconCell {
+        background-color: color-mix(in srgb, var(--color-accent) 14%, transparent);
+        border-radius: var(--radius-md);
+        color: var(--color-accent);
+      }
+    }
+
+    /* CSS data-tip fallback tooltip */
+    .navItem:hover::after,
+    .newChatBtn:hover::after,
+    .userCard:hover::after,
+    .footerNavBtn:hover::after,
+    .collapsedHeaderBtn:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: calc(100% + 12px);
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-elevated);
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border);
+      font-size: 12px;
+      font-weight: var(--weight-medium);
+      white-space: nowrap;
+      z-index: 50;
+      pointer-events: none;
+      box-shadow: var(--shadow-md);
     }
   }
 
@@ -78,32 +119,23 @@
   }
 }
 
-/* Brand Header */
+/* Brand Header: Logo center x=32px (12px margin + 20px half of cell) */
 .brandHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 52px;
-  padding: 0 var(--space-4);
-  gap: var(--space-2);
+  margin: 0 12px;
   flex-shrink: 0;
   box-sizing: border-box;
 }
 
-.brandTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: var(--weight-bold);
-  font-size: var(--text-md);
-  color: var(--color-text-primary);
-  letter-spacing: -0.02em;
-  cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease-standard);
-
-  &:hover {
-    opacity: 0.9;
-  }
+.brandLogoWrapper {
+  position: relative;
+  flex: 0 0 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
 }
 
 .brandLogo {
@@ -111,11 +143,21 @@
   height: 24px;
   border-radius: var(--radius-sm);
   object-fit: contain;
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 45%, transparent));
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  margin: 0 auto;
 }
 
-.collapsedBrandBtn {
+.expandIconOverlay {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  opacity: 0;
+  color: var(--color-text-primary);
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+}
+
+.collapsedHeaderBtn {
   background: transparent;
   border: none;
   padding: 0;
@@ -123,32 +165,73 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin: 0 auto;
   border-radius: var(--radius-md);
-  transition: all var(--duration-fast) var(--ease-standard);
+  color: var(--color-text-secondary);
+  height: 40px;
+  width: 40px;
+  margin: 0;
 
   &:hover {
     background-color: var(--color-bg-hover);
-    transform: scale(1.05);
+
+    .brandLogo {
+      opacity: 0.15;
+    }
+
+    .expandIconOverlay {
+      opacity: 1;
+      color: var(--color-accent);
+    }
   }
 }
 
-.collapsedBrandLogo {
-  width: 26px;
-  height: 26px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-accent) 50%, transparent));
+.brandTitle {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+
+  .brandLogo {
+    flex: 0 0 40px;
+  }
+
+  .brandName {
+    font-weight: var(--weight-bold);
+    font-size: var(--text-md);
+    opacity: 1;
+    transition: opacity 0.12s ease 0.06s;
+    margin-left: 2px;
+  }
+
+  &:hover {
+    opacity: 0.9;
+  }
 }
 
 .headerActions {
   display: flex;
   align-items: center;
   gap: 2px;
+  margin-right: 0;
 }
 
-.headerActionBtn {
+.headerSearchBtn {
+  color: var(--color-text-muted);
+  width: 32px;
+  height: 32px;
+  transition: opacity 0.12s ease;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+  }
+}
+
+.headerToggleBtn {
   color: var(--color-text-muted);
   width: 32px;
   height: 32px;
@@ -159,49 +242,38 @@
   }
 }
 
-.collapsedToggleBtn {
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-bg-hover);
-  }
-}
-
-/* New Chat Button */
+/* Primary Action: New Chat (height 36px, margin 0 12px, icon cell 40px) */
 .newChatWrapper {
-  padding: var(--space-1) var(--space-3) var(--space-2);
+  padding: var(--space-1) 0 var(--space-2);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   flex-shrink: 0;
 }
 
-.expandedNewChatBtn {
+.newChatBtn {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  height: 40px;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-lg);
+  height: 36px;
+  margin: 0 12px;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
   background-color: var(--color-bg-elevated);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
   color: var(--color-text-primary);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   cursor: pointer;
+  padding: 0;
+  width: calc(100% - 24px);
+  box-sizing: border-box;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard);
 
   .newChatIcon {
     color: var(--color-text-secondary);
+    transition: color var(--duration-fast) var(--ease-standard);
   }
 
   &:hover {
@@ -214,44 +286,23 @@
   }
 }
 
-.newChatRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-
-
-.collapsedNewChatBtn {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  margin: 0 auto;
-  color: var(--color-text-secondary);
-
-  &:hover {
-    color: var(--color-accent);
-    background-color: var(--color-bg-hover);
-  }
-}
-
-/* Primary Navigation */
+/* Primary Navigation: Same list in both states */
 .navSection {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: var(--space-1) var(--space-3);
+  padding: 0;
   flex-shrink: 0;
 }
 
 .navItem {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-3);
   height: 36px;
+  margin: 0 12px;
   border-radius: var(--radius-md);
+  white-space: nowrap;
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -259,34 +310,19 @@
   cursor: pointer;
   background: transparent;
   border: none;
-  width: 100%;
+  width: calc(100% - 24px);
   text-align: left;
   box-sizing: border-box;
+  padding: 0;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard);
-
-  .navIcon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-text-muted);
-    transition: color var(--duration-fast) var(--ease-standard);
-    flex-shrink: 0;
-  }
-
-  .navLabel {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: opacity var(--duration-fast) var(--ease-standard);
-  }
 
   &:hover {
     background-color: var(--color-bg-hover);
     color: var(--color-text-primary);
 
-    .navIcon {
+    .iconCell {
       color: var(--color-text-primary);
     }
   }
@@ -296,10 +332,30 @@
     color: var(--color-text-primary);
     font-weight: var(--weight-semibold);
 
-    .navIcon {
+    .iconCell {
       color: var(--color-accent);
     }
   }
+}
+
+/* Fixed cell: icon center always at x=32px (12px margin + 20px half of 40px cell) */
+.iconCell {
+  flex: 0 0 40px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  transition: color var(--duration-fast) var(--ease-standard);
+  box-sizing: border-box;
+}
+
+.labelCell {
+  opacity: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 2px;
+  transition: opacity 0.12s ease 0.06s;
 }
 
 /* ChatGPT Style "... More" row with floating popover */
@@ -315,12 +371,29 @@
 .middleScrollArea {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-height: 0;
+  max-height: 2000px;
+  opacity: 1;
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--space-2) var(--space-3) var(--space-1);
+  transition:
+    max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.12s ease 0.06s,
+    padding 0.2s ease;
   @include custom-scrollbar;
+}
+
+.middleDivider {
+  display: none;
+  opacity: 0;
+  height: 1px;
+  width: calc(100% - 24px);
+  margin: var(--space-2) 12px;
+  background-color: var(--color-border);
+  flex-shrink: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
 .sectionBlock {
@@ -870,37 +943,101 @@
 
 /* Footer Section */
 .footerSection {
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  padding: var(--space-2) 0 var(--space-3);
   border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  gap: var(--space-1);
   flex-shrink: 0;
   background-color: var(--color-bg-surface);
 }
 
-.footerRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-1);
+.footerItemRow {
   width: 100%;
 }
 
-.userCardContainer {
-  flex: 1 1 0;
-  min-width: 0;
+.footerNavBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: calc(100% - 24px);
+  height: 36px;
+  margin: 0 12px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  box-sizing: border-box;
+  text-align: left;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+
+  .iconCell {
+    flex: 0 0 40px;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--ease-standard);
+  }
+
+  .labelCell {
+    opacity: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 2px;
+    transition: opacity 0.12s ease 0.06s;
+  }
+
+  &:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+
+    .iconCell {
+      color: var(--color-text-primary);
+    }
+  }
+
+  &.active {
+    color: var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+
+    .iconCell {
+      color: var(--color-accent);
+    }
+  }
+}
+
+.userDropdownWrapper {
+  width: 100%;
 }
 
 .userCard {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-2);
+  width: calc(100% - 24px);
+  height: 40px;
+  margin: 0 12px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  width: 100%;
   box-sizing: border-box;
+  white-space: nowrap;
   transition: background-color var(--duration-fast) var(--ease-standard);
+
+  .iconCell {
+    flex: 0 0 40px;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--color-text-muted);
+  }
 
   &:hover {
     background-color: var(--color-bg-hover);
@@ -912,6 +1049,8 @@
     overflow: hidden;
     min-width: 0;
     flex: 1 1 0;
+    padding-left: 2px;
+    transition: opacity 0.12s ease 0.06s;
 
     .userName {
       font-size: 13px;
@@ -938,76 +1077,11 @@
     background-color: color-mix(in srgb, var(--color-accent) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
     flex-shrink: 0;
+    transition: opacity 0.12s ease 0.06s;
 
     .creditIcon {
       color: var(--color-accent);
       fill: currentColor;
     }
-  }
-}
-
-.footerSettingsBtn {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-md);
-
-  &:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-bg-hover);
-  }
-}
-
-.collapsedFooter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.collapsedSettingsBtn {
-  width: 36px;
-  height: 36px;
-  color: var(--color-text-muted);
-
-  &:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-bg-hover);
-  }
-}
-
-.collapsedUserAvatar {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  padding: 2px;
-  transition: transform var(--duration-fast) var(--ease-standard);
-
-  &:hover {
-    transform: scale(1.08);
-  }
-}
-
-.collapsedActions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  width: 100%;
-}
-
-.collapsedSearchBtn {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  margin: 0 auto;
-  color: var(--color-text-secondary);
-
-  &:hover {
-    color: var(--color-accent);
-    background-color: var(--color-bg-hover);
   }
 }

@@ -2043,3 +2043,139 @@ Synthesizes interview speech using **Microsoft Edge Neural TTS** (default, ~400m
 - **Response `204 No Content` (Simulation Mode):**
   - Returned when `isSimulation: true` or `x-simulation: true` header is provided.
 
+---
+
+## Agent Skills & Autonomous Tools
+
+### GET `/api/skills`
+
+List available skills (seeded system skills and user custom skills), with filtering by category or favorites.
+
+- **Auth:** Bearer Token
+- **Query Params:**
+  - `category` (optional, string): e.g. `'web'`, `'coding'`, `'writing'`, `'analysis'`, `'general'`
+  - `favorite` (optional, boolean): filter to user favorited skills only
+- **Response `200 OK`:**
+```json
+{
+  "data": [
+    {
+      "_id": "67401122aabbccddeeff2244",
+      "title": "Web Deep Researcher",
+      "description": "Autonomous web searching, multi-source fact retrieval, and page inspection",
+      "category": "web",
+      "tools": ["web_search", "fetch_url"],
+      "instructions": "Search the web for up-to-date facts...",
+      "variables": [],
+      "isSystem": true,
+      "isFavorite": false
+    }
+  ]
+}
+```
+
+### POST `/api/skills`
+
+Create a new custom tool-enabled skill.
+
+- **Auth:** Bearer Token
+- **Request Body:**
+```json
+{
+  "title": "Data Pipeline Debugger",
+  "description": "Inspect ETL scripts and test sandbox snippets",
+  "category": "coding",
+  "tools": ["code_execution", "web_search"],
+  "instructions": "Diagnose the error in {{error_message}} for {{language}}",
+  "tags": ["pipeline", "debug"]
+}
+```
+- **Response `201 Created`:** Returns created skill object with automatically extracted variables (`["error_message", "language"]`).
+
+### GET `/api/skills/:id`
+
+Retrieve a single skill by ID.
+
+### PATCH `/api/skills/:id`
+
+Update a user custom skill (system skills are protected from edit).
+
+### DELETE `/api/skills/:id`
+
+Delete a user custom skill.
+
+### POST `/api/skills/:id/favorite`
+
+Toggle favorite state for a skill.
+
+### Chat Integration: Tools & Steps in `/api/chats/:id/messages`
+
+- **Request Body Extra Options:**
+  - `skillId` (optional, ObjectId string): Active skill ID.
+  - `enabledTools` (optional, array of string): Explicitly enabled tools (`"web_search"`, `"fetch_url"`, `"workspace_search"`, `"memory_search"`, `"code_execution"`).
+- **SSE Events:**
+  - `event: step`: Real-time agent progress (`{ id, tool, type, title, status: 'running' | 'completed' | 'failed', output, mode }`).
+  - `event: grounding`: Web citation sources (`{ webSearchQueries: [...], sources: [{ title, url }] }`).
+
+---
+
+## Automations Hub & Schedules
+
+### GET `/api/schedules`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Returns list of schedules for the current user.
+
+### POST `/api/schedules`
+- **Auth:** Bearer Token
+- **Request Body:**
+```json
+{
+  "title": "Daily Tech Digest",
+  "instructions": "Summarize top 3 AI and dev breakthroughs today.",
+  "frequency": "daily",
+  "weeklyDays": [1, 2, 3, 4, 5],
+  "runTime": "09:00",
+  "deliveryTarget": "chat",
+  "model": "flash"
+}
+```
+- **Response `201 Created`:** Returns created Schedule document.
+
+### PATCH `/api/schedules/:id`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Updates schedule properties.
+
+### PATCH `/api/schedules/:id/toggle`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Toggles schedule `isActive` status between active and paused.
+
+### POST `/api/schedules/:id/run-now`
+- **Auth:** Bearer Token
+- **Description:** Instantly executes the schedule (ideal for live examiner viva demonstrations). Verifies credits, calls Gemini, meters and deducts tokens, saves results to Chat or Library, and logs telemetry.
+- **Response `200 OK`:** `{ success: true, data: { schedule, resultText, tokensUsed, chatId } }`.
+
+### DELETE `/api/schedules/:id`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Deletes schedule.
+
+---
+
+## Connected Apps & Ecosystem Integrations
+
+### GET `/api/connected-apps`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Returns all ecosystem integrations (`web-search`, `github`, `google-drive`, `notion`, `figma`) with current connection statuses.
+
+### PATCH `/api/connected-apps/:slug`
+- **Auth:** Bearer Token
+- **Request Body:**
+```json
+{
+  "isConnected": true,
+  "accountName": "developer-org",
+  "webhookUrl": "https://...",
+  "apiKey": "token_..."
+}
+```
+- **Response `200 OK`:** Returns updated connected app state.
+

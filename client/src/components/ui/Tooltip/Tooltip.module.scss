@@ -47,6 +47,26 @@
     transform: translateY(-50%);
     animation: tooltipSlideRight 120ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
+
+  &.portaled {
+    z-index: 99999;
+
+    &.right {
+      transform: translateY(-50%);
+    }
+
+    &.left {
+      transform: translate(-100%, -50%);
+    }
+
+    &.top {
+      transform: translate(-50%, -100%);
+    }
+
+    &.bottom {
+      transform: translate(-50%, 0);
+    }
+  }
 }
 
 @keyframes tooltipSlideTop {

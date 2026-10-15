@@ -1,5 +1,6 @@
 import { streamContent, generateContent } from '../services/gemini.service.js';
 import { deductCredits } from '../services/credit.service.js';
+import { buildGeminiToolsConfig, executeAgentTool } from '../services/tools.service.js';
 import { CHAT_SYSTEM_PROMPT, TITLE_SYSTEM_PROMPT } from './prompts/chat.prompt.js';
 import { getModelName } from '../config/gemini.js';
 import { logger } from '../utils/logger.js';
@@ -106,12 +107,21 @@ export async function* streamChatReply({
   sources = [],
   memories = [],
   personalization,
+  skill = null,
+  enabledTools = [],
+  toolExecutionMode = 'auto',
+  context = {},
 }) {
   const contents = formatConversationHistory(messages);
 
   let systemInstruction = CHAT_SYSTEM_PROMPT;
 
-  // 1. Inject global user personalization directives if configured
+  // 1. Inject autonomous tool capabilities if active
+  if (!skill && enabledTools.length > 0) {
+    systemInstruction += `\n\n[AUTONOMOUS TOOL CAPABILITY]:\nYou have real-time access to tools: ${enabledTools.join(', ')}. When user inquiries require live information, up-to-date facts, URL reading, or project searches, autonomously invoke the appropriate tool.`;
+  }
+
+  // 2. Inject global user personalization directives if configured
   if (personalization?.customInstructions && personalization.customInstructions.trim()) {
     systemInstruction += `\n\n[USER GLOBAL CUSTOM INSTRUCTIONS]:\nThe user has provided the following global directives that must be honored across all conversations:\n${personalization.customInstructions.trim()}`;
   }
@@ -128,7 +138,12 @@ export async function* streamChatReply({
     }
   }
 
-  // 2. Inject project-level custom instructions
+  // 2. Inject active Skill system instructions if present
+  if (skill?.instructions && skill.instructions.trim()) {
+    systemInstruction += `\n\n[ACTIVE AGENT SKILL: ${skill.title}]:\nYou are operating with the specialized skill "${skill.title}". Follow these core directives:\n${skill.instructions.trim()}`;
+  }
+
+  // 3. Inject project-level custom instructions
   if (customInstructions && customInstructions.trim()) {
     systemInstruction += `\n\n[PROJECT CUSTOM INSTRUCTIONS]:\nFollow these custom project instructions for all responses:\n${customInstructions.trim()}`;
   }
@@ -166,15 +181,143 @@ export async function* streamChatReply({
   });
   systemInstruction += `\n\n[TEMPORAL CONTEXT]:\nCurrent timestamp is ${timeString}. You are fully context-aware of the current time, day, and date when responding to user greetings, scheduling, or time-sensitive questions.`;
 
-  const thinkingConfig = buildThinkingConfig({ thinkingLevel, model });
-  const config = thinkingConfig ? { thinkingConfig } : {};
+  // Combine skill tools and directly requested tools
+  const combinedTools = Array.from(
+    new Set([...(skill?.tools || []), ...(Array.isArray(enabledTools) ? enabledTools : [])]),
+  );
 
-  yield* streamContent({
-    contents,
-    model,
-    systemInstruction,
-    config,
-  });
+  const geminiTools = buildGeminiToolsConfig(combinedTools);
+  const thinkingConfig = buildThinkingConfig({ thinkingLevel, model });
+  const config = {
+    ...(thinkingConfig ? { thinkingConfig } : {}),
+    ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
+  };
+
+  const MAX_TOOL_ITERATIONS = 5;
+  let iteration = 0;
+  let currentContents = [...contents];
+
+  while (iteration < MAX_TOOL_ITERATIONS) {
+    iteration++;
+    let pendingFunctionCalls = [];
+    let modelTurnParts = [];
+
+    // On final iteration, omit tools to force model synthesis of all collected findings
+    const iterationConfig =
+      iteration >= MAX_TOOL_ITERATIONS
+        ? { ...(thinkingConfig ? { thinkingConfig } : {}) }
+        : config;
+
+    const stream = streamContent({
+      contents: currentContents,
+      model,
+      systemInstruction,
+      config: iterationConfig,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.candidateParts && chunk.candidateParts.length > 0) {
+        modelTurnParts.push(...chunk.candidateParts);
+      }
+
+      if (chunk.groundingMetadata) {
+        yield { groundingMetadata: chunk.groundingMetadata };
+      }
+
+      if (chunk.codeStep) {
+        yield { step: chunk.codeStep };
+      }
+
+      if (chunk.thought) {
+        yield { thought: chunk.thought };
+      }
+
+      if (chunk.text) {
+        yield { text: chunk.text };
+      }
+
+      if (chunk.usageMetadata) {
+        yield { usageMetadata: chunk.usageMetadata };
+      }
+
+      if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+        pendingFunctionCalls.push(...chunk.functionCalls);
+      }
+    }
+
+    if (pendingFunctionCalls.length === 0) {
+      break;
+    }
+
+    // Execute requested tool functions
+    const toolResponseParts = [];
+    for (const call of pendingFunctionCalls) {
+      const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const isSearch = call.name === 'web_search';
+      const actionTitle = isSearch
+        ? `Searching web: "${call.args?.query || ''}"`
+        : `Executing ${call.name}`;
+
+      yield {
+        step: {
+          id: stepId,
+          type: 'tool_call',
+          tool: call.name,
+          title: actionTitle,
+          input: call.args,
+          status: 'running',
+          mode: toolExecutionMode,
+        },
+      };
+
+      const result = await executeAgentTool(call.name, call.args, context);
+
+      const completedTitle = isSearch
+        ? `Found ${result.resultsCount || (result.results ? result.results.length : 0)} search results for "${call.args?.query || ''}"`
+        : `Completed ${call.name}`;
+
+      yield {
+        step: {
+          id: stepId,
+          type: 'tool_call',
+          tool: call.name,
+          title: completedTitle,
+          input: call.args,
+          output: result,
+          status: 'completed',
+        },
+      };
+
+      if (isSearch && Array.isArray(result.results) && result.results.length > 0) {
+        yield {
+          groundingMetadata: {
+            webSearchQueries: [call.args?.query || ''],
+            sources: result.results.map((r) => ({
+              title: r.title,
+              url: r.url,
+            })),
+          },
+        };
+      }
+
+      toolResponseParts.push({
+        functionResponse: {
+          name: call.name,
+          response: result,
+        },
+      });
+    }
+
+    // Retain exact model turn parts (including thoughtSignature) for Gemini protocol compliance
+    currentContents.push({
+      role: 'model',
+      parts: modelTurnParts.length > 0 ? modelTurnParts : pendingFunctionCalls.map((c) => ({ functionCall: c })),
+    });
+    currentContents.push({
+      role: 'user',
+      parts: toolResponseParts,
+    });
+  }
 }
 
 /**

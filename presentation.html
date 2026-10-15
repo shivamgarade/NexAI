@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexAI — MSBTE Seminar & Project Initiation Presentation (Course Code: 315003)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    :root {
+      --bg-page: #f8fafc;
+      --bg-slide: #ffffff;
+      --bg-card: #f8fafc;
+      --bg-card-subtle: #f1f5f9;
+      --border-subtle: #e2e8f0;
+      --border-accent: #bbf7d0;
+
+      --accent-green: #16a34a;
+      --accent-green-dark: #15803d;
+      --accent-green-light: #f0fdf4;
+      --accent-green-border: #86efac;
+
+      --accent-indigo: #6366f1;
+      --accent-indigo-light: #eef2ff;
+      --accent-amber: #d97706;
+      --accent-amber-light: #fffbeb;
+      --accent-red: #dc2626;
+      --accent-red-light: #fef2f2;
+
+      --text-main: #0f172a;
+      --text-body: #334155;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+
+      /* Times New Roman as mandated in Section VIII of seminar.pdf */
+      --font-serif: "Times New Roman", Times, Georgia, serif;
+
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-serif);
+      background-color: var(--bg-page);
+      color: var(--text-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .presentation-container {
+      width: 100%;
+      max-width: 1200px;
+      aspect-ratio: 16 / 9;
+      position: relative;
+      background: var(--bg-slide);
+      border-radius: 12px;
+      box-shadow: var(--shadow-xl);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      height: 100%;
+      padding: 32px 42px 24px 42px;
+      flex-direction: column;
+      justify-content: space-between;
+      animation: fadeIn 0.2s ease-out;
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-header {
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background-color: var(--accent-green-light);
+      color: var(--accent-green-dark);
+      border: 1px solid var(--border-accent);
+      margin-bottom: 6px;
+      font-family: var(--font-serif);
+    }
+
+    .badge-pill.indigo {
+      background-color: var(--accent-indigo-light);
+      color: var(--accent-indigo);
+      border-color: #c7d2fe;
+    }
+
+    .badge-pill.amber {
+      background-color: var(--accent-amber-light);
+      color: var(--accent-amber);
+      border-color: #fde68a;
+    }
+
+    .slide-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-main);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.25;
+      font-family: var(--font-serif);
+    }
+
+    .slide-subtitle {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      font-family: var(--font-serif);
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      height: 100%;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      height: 100%;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card.highlight {
+      background: #ffffff;
+      border-color: var(--border-accent);
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.06);
+    }
+
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      font-family: var(--font-serif);
+    }
+
+    .card-title.green { color: var(--accent-green-dark); }
+    .card-title.indigo { color: var(--accent-indigo); }
+    .card-title.amber { color: var(--accent-amber); }
+    .card-title.red { color: var(--accent-red); }
+
+    .card-subtitle {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-family: var(--font-serif);
+    }
+
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bullet-list li {
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--text-body);
+      position: relative;
+      padding-left: 16px;
+      text-align: justify;
+    }
+
+    .bullet-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: var(--accent-green);
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .bullet-list.check li::before {
+      content: "✓";
+      color: var(--accent-green);
+    }
+
+    .bullet-list.cross li::before {
+      content: "✕";
+      color: var(--accent-red);
+    }
+
+    .metric-card {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .metric-val {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+      font-family: var(--font-serif);
+    }
+
+    .metric-val.green { color: var(--accent-green); }
+    .metric-val.indigo { color: var(--accent-indigo); }
+    .metric-val.amber { color: var(--accent-amber); }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-main);
+      font-family: var(--font-serif);
+    }
+
+    .metric-desc {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-family: var(--font-serif);
+    }
+
+    .table-container {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      font-size: 12px;
+      font-family: var(--font-serif);
+    }
+
+    .table-container th, .table-container td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+
+    .table-container th {
+      background-color: var(--bg-card-subtle);
+      color: var(--text-main);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 10.5px;
+      letter-spacing: 0.03em;
+    }
+
+    .table-container th.col-highlight {
+      background-color: var(--accent-green-light);
+      color: var(--accent-green-dark);
+      border-bottom: 2px solid var(--accent-green);
+    }
+
+    .table-container td.col-highlight {
+      background-color: #f7fee7;
+      font-weight: 600;
+      color: var(--accent-green-dark);
+    }
+
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-family: var(--font-serif);
+      flex-shrink: 0;
+    }
+
+    .slide-footer strong {
+      color: var(--accent-green-dark);
+    }
+
+    .controls-bar {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 1200px;
+      background: #ffffff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-sm);
+      font-family: var(--font-serif);
+    }
+
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-subtle);
+      background: #ffffff;
+      color: var(--text-main);
+      font-family: var(--font-serif);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--bg-card);
+      border-color: #cbd5e1;
+    }
+
+    .btn.primary {
+      background: var(--accent-green);
+      color: #ffffff;
+      border-color: var(--accent-green);
+    }
+
+    .btn.primary:hover {
+      background: var(--accent-green-dark);
+    }
+
+    .notes-panel {
+      margin-top: 12px;
+      width: 100%;
+      max-width: 1200px;
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      padding: 14px 18px;
+      display: none;
+      box-shadow: var(--shadow-sm);
+      font-family: var(--font-serif);
+    }
+
+    .notes-panel.open {
+      display: block;
+    }
+
+    .notes-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-indigo);
+      margin-bottom: 4px;
+    }
+
+    .notes-text {
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text-body);
+      text-align: justify;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+      .presentation-container {
+        box-shadow: none;
+        border: none;
+        border-radius: 0;
+        max-width: 100%;
+      }
+      .controls-bar, .notes-panel {
+        display: none !important;
+      }
+      .slide {
+        display: flex !important;
+        page-break-after: always;
+        height: 100vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Presentation Frame (16:9 Widescreen) -->
+  <div class="presentation-container" id="presentationContainer">
+
+    <!-- ========================================== -->
+    <!-- SLIDE 1: ANNEXURE I COVER / TITLE SLIDE -->
+    <!-- ========================================== -->
+    <div class="slide active" data-notes="Good morning respected external examiner, internal guide, and faculty members. Today, our group presents our Seminar and Project Initiation topic: NexAI, an AI-powered personal and developer workspace with utility-metered billing and grounded RAG retrieval, developed under Course Code 315003 of the MSBTE K-Scheme.">
+      <div style="height: 3px; background: var(--accent-green); margin: -32px -42px 16px -42px;"></div>
+      <div class="slide-header" style="text-align: center; margin-bottom: 8px;">
+        <span class="badge-pill">MAHARASHTRA STATE BOARD OF TECHNICAL EDUCATION, MUMBAI (MSBTE K-SCHEME)</span>
+        <div style="font-size: 11.5px; color: var(--text-muted); font-weight: 600; margin-top: 2px;">
+          SEMINAR AND PROJECT INITIATION PRESENTATION | COURSE CODE: 315003 | SEMESTER - V
+        </div>
+      </div>
+
+      <div class="card highlight" style="text-align: center; padding: 18px; margin-bottom: 12px;">
+        <h1 style="font-size: 34px; font-weight: 700; color: var(--accent-green); letter-spacing: -0.02em;">NexAI</h1>
+        <h2 style="font-size: 13.5px; font-weight: 700; color: var(--text-main); margin-top: 4px; text-transform: uppercase;">
+          AI-POWERED PERSONAL & DEVELOPER WORKSPACE WITH UTILITY-METERED TOKEN BILLING AND GROUNDED RAG
+        </h2>
+        <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
+          A full-stack, free-tier SaaS engineering project resolving tool fragmentation and the prohibitive ₹2,000/mo AI subscription barrier.
+        </p>
+      </div>
+
+      <div class="grid-3" style="height: auto; gap: 12px;">
+        <div class="card">
+          <div class="card-title green">SUBMITTED BY</div>
+          <ul class="bullet-list">
+            <li><strong>Candidate Name (Project Lead)</strong><br><span style="font-size:11px; color:var(--text-muted);">Enrollment No.: 2200000001</span></li>
+            <li><strong>Project Partner 2</strong><br><span style="font-size:11px; color:var(--text-muted);">Enrollment No.: 2200000002</span></li>
+            <li><strong>Project Partner 3</strong><br><span style="font-size:11px; color:var(--text-muted);">Enrollment No.: 2200000003</span></li>
+            <li><strong>Project Partner 4</strong><br><span style="font-size:11px; color:var(--text-muted);">Enrollment No.: 2200000004</span></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-title indigo">UNDER THE GUIDANCE OF</div>
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--text-main);">Internal Project Guide:</div>
+          <div style="font-size: 11.5px; color: var(--text-body); margin-bottom: 6px;">Prof. Faculty Mentor Name<br><span style="font-size:10.5px; color:var(--text-muted);">Dept. of Computer Engineering</span></div>
+          
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--text-main);">Head of Department (H.O.D.):</div>
+          <div style="font-size: 11.5px; color: var(--text-body);">Prof. H.O.D. Name<br><span style="font-size:10.5px; color:var(--text-muted);">Dept. of Computer Technology</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title amber">ACADEMIC INSTITUTION</div>
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--text-main);">THIRD YEAR DIPLOMA IN COMPUTER ENGINEERING</div>
+          <div style="font-size: 11.5px; color: var(--text-body); margin-top: 3px;">
+            Government Polytechnic / Institute of Technology<br>
+            <span style="font-size:10.5px; color:var(--text-muted);">(Affiliated to MSBTE, Mumbai)</span>
+          </div>
+          <div style="margin-top: 8px; padding: 4px 8px; background: var(--bg-card-subtle); border-radius: 4px; font-size: 10.5px; font-weight: 700; color: var(--accent-green-dark);">
+            Academic Year: 2025 – 2026 | Semester V
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 1 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 2: ANNEXURE II INDEX -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="This is our seminar index, strictly complying with the syllabus flow specified in Annexure II and Section IX of seminar.pdf. We cover 12 concise sections across exactly 15 slides.">
+      <div class="slide-header">
+        <span class="badge-pill">ANNEXURE II</span>
+        <div class="slide-title">Table of Contents / Seminar Presentation Index</div>
+        <div class="slide-subtitle">Structured strictly according to MSBTE Course Code: 315003 syllabus sections</div>
+      </div>
+
+      <div class="slide-content">
+        <table class="table-container">
+          <thead>
+            <tr>
+              <th style="width: 10%;">Sr. No.</th>
+              <th style="width: 40%;">Topic / Chapter Name</th>
+              <th style="width: 10%;">Sr. No.</th>
+              <th style="width: 40%;">Topic / Chapter Name</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>01</strong></td>
+              <td>Introduction & Industry Background (Slide 3)</td>
+              <td><strong>07</strong></td>
+              <td>Full-Stack System Architecture & Flow (Slide 9)</td>
+            </tr>
+            <tr>
+              <td><strong>02</strong></td>
+              <td>Literature Review & Comparative Analysis (Slide 4)</td>
+              <td><strong>08</strong></td>
+              <td>Core Modules: Chat Canvas & Workspaces (Slide 10)</td>
+            </tr>
+            <tr>
+              <td><strong>03</strong></td>
+              <td>Problem Statement & Stakeholder Analysis (Slide 5)</td>
+              <td><strong>09</strong></td>
+              <td>Knowledge Vault & Voice Viva Simulator (Slide 11)</td>
+            </tr>
+            <tr>
+              <td><strong>04</strong></td>
+              <td>Scope, Measurable Objectives & Action Plan (Slide 6)</td>
+              <td><strong>10</strong></td>
+              <td>Grounded Vector RAG & Utility Metering (Slide 12)</td>
+            </tr>
+            <tr>
+              <td><strong>05</strong></td>
+              <td>Platform & Equipment Identification (Slide 7)</td>
+              <td><strong>11</strong></td>
+              <td>Advantages, Disadvantages & Limitations (Slide 13)</td>
+            </tr>
+            <tr>
+              <td><strong>06</strong></td>
+              <td>Technology Stack & Zero-Cost Cloud (Slide 8)</td>
+              <td><strong>12</strong></td>
+              <td>Results, Conclusion & References (Slides 14 & 15)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 2 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 3: CHAPTER 1 - INTRODUCTION -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="In Chapter 1, we look at the background of the seminar topic: the rapid rise of Generative AI and the resulting productivity fragmentation in software engineering workflows.">
+      <div class="slide-header">
+        <span class="badge-pill">CHAPTER 1: INTRODUCTION</span>
+        <div class="slide-title">Background of Seminar: The Generative AI Landscape</div>
+        <div class="slide-subtitle">Emergence of large language models and the shift toward integrated developer workspaces</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-title">The AI Revolution</div>
+            <div class="card-subtitle">Transformation of Knowledge Work</div>
+            <ul class="bullet-list">
+              <li>Massive emergence and adoption of Large Language Models (LLMs) such as Google Gemini, Claude, and GPT-4.</li>
+              <li>Software developers and engineering students increasingly rely on conversational AI for code generation, architectural analysis, and debugging.</li>
+              <li>Initial tools were built as isolated chat interfaces with no integration into personal notes, files, or viva preparation.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <div class="card-title">The Fragmentation Crisis</div>
+            <div class="card-subtitle">Cognitive Overhead & Data Silos</div>
+            <ul class="bullet-list">
+              <li>Knowledge workers toggle between 4+ applications daily: web chats, snippet managers, note apps, and interview tools.</li>
+              <li>Valuable prompt outputs remain trapped inside ephemeral chat threads with zero semantic searchability.</li>
+              <li>Constant context-switching results in cognitive fatigue, duplicated prompt engineering, and lost study material.</li>
+            </ul>
+          </div>
+
+          <div class="card highlight">
+            <div class="card-title green">The NexAI Concept</div>
+            <div class="card-subtitle">A Unified Intelligent Workspace</div>
+            <ul class="bullet-list check">
+              <li>Consolidates conversational AI, grounded personal notes, dynamic prompt vaults, and viva simulation into a single client.</li>
+              <li>Replaces disconnected tools with a cohesive, privacy-respecting personal developer workspace.</li>
+              <li>Engineered as a full-stack SaaS platform providing honest utility metering and human-in-the-loop governance.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 3 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 4: CHAPTER 2 - LITERATURE REVIEW -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Chapter 2 presents our literature review and comparative analysis. We analyzed ChatGPT Plus, Notion AI, and generic wrappers against five key criteria, proving our research gap.">
+      <div class="slide-header">
+        <span class="badge-pill">CHAPTER 2: LITERATURE REVIEW</span>
+        <div class="slide-title">Comparative Market Analysis & Research Gaps</div>
+        <div class="slide-subtitle">Critical evaluation of commercial platforms leading to the formulation of NexAI</div>
+      </div>
+
+      <div class="slide-content">
+        <table class="table-container">
+          <thead>
+            <tr>
+              <th style="width: 20%;">Evaluation Parameter</th>
+              <th style="width: 20%;">ChatGPT Plus (OpenAI)</th>
+              <th style="width: 20%;">Notion AI (Notion)</th>
+              <th style="width: 18%;">Hobbyist AI Wrappers</th>
+              <th class="col-highlight" style="width: 22%;">NexAI Workspace (Ours)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Pricing & Billing Model</strong></td>
+              <td>Flat $20/month (~₹2,000/mo)<br><span style="color:var(--text-muted);">Unfair for casual/light users</span></td>
+              <td>Flat $10/user/mo add-on<br><span style="color:var(--text-muted);">Requires parent subscription</span></td>
+              <td>Free / Unmonetized<br><span style="color:var(--text-muted);">No billing architecture</span></td>
+              <td class="col-highlight">True Utility Token Metering<br><span style="font-size:11px;">1 cr / 100 tokens; ₹49 recharge pack</span></td>
+            </tr>
+            <tr>
+              <td><strong>Personal Knowledge Vault</strong></td>
+              <td>None; Ephemeral chat thread history only</td>
+              <td>Integrated text workspace;<br><span style="color:var(--text-muted);">No prompt vault or viva tools</span></td>
+              <td>None; State lost upon session termination</td>
+              <td class="col-highlight">Consolidated Polymorphic Vault<br><span style="font-size:11px;">Notes, Links, Docs, Audio Reports</span></td>
+            </tr>
+            <tr>
+              <td><strong>Semantic Vector Search</strong></td>
+              <td>Limited to manual attachment per individual thread</td>
+              <td>Basic workspace keyword / semantic search</td>
+              <td>None; Raw prompt pass-through directly to API</td>
+              <td class="col-highlight">Pinecone Vector RAG<br><span style="font-size:11px;">768-dim Gemini text-embedding-004</span></td>
+            </tr>
+            <tr>
+              <td><strong>Viva / Interview Simulation</strong></td>
+              <td>Text-only prompts;<br><span style="color:var(--text-muted);">No structured evaluation</span></td>
+              <td>None; Document editing tool only</td>
+              <td>None</td>
+              <td class="col-highlight">Real-Time Voice Mock Viva<br><span style="font-size:11px;">Web Speech STT/TTS + Rubric Card</span></td>
+            </tr>
+            <tr>
+              <td><strong>AI Governance & Integrity</strong></td>
+              <td>Auto-saves raw chat output without review</td>
+              <td>In-line text replacement;<br><span style="color:var(--text-muted);">Risks overwriting user notes</span></td>
+              <td>Blind database mutations without auditing</td>
+              <td class="col-highlight">Suggest → Review → Confirm<br><span style="font-size:11px;">Zero silent mutations; Human-in-loop</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 4 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 5: PROJECT INITIATION - PROBLEM & STAKEHOLDERS -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 5 fulfills Project Initiation Section 13.a and 13.c of seminar.pdf: Description of Problem Statement and Stakeholder Analysis.">
+      <div class="slide-header">
+        <span class="badge-pill">PROJECT INITIATION (SECTION 13.A & 13.C)</span>
+        <div class="slide-title">Problem Statement & Stakeholder Analysis</div>
+        <div class="slide-subtitle">Formulation of industrial problem and mapping of affected beneficiaries</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title red">INNOVATIVE PROBLEM STATEMENT</div>
+            <ul class="bullet-list" style="gap: 10px;">
+              <li><strong>Context & Tool Fragmentation:</strong> Students and developers switch between 4+ tools daily, creating mental fatigue, disconnected silos, and loss of engineered prompts.</li>
+              <li><strong>The Prohibitive Subscription Wall:</strong> Commercial AI platforms charge a rigid ₹2,000/month flat fee. A student running 15 prompts a month pays the exact same fee as an enterprise commercial user.</li>
+              <li><strong>Wrapper Fragility & Hallucinations:</strong> Typical hobbyist AI wrappers blindly persist raw LLM responses directly into databases, permanently polluting notes with hallucinations.</li>
+              <li><strong>The Solution:</strong> NexAI addresses both by engineering an integrated AI workspace billed through transparent token-to-credit micro-metering.</li>
+            </ul>
+          </div>
+
+          <div class="card highlight">
+            <div class="card-title indigo">STAKEHOLDER IDENTIFICATION & ANALYSIS</div>
+            <ul class="bullet-list" style="gap: 10px;">
+              <li><strong>Engineering & Diploma Students:</strong> Require affordable access to state-of-the-art LLMs without ₹2,000/mo fees; need oral viva defense practice and organized capstone notes.</li>
+              <li><strong>Independent Software Developers:</strong> Need project-scoped conversational memory, reusable prompt templates with variable injection, and audited token costs.</li>
+              <li><strong>Academic Mentors & Faculty:</strong> Seek transparent verification of student project work; require objective viva scorecards and auditable student progress logs.</li>
+              <li><strong>SaaS Product Operators:</strong> Require zero cloud infrastructure overhead, race-condition proof balance decrements, and cryptographic webhook verification.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 5 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 6: PROJECT INITIATION - SCOPE, OBJECTIVES & ACTION PLAN -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 6 covers Section 13.b of seminar.pdf: Scope, Measurable Objectives, and Action Plan across our development milestones.">
+      <div class="slide-header">
+        <span class="badge-pill">PROJECT INITIATION (SECTION 13.B)</span>
+        <div class="slide-title">Project Scope, Objectives & Action Plan</div>
+        <div class="slide-subtitle">Establishing clear technical boundaries, measurable milestones, and execution phases</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title green">ESTABLISHED PROJECT OBJECTIVES</div>
+            <ul class="bullet-list check">
+              <li><strong>Objective 1:</strong> Engineer a distraction-free conversational canvas with real-time SSE streaming via Google Gemini 3.5 Flash-Lite.</li>
+              <li><strong>Objective 2:</strong> Develop a tenant-isolated RAG pipeline using Gemini text-embedding-004 and Pinecone Serverless vector storage.</li>
+              <li><strong>Objective 3:</strong> Implement an honest utility metering engine deducting credits atomically: <code>credits = ceil(totalTokens / 100)</code>, backed by Razorpay Test Mode.</li>
+              <li><strong>Objective 4:</strong> Build a speech-driven AI Mock Interview simulator with dynamic audio ripple visualization and automated competency scorecard generation.</li>
+            </ul>
+
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
+              <div class="card-title amber" style="font-size: 11.5px; margin-bottom: 2px;">PROJECT BOUNDARIES & SCOPE</div>
+              <p style="font-size: 11px; color: var(--text-body); text-align: justify;">
+                In-Scope: Full-stack monorepo, JWT auth, vector RAG, voice viva, and utility billing.<br>
+                Deferred: Companion browser extension and diffusion image generation (deferred to maintain zero-cost API operations).
+              </p>
+            </div>
+          </div>
+
+          <div class="card highlight">
+            <div class="card-title indigo">ACTION PLAN & DEVELOPMENT MILESTONES</div>
+            <ul class="bullet-list" style="gap: 8px;">
+              <li><strong>Phase 0: Core Architecture (Weeks 1 – 4):</strong><br>Setup client-server monorepo, MongoDB Atlas schemas, JWT authentication, Gemini API streaming, and initial unit test framework.</li>
+              <li><strong>Phase 1: Knowledge & RAG Integration (Weeks 5 – 8):</strong><br>Build Consolidated Library, integrate Pinecone vector indexing, implement Human-in-the-Loop review drawer, and create Prompt Vault with variable fill modals.</li>
+              <li><strong>Phase 2: Voice Viva & SaaS Metering (Weeks 9 – 12):</strong><br>Develop Web Speech API audio viva simulator with animated ripples, integrate Razorpay test mode payment verification, and build admin telemetry dashboard.</li>
+              <li><strong>Phase 3: Testing, Auditing & Defense (Weeks 13 – 16):</strong><br>Execute 227 automated tests, optimize latency benchmarks, format project reports to MSBTE Section IX standards, and complete viva prep.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 6 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 7: PROJECT INITIATION - PLATFORM & EQUIPMENT -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 7 fulfills Section 13.d of seminar.pdf: Platform, Equipment, and Resource Identification covering development hardware, runtimes, and external SDKs.">
+      <div class="slide-header">
+        <span class="badge-pill">PROJECT INITIATION (SECTION 13.D)</span>
+        <div class="slide-title">Platform, Equipment & Resource Identification</div>
+        <div class="slide-subtitle">Systematic specification of development hardware, runtime platforms, and libraries</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-title">Hardware Resources</div>
+            <div class="card-subtitle">Development & Testing Machines</div>
+            <ul class="bullet-list">
+              <li><strong>Processor:</strong> Multi-core Intel Core i5/i7 or AMD Ryzen 5/7 (min. 4 physical cores).</li>
+              <li><strong>System RAM:</strong> Minimum 8 GB (16 GB recommended for concurrent client/server development).</li>
+              <li><strong>Storage:</strong> 256 GB NVMe SSD for sub-millisecond local read/write access.</li>
+              <li><strong>Audio Peripherals:</strong> Microphone input and stereo output for Web Speech API testing.</li>
+              <li><strong>Display:</strong> 1920 x 1080 Full HD (verified across mobile/tablet/desktop breakpoints).</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Software & Platforms</div>
+            <div class="card-subtitle">Runtimes, Frameworks & Tooling</div>
+            <ul class="bullet-list">
+              <li><strong>Operating System:</strong> Windows 11 / Linux (Ubuntu 22.04 LTS) / macOS.</li>
+              <li><strong>Development Runtime:</strong> Node.js (v20+ LTS) with npm package manager.</li>
+              <li><strong>Client Build Tool:</strong> Vite 6 with React 19 SPA framework.</li>
+              <li><strong>Backend Framework:</strong> Express.js with modular router architecture.</li>
+              <li><strong>Schema Validation:</strong> Zod (TypeScript-first declarative schema validation).</li>
+              <li><strong>Testing Engine:</strong> Vitest & Node native test runner.</li>
+            </ul>
+          </div>
+
+          <div class="card highlight">
+            <div class="card-title green">External APIs & SDKs</div>
+            <div class="card-subtitle">Managed Services & Integrations</div>
+            <ul class="bullet-list check">
+              <li><strong>AI Orchestration:</strong> Official Google GenAI SDK (<code>@google/genai</code>) for Gemini 3.5 Flash-Lite.</li>
+              <li><strong>Vector Database SDK:</strong> <code>@pinecone-database/pinecone</code> for serverless vector indexing.</li>
+              <li><strong>Document Processing:</strong> <code>pdf-lib</code> (pure JavaScript in-memory PDF generation).</li>
+              <li><strong>Payment Gateway SDK:</strong> <code>razorpay</code> Node.js SDK with crypto webhook verification.</li>
+              <li><strong>Code Highlighting:</strong> <code>highlight.js</code> with language-specific tokenizers.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 7 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 8: TECH STACK & ZERO-COST CLOUD -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 8 details how we architected NexAI to run sustainably at zero cloud hosting cost using production managed free tiers.">
+      <div class="slide-header">
+        <span class="badge-pill">TECHNOLOGY STACK</span>
+        <div class="slide-title">Sustainable 100% Free-Tier Cloud Architecture</div>
+        <div class="slide-subtitle">Strategic orchestration of managed free tiers delivering zero ongoing infrastructure cost</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-4" style="margin-bottom: 12px;">
+          <div class="card">
+            <div class="card-title green">Frontend Client</div>
+            <div class="card-subtitle">React 19 + SCSS</div>
+            <ul class="bullet-list" style="font-size:11.5px;">
+              <li>Vite 6 SPA bundler.</li>
+              <li>Modular SCSS tokens (zero heavy UI kits).</li>
+              <li>Lightweight Zustand stores.</li>
+              <li>Web Speech API (STT & TTS).</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card-title indigo">Server Backend</div>
+            <div class="card-subtitle">Node.js + Express</div>
+            <ul class="bullet-list" style="font-size:11.5px;">
+              <li>Modular Express API pipeline.</li>
+              <li>Zod strict input validation.</li>
+              <li>Stateless JWT auth & OAuth2.</li>
+              <li>Server-Sent Events (SSE).</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card-title amber">Databases</div>
+            <div class="card-subtitle">MongoDB & Pinecone</div>
+            <ul class="bullet-list" style="font-size:11.5px;">
+              <li>MongoDB Atlas M0 (512MB free).</li>
+              <li>Mongoose ODM transactions.</li>
+              <li>Pinecone Starter (100k vectors).</li>
+              <li>Tenant-scoped namespaces.</li>
+            </ul>
+          </div>
+          <div class="card highlight">
+            <div class="card-title green">Deployment</div>
+            <div class="card-subtitle">Zero-Cost Infra</div>
+            <ul class="bullet-list" style="font-size:11.5px;">
+              <li>Render Web Services.</li>
+              <li>Gemini Free Tier (1,500 RPD).</li>
+              <li>Razorpay Test Mode engine.</li>
+              <li>GitHub CI/CD automated.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card highlight" style="background: var(--accent-green-light); border-color: var(--accent-green-border);">
+          <div class="card-title green">SUSTAINABILITY & ZERO-COST FEASIBILITY GUARANTEE</div>
+          <ul class="bullet-list check" style="font-size: 11.5px;">
+            <li><strong>Academic Feasibility:</strong> Demonstrates complete independence from costly enterprise cloud budgets by leveraging production-grade free tiers.</li>
+            <li><strong>Rate-Limit Resilience:</strong> Implements intelligent client-side backoff and dual-mode billing toggles to prevent hitting Google's 15 RPM ceiling.</li>
+            <li><strong>Zero API Key Exposure:</strong> All cloud credentials (Gemini, Pinecone, Razorpay) are strictly encapsulated inside backend environment variables.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 8 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 9: FULL-STACK ARCHITECTURE & DATA FLOW -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 9 illustrates the request lifecycle. Notice the Credit Pre-Check guard: requests with 0 credits are stopped with HTTP 402 before any AI calls are dispatched.">
+      <div class="slide-header">
+        <span class="badge-pill">SYSTEM ARCHITECTURE</span>
+        <div class="slide-title">Full-Stack System Architecture & Request Lifecycle</div>
+        <div class="slide-subtitle">Strict multi-tier pipeline enforcing schema validation, role security, and balance guards</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-4" style="margin-bottom: 12px;">
+          <div class="card">
+            <div class="badge-pill" style="font-size:9.5px;">STEP 1</div>
+            <div class="card-title green" style="margin-top:2px;">Input Validation</div>
+            <p style="font-size:11px; text-align:justify; margin-top:2px;">HTTP request reaches API endpoint. Zod schema inspects body & params. Malformed data rejected with 400 Bad Request before controllers.</p>
+          </div>
+          <div class="card">
+            <div class="badge-pill indigo" style="font-size:9.5px;">STEP 2</div>
+            <div class="card-title indigo" style="margin-top:2px;">Auth & Tenancy</div>
+            <p style="font-size:11px; text-align:justify; margin-top:2px;">JWT token decoded via jsonwebtoken. Attaches authenticated userId to req. Scopes 100% of Mongoose queries and Pinecone lookups to that user.</p>
+          </div>
+          <div class="card">
+            <div class="badge-pill amber" style="font-size:9.5px;">STEP 3</div>
+            <div class="card-title amber" style="margin-top:2px;">Credit Pre-Check</div>
+            <p style="font-size:11px; text-align:justify; margin-top:2px;">Middleware checks user.wallet credits. If credits == 0, halts immediately with HTTP 402 INSUFFICIENT_CREDITS, opening UI recharge modal.</p>
+          </div>
+          <div class="card highlight">
+            <div class="badge-pill" style="font-size:9.5px;">STEP 4</div>
+            <div class="card-title green" style="margin-top:2px;">Atomic Deduct</div>
+            <p style="font-size:11px; text-align:justify; margin-top:2px;">Executes streaming call via SSE. Extracts usageMetadata (exact tokens). Atomically deducts ceil(tokens/100) and commits to UsageLog.</p>
+          </div>
+        </div>
+
+        <div class="card" style="background: var(--bg-card-subtle);">
+          <div class="card-title">CORE DATA ISOLATION & CONCURRENCY CONTROLS</div>
+          <ul class="bullet-list check" style="font-size: 11.5px;">
+            <li><strong>Race-Condition Prevention:</strong> Credits decremented via atomic Mongoose <code>findOneAndUpdate</code> with negative balance checks, preventing balance underflow.</li>
+            <li><strong>Strict Multi-Tenant Vector Isolation:</strong> Pinecone searches apply mandatory metadata filter <code>{ userId }</code>, mathematically preventing cross-tenant leakage.</li>
+            <li><strong>Zero-Burn Policy on Error:</strong> If an LLM call fails halfway through streaming, the catch block intercepts and executes zero wallet deductions.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 9 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 10: CORE MODULES (I) - CHAT & WORKSPACES -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 10 covers our Chat Canvas, Telemetry Inspector Drawer, Project Workspaces, and Prompt Vault.">
+      <div class="slide-header">
+        <span class="badge-pill">CORE MODULES (PART I)</span>
+        <div class="slide-title">Conversational Canvas & Project Workspaces</div>
+        <div class="slide-subtitle">Distraction-free AI canvas backed by real-time telemetry and context-isolated workspaces</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title green">AI CHAT CANVAS & TELEMETRY INSPECTOR</div>
+            <ul class="bullet-list">
+              <li><strong>Minimalist Gemini-Style Interface:</strong> Clean 'Where should we start?' hero state with starter prompt suggestions and a glowing input bar.</li>
+              <li><strong>Server-Sent Events (SSE) Streaming:</strong> Real-time token streaming with progressive text reveal, smooth auto-scroll, and stop generation controls.</li>
+              <li><strong>Syntax-Highlighted Code Blocks:</strong> Highlight.js integration with sticky language headers, line formatting, and one-click clipboard copy.</li>
+              <li><strong>Sliding Telemetry Inspector:</strong> Direct examiner defense drawer rendering live prompt/candidate token decomposition, latency in ms, and deduction math.</li>
+              <li><strong>One-Click Vault Archival:</strong> Direct button on every AI message to extract high-performing prompts or outputs directly into the Prompt Vault.</li>
+            </ul>
+          </div>
+
+          <div class="card highlight">
+            <div class="card-title indigo">PROJECT WORKSPACES & PROMPT VAULT</div>
+            <ul class="bullet-list">
+              <li><strong>Context Memory Partitioning:</strong> Create dedicated workspaces for specific engineering courses, subjects, or capstone modules.</li>
+              <li><strong>Custom System Instructions:</strong> Persistent system personas (e.g., 'Act as an MSBTE External Viva Examiner; probe for architecture details').</li>
+              <li><strong>Multi-File Context Injection:</strong> Attach up to 2MB of project source code, markdown documentation, or notes directly into workspace memory.</li>
+              <li><strong>Variable-Driven Prompt Vault:</strong> Reusable prompt catalog with dynamic <code>{{variable}}</code> interpolation; clicking 'Use' opens an interactive fill modal.</li>
+              <li><strong>Zero Cross-Subject Pollution:</strong> Ensures discussions and file contexts from one course never contaminate other workspace conversations.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 10 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 11: CORE MODULES (II) - VAULT & VOICE VIVA -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 11 covers our Consolidated Library, in-memory PDF generation, and speech-driven Viva Simulator with dynamic audio waves.">
+      <div class="slide-header">
+        <span class="badge-pill">CORE MODULES (PART II)</span>
+        <div class="slide-title">Consolidated Library & Speech-Driven Viva Simulator</div>
+        <div class="slide-subtitle">Polymorphic personal knowledge base and real-time voice viva interrogation</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title green">CONSOLIDATED KNOWLEDGE LIBRARY</div>
+            <ul class="bullet-list">
+              <li><strong>Polymorphic Knowledge Store:</strong> Unified repository for saved bookmarks, technical notes, uploaded files, and viva interview transcripts.</li>
+              <li><strong>AI Auto-Summarization:</strong> Saving a web link triggers Gemini Flash-Lite to extract key takeaways and generate relevant semantic tags.</li>
+              <li><strong>Suggest → Review → Confirm:</strong> AI summaries and tags are staged in a review drawer; user can edit or discard before database commit.</li>
+              <li><strong>In-Memory PDF Generation:</strong> Structured multi-section documents drafted by AI and exported into clean, print-ready PDF via <code>pdf-lib</code>.</li>
+              <li><strong>Fast Filterable Navigation:</strong> Tabbed filtering across All, Notes, Links, Documents, Files, and Interviews with instant search.</li>
+            </ul>
+          </div>
+
+          <div class="card highlight">
+            <div class="card-title indigo">AI TECHNICAL VIVA SIMULATOR</div>
+            <ul class="bullet-list check">
+              <li><strong>Real-Time Speech Interaction:</strong> Native Web Speech API converts spoken student answers into text (STT) and reads examiner questions aloud (TTS).</li>
+              <li><strong>Dynamic Voice Ripple Visualizer:</strong> Animated SVG wave ripple responding in real time to student vocal input volume.</li>
+              <li><strong>Adaptive Probing Interrogation:</strong> Analyzes student answers and generates context-aware follow-ups challenging surface-level explanations.</li>
+              <li><strong>Objective Competency Scorecards:</strong> Produces 1–10 ratings across Technical Accuracy, Communication, and Depth.</li>
+              <li><strong>Automated Library Archival:</strong> Complete evaluation scorecard and transcript saved to Library for future study revision.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 11 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 12: TECHNICAL INNOVATIONS - RAG & METERING -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 12 explains our technical differentiators: Dense Vector RAG using Pinecone, and our mathematical token utility metering formula.">
+      <div class="slide-header">
+        <span class="badge-pill">TECHNICAL INNOVATIONS</span>
+        <div class="slide-title">Grounded Vector RAG & Token Utility Metering</div>
+        <div class="slide-subtitle">Eliminating LLM hallucinations and replacing flat subscriptions with pay-as-you-burn economics</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title green">GROUNDED PINECONE VECTOR RAG</div>
+            <ul class="bullet-list check">
+              <li><strong>Dense Vector Embeddings:</strong> Text embedded via Google <code>text-embedding-004</code> into 768-dimensional dense vector representations.</li>
+              <li><strong>Serverless Vector Indexing:</strong> Stored in Pinecone Starter index, partitioned with tenant-specific <code>userId</code> metadata.</li>
+              <li><strong>Cosine Similarity Matching:</strong> Natural language queries retrieve relevant notes by semantic conceptual meaning, not literal keywords.</li>
+              <li><strong>Grounded LLM Prompting:</strong> Retrieved vector context chunks injected into Gemini system instructions, eliminating hallucinations.</li>
+              <li><strong>Regex Redundancy:</strong> If vector network is unreachable, system automatically falls back to MongoDB regex text search.</li>
+            </ul>
+          </div>
+
+          <div class="card highlight">
+            <div class="card-title indigo">TOKEN-TO-CREDIT UTILITY METERING</div>
+            <ul class="bullet-list check">
+              <li><strong>Mathematical Formula:</strong> <code>credits = ceil( (promptTokens + candidateTokens) / 100 )</code>.</li>
+              <li><strong>Honest Usage Metadata:</strong> Captured directly from Google Gemini SDK response object; zero synthetic estimation.</li>
+              <li><strong>Atomic Mongoose Operations:</strong> Balance decremented via <code>$inc</code> with negative balance checks, eliminating double-spending.</li>
+              <li><strong>Razorpay Test Mode Integration:</strong> Micro-tier packs (₹49 for 500 credits) callable via mock UPI, Cards, and NetBanking.</li>
+              <li><strong>Cryptographic Webhooks:</strong> Backend verifies HMAC-SHA256 signature using raw request body before crediting wallet.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 12 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 13: ADVANTAGES, DISADVANTAGES & LIMITATIONS -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 13 directly addresses Section 11 of seminar.pdf: Advantages, Disadvantages, and Limitations, demonstrating an honest, objective engineering evaluation.">
+      <div class="slide-header">
+        <span class="badge-pill">ANALYSIS (SECTION 11)</span>
+        <div class="slide-title">Advantages, Disadvantages & Limitations</div>
+        <div class="slide-subtitle">Objective engineering evaluation of system capabilities and current operational boundaries</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card highlight" style="background: var(--accent-green-light); border-color: var(--accent-green-border);">
+            <div class="card-title green">SYSTEM ADVANTAGES</div>
+            <ul class="bullet-list check">
+              <li><strong>Pay-As-You-Burn Economy:</strong> Eliminates rigid ₹2,000/month subscriptions; students pay micro-amounts for exact token consumption.</li>
+              <li><strong>Single-Pane Productivity:</strong> Consolidates conversational AI, notes, prompt templating, and viva prep into a single responsive client.</li>
+              <li><strong>Zero Hallucination Contamination:</strong> Enforces Suggest → Review → Confirm pattern; user must confirm AI summaries before write.</li>
+              <li><strong>100% Free-Tier Operation:</strong> Runs sustainably on MongoDB Atlas M0, Pinecone Starter, Render, and Gemini Free API.</li>
+              <li><strong>Production-Grade Verification:</strong> Hardened with 227 automated tests guaranteeing 100% regression safety.</li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <div class="card-title red">DISADVANTAGES & SYSTEM LIMITATIONS</div>
+            <ul class="bullet-list cross">
+              <li><strong>External API Dependency:</strong> Response latency and service availability remain tied to Google Gemini API uptime.</li>
+              <li><strong>Hardware Audio Constraints:</strong> Real-time speech recognition requires compatible microphones and modern Web Speech browser support.</li>
+              <li><strong>Free-Tier Rate Limits:</strong> Gemini free tier enforces 15 RPM (requests per minute) and 1,500 daily requests, requiring throttling.</li>
+              <li><strong>Cold Start Delays:</strong> Free-tier Render web services experience ~30-second cold starts after periods of complete inactivity.</li>
+              <li><strong>Internet Requirement:</strong> Requires active internet connectivity; offline local LLM inference currently deferred to future scope.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 13 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 14: RESULTS, APPLICATIONS & CONCLUSION -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 14 fulfills Section 10 and 12 of seminar.pdf: Results, Practical Applications, and Seminar Conclusion, backed by our 227 passing tests and empirical metrics.">
+      <div class="slide-header">
+        <span class="badge-pill">RESULTS & CONCLUSION (SECTIONS 10 & 12)</span>
+        <div class="slide-title">Implementation Results, Applications & Conclusion</div>
+        <div class="slide-subtitle">Empirical performance benchmarks, practical applications, and fulfillment of seminar objectives</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="grid-4" style="margin-bottom: 12px;">
+          <div class="metric-card">
+            <div class="metric-val green">227</div>
+            <div class="metric-label">AUTOMATED TESTS</div>
+            <div class="metric-desc">127 Backend + 100 Frontend</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val indigo">420 ms</div>
+            <div class="metric-label">AVG. TTFB LATENCY</div>
+            <div class="metric-desc">Gemini 3.5 Flash-Lite Stream</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val green">97.5%</div>
+            <div class="metric-label">COST REDUCTION</div>
+            <div class="metric-desc">vs ₹2,000/mo Subscriptions</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val amber">100%</div>
+            <div class="metric-label">FREE-TIER HOSTING</div>
+            <div class="metric-desc">Zero Operational Cloud Cost</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title indigo">PRACTICAL APPLICATIONS</div>
+            <ul class="bullet-list">
+              <li><strong>Engineering Viva Preparation:</strong> Practicing oral defense under realistic examination conditions with objective scorecard feedback.</li>
+              <li><strong>Academic Project Research:</strong> Organizing capstone research papers, code snippets, and literature surveys in a single searchable vault.</li>
+              <li><strong>Freelance Developer Productivity:</strong> Managing prompt libraries and generating technical documentation without expensive subscriptions.</li>
+            </ul>
+          </div>
+
+          <div class="card highlight" style="background: var(--accent-green-light); border-color: var(--accent-green-border);">
+            <div class="card-title green">SEMINAR CONCLUSION</div>
+            <ul class="bullet-list check">
+              <li><strong>Defensible Engineering:</strong> Successfully transformed an academic concept into an auditable, production-ready SaaS platform.</li>
+              <li><strong>Demonstrated Feasibility:</strong> Proved that a feature-rich AI platform can operate sustainably on zero-cost free-tier infrastructure.</li>
+              <li><strong>Syllabus Compliance:</strong> Fully satisfies all Course Outcomes (CO1 to CO5) of MSBTE Course Code: 315003 with 227 passing tests.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 14 of 15</strong>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SLIDE 15: REFERENCES & BIBLIOGRAPHY -->
+    <!-- ========================================== -->
+    <div class="slide" data-notes="Slide 15 is our formal bibliography and academic citations adhering to Section 14 and 15 of seminar.pdf in IEEE standard format. Thank you, we are now ready for your questions.">
+      <div class="slide-header">
+        <span class="badge-pill">REFERENCES (SECTIONS 14 & 15)</span>
+        <div class="slide-title">Academic Bibliography & Technical References</div>
+        <div class="slide-subtitle">Formatted in standard IEEE academic format adhering to MSBTE guidelines</div>
+      </div>
+
+      <div class="slide-content">
+        <div class="card" style="padding: 18px;">
+          <div class="card-title green" style="margin-bottom: 8px;">FORMAL ACADEMIC & TECHNICAL CITATIONS</div>
+          <ul class="bullet-list" style="gap: 6px; font-size: 11.5px;">
+            <li><strong>[1]</strong> Lewis, P., et al. (2020). <em>"Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks."</em> Advances in Neural Information Processing Systems (NeurIPS 2020), Vol. 33, pp. 9459-9474.</li>
+            <li><strong>[2]</strong> Vaswani, A., et al. (2017). <em>"Attention Is All You Need."</em> Advances in Neural Information Processing Systems (NeurIPS 2017), Vol. 30, pp. 5998-6008.</li>
+            <li><strong>[3]</strong> Google DeepMind (2024). <em>"Gemini 1.5 & Flash Technical Report: Scalable Multimodal Reasoning via Mixture-of-Experts."</em> arXiv preprint arXiv:2403.05530.</li>
+            <li><strong>[4]</strong> Maharashtra State Board of Technical Education (2025). <em>"Curriculum & Guidelines for Seminar & Project Initiation Course (315003), K-Scheme Semester V."</em> MSBTE Approval Dt. 24/02/2025, Mumbai.</li>
+            <li><strong>[5]</strong> Pinecone Systems (2024). <em>"Architecture and Scalability of Distributed Serverless Vector Database Indexes."</em> Pinecone Technical Documentation.</li>
+            <li><strong>[6]</strong> Mozilla Developer Network (MDN) (2024). <em>"Web Speech API & Server-Sent Events (SSE) Specifications."</em> MDN Web Docs, Mozilla Corporation.</li>
+            <li><strong>[7]</strong> Razorpay Technologies (2025). <em>"Payment Gateway Integration, Order Verification & Cryptographic Webhooks API Guide."</em> Razorpay Developer Docs.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>MSBTE Seminar & Project Initiation (Course Code: 315003, Sem V) | NexAI Workspace</span>
+        <strong>Slide 15 of 15</strong>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Interactive Controls Bar -->
+  <div class="controls-bar">
+    <div class="btn-group">
+      <button class="btn" id="prevBtn" title="Previous Slide (Left Arrow)">← Previous</button>
+      <button class="btn primary" id="nextBtn" title="Next Slide (Right Arrow / Space)">Next Slide →</button>
+      <button class="btn" id="notesBtn" title="Toggle Speaker Notes (S key)">💬 Speaker Notes</button>
+      <button class="btn" id="fullscreenBtn" title="Toggle Fullscreen (F key)">⛶ Fullscreen</button>
+    </div>
+
+    <div style="font-size: 12px; font-weight: 600; color: var(--text-muted);">
+      Slide <span id="currentSlideNum">1</span> of <span id="totalSlidesNum">15</span> (Rule: Not more than 15 slides)
+    </div>
+
+    <div class="btn-group">
+      <a href="NexAI_Seminar_Presentation.pptx" download class="btn" style="text-decoration:none; color:inherit;">
+        📥 Download .PPTX
+      </a>
+      <button class="btn" onclick="window.print()" title="Print / Save to PDF">
+        🖨️ Print / PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Speaker Notes Panel -->
+  <div class="notes-panel" id="notesPanel">
+    <div class="notes-title">SPEAKER SCRIPT / VIVA TALKING POINTS (FOR CURRENT SLIDE)</div>
+    <div class="notes-text" id="notesText"></div>
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const notesBtn = document.getElementById('notesBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const currentSlideNum = document.getElementById('currentSlideNum');
+    const totalSlidesNum = document.getElementById('totalSlidesNum');
+    const notesPanel = document.getElementById('notesPanel');
+    const notesText = document.getElementById('notesText');
+    const presentationContainer = document.getElementById('presentationContainer');
+
+    let currentIndex = 0;
+    totalSlidesNum.textContent = slides.length;
+
+    function updateSlide(index) {
+      if (index < 0) index = 0;
+      if (index >= slides.length) index = slides.length - 1;
+
+      slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === index);
+      });
+
+      currentIndex = index;
+      currentSlideNum.textContent = currentIndex + 1;
+
+      const notes = slides[currentIndex].getAttribute('data-notes') || "No speaker notes for this slide.";
+      notesText.innerHTML = notes;
+
+      prevBtn.disabled = (currentIndex === 0);
+      nextBtn.disabled = (currentIndex === slides.length - 1);
+    }
+
+    prevBtn.addEventListener('click', () => updateSlide(currentIndex - 1));
+    nextBtn.addEventListener('click', () => updateSlide(currentIndex + 1));
+
+    notesBtn.addEventListener('click', () => {
+      notesPanel.classList.toggle('open');
+      notesBtn.style.background = notesPanel.classList.contains('open') ? 'var(--accent-indigo-light)' : '#ffffff';
+    });
+
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        presentationContainer.requestFullscreen().catch(err => {
+          alert(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        updateSlide(currentIndex + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        updateSlide(currentIndex - 1);
+      } else if (e.key === 's' || e.key === 'S') {
+        notesPanel.classList.toggle('open');
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          presentationContainer.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      }
+    });
+
+    updateSlide(0);
+  </script>
+</body>
+</html>

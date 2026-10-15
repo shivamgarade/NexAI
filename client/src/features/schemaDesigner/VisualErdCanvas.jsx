@@ -1,191 +1,98 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import {
-  Network,
-  Maximize2,
-  Minimize2,
-  Copy,
-  Check,
-  Table,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Sparkles,
-  Link2,
-  Key,
-  X,
+  Table2,
   Plus,
   Trash2,
   Edit2,
-  Hand,
-  MousePointer,
-  CheckSquare,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
   Focus,
+  MousePointer,
+  Hand,
+  Link2,
+  X,
+  Key,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { useSchemaStore } from '@/store/schemaStore';
-import { MermaidBlock } from '@/features/chat/MermaidBlock';
+import { Button } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import styles from './VisualErdCanvas.module.scss';
 
-const FIELD_TYPES = [
-  'VARCHAR(255)',
-  'UUID',
-  'INTEGER',
-  'BOOLEAN',
-  'TIMESTAMP',
-  'TEXT',
-  'JSON',
-  'DECIMAL',
+const RELATION_TYPES = [
+  { id: 'many-to-one', label: 'Many to One ( > )' },
+  { id: 'one-to-many', label: 'One to Many ( < )' },
+  { id: 'one-to-one', label: 'One to One ( - )' },
+  { id: 'many-to-many', label: 'Many to Many ( <> )' },
 ];
 
 export function VisualErdCanvas() {
   const {
-    currentSchema,
-    manualLinks,
-    isLoading,
-    entityPositions,
-    setEntityPositions,
+    model,
+    selectedEntityId,
+    setSelectedEntityId,
+    selectedRelationId,
+    setSelectedRelationId,
     addEntity,
     deleteEntity,
     renameEntity,
     addField,
     updateField,
     deleteField,
-    addConnection,
-    deleteConnection,
-    toggleCardinality,
+    addRelation,
+    updateRelationType,
+    deleteRelation,
+    updateLayout,
+    aiPreview,
+    confirmAiPreview,
+    discardAiPreview,
+    isLoading,
   } = useSchemaStore();
 
-  const [renderMode, setRenderMode] = useState('interactive'); // 'interactive' | 'mermaid'
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [canvasTool, setCanvasTool] = useState('pointer'); // 'pointer' | 'hand'
   const [isPanning, setIsPanning] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Field Connection Mode State
-  const [connectingField, setConnectingField] = useState(null); // { entityName, fieldName }
+  const [connectingField, setConnectingField] = useState(null); // { entityId, fieldId, entityName, fieldName }
 
-  // Modal / Inline Add & Edit States
-  const [isAddEntityModalOpen, setIsAddEntityModalOpen] = useState(false);
-  const [newEntityNameInput, setNewEntityNameInput] = useState('');
-  const [editingEntityName, setEditingEntityName] = useState(null);
+  // Inline rename entity state
+  const [editingEntityId, setEditingEntityId] = useState(null);
   const [tempEntityName, setTempEntityName] = useState('');
-
-  // Inline Add Field state per entity card
-  const [addingFieldEntity, setAddingFieldEntity] = useState(null);
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldType, setNewFieldType] = useState('VARCHAR(255)');
-  const [newFieldPk, setNewFieldPk] = useState(false);
-
-  // Field Edit Popover State
-  const [editingFieldModal, setEditingFieldModal] = useState(null); // { entityName, fieldIndex, field }
-  const [editFieldNameInput, setEditFieldNameInput] = useState('');
-  const [editFieldTypeInput, setEditFieldTypeInput] = useState('VARCHAR(255)');
-  const [editFieldPkInput, setEditFieldPkInput] = useState(false);
-  const [editFieldReqInput, setEditFieldReqInput] = useState(false);
-
-  // Selected Connection State
-  const [selectedConnectionId, setSelectedConnectionId] = useState(null);
 
   const canvasRef = useRef(null);
   const draggingRef = useRef(null);
   const panDragRef = useRef(null);
 
-  // Compute balanced initial positions for entities if not set
-  useEffect(() => {
-    if (!currentSchema?.entities?.length) return;
-    const newPositions = { ...entityPositions };
-    let hasNew = false;
+  // Display entities: preview entities if aiPreview exists, otherwise model.entities
+  const entities = useMemo(() => {
+    return aiPreview ? aiPreview.model.entities : model.entities || [];
+  }, [aiPreview, model.entities]);
 
-    const cols = Math.min(3, Math.ceil(Math.sqrt(currentSchema.entities.length)));
-    const colWidth = 340;
-    const rowHeight = 300;
+  // Display relations: preview relations if aiPreview exists, otherwise model.relations
+  const relations = useMemo(() => {
+    return aiPreview ? aiPreview.model.relations : model.relations || [];
+  }, [aiPreview, model.relations]);
 
-    currentSchema.entities.forEach((entity, index) => {
-      if (!newPositions[entity.name]) {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        newPositions[entity.name] = {
-          x: 40 + col * colWidth,
-          y: 40 + row * rowHeight,
-        };
-        hasNew = true;
-      }
-    });
+  const layout = useMemo(() => {
+    return aiPreview ? { ...model.layout, ...aiPreview.model.layout } : model.layout || {};
+  }, [aiPreview, model.layout]);
 
-    if (hasNew) {
-      setEntityPositions(newPositions);
-    }
-  }, [currentSchema, entityPositions, setEntityPositions]);
-
-  // Extract all relationships with specific field names
-  const connections = useMemo(() => {
-    if (!currentSchema?.entities?.length) return [];
-    const list = [];
-
-    currentSchema.entities.forEach((entity) => {
-      (entity.fields || []).forEach((field) => {
-        if (field.isForeignKey || field.references || field.name.toLowerCase().endsWith('id')) {
-          let targetName = '';
-          let targetField = 'id';
-
-          if (field.references) {
-            const parts = field.references.split('.');
-            targetName = parts[0];
-            if (parts[1]) targetField = parts[1];
-          } else if (field.name.toLowerCase().endsWith('id')) {
-            const rawPrefix = field.name.replace(/_?id$/i, '');
-            const match = currentSchema.entities.find(
-              (e) => e.name.toLowerCase() === rawPrefix.toLowerCase()
-            );
-            if (match) targetName = match.name;
-          }
-
-          if (targetName && targetName !== entity.name) {
-            list.push({
-              id: `${entity.name}.${field.name}->${targetName}.${targetField}`,
-              source: entity.name,
-              sourceField: field.name,
-              target: targetName,
-              targetField,
-              cardinality: '1 : N',
-            });
-          }
-        }
-      });
-    });
-
-    // Merge manual connections
-    manualLinks.forEach((ml) => {
-      if (
-        !list.some(
-          (l) =>
-            l.source === ml.source &&
-            l.sourceField === ml.sourceField &&
-            l.target === ml.target &&
-            l.targetField === ml.targetField
-        )
-      ) {
-        list.push(ml);
-      }
-    });
-
-    return list;
-  }, [currentSchema, manualLinks]);
-
-  // Handle entity card dragging
+  // Handle Dragging an Entity Card
   const handleCardMouseDown = useCallback(
-    (e, entityName) => {
-      if (e.button !== 0 || canvasTool === 'hand') return;
+    (e, entityId) => {
+      if (canvasTool === 'hand' || e.button !== 0) return;
       e.stopPropagation();
 
       const startX = e.clientX;
       const startY = e.clientY;
-      const currentPos = entityPositions[entityName] || { x: 50, y: 50 };
+      const currentPos = layout[entityId] || { x: 50, y: 50 };
 
       draggingRef.current = {
-        entityName,
+        entityId,
         startX,
         startY,
         origX: currentPos.x,
@@ -197,8 +104,8 @@ export function VisualErdCanvas() {
         const dx = (moveEvent.clientX - draggingRef.current.startX) / zoom;
         const dy = (moveEvent.clientY - draggingRef.current.startY) / zoom;
 
-        setEntityPositions({
-          [draggingRef.current.entityName]: {
+        updateLayout({
+          [draggingRef.current.entityId]: {
             x: Math.round(draggingRef.current.origX + dx),
             y: Math.round(draggingRef.current.origY + dy),
           },
@@ -214,21 +121,23 @@ export function VisualErdCanvas() {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     },
-    [entityPositions, setEntityPositions, zoom, canvasTool]
+    [layout, updateLayout, zoom, canvasTool]
   );
 
   // Handle Infinite Canvas Background Panning
   const handleCanvasMouseDown = (e) => {
-    // Only drag pan if clicking canvas background (not card, input, or button)
     if (e.button !== 0 && e.button !== 1) return;
     if (
       e.target.closest(`.${styles.entityCard}`) ||
       e.target.closest('button') ||
-      e.target.closest('input') ||
-      e.target.closest('select')
+      e.target.closest('input')
     ) {
       return;
     }
+
+    // Deselect on empty canvas click
+    setSelectedEntityId(null);
+    setSelectedRelationId(null);
 
     panDragRef.current = {
       startX: e.clientX,
@@ -260,25 +169,25 @@ export function VisualErdCanvas() {
     window.addEventListener('mouseup', handlePanMouseUp);
   };
 
-  // Mouse wheel pan & zoom
+  // Zoom on wheel
   const handleWheel = (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    if (e.ctrlKey || e.metaKey) {
-      const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom((z) => Math.min(2.5, Math.max(0.3, +(z + zoomDelta).toFixed(2))));
-    } else {
-      setPan((p) => ({
-        x: Math.round(p.x - e.deltaX),
-        y: Math.round(p.y - e.deltaY),
-      }));
-    }
+    const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
+    setZoom((prev) => Math.min(2.5, Math.max(0.3, +(prev * zoomFactor).toFixed(2))));
   };
 
-  // Fit View: Centers all entity cards in the viewport
+  const handleZoomIn = () => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)));
+  const handleZoomOut = () => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)));
+  const handleResetZoom = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
   const handleFitView = () => {
-    if (!currentSchema?.entities?.length || !canvasRef.current) return;
+    if (!entities.length || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const positions = Object.values(entityPositions);
+    const positions = Object.values(layout);
     if (!positions.length) return;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -294,7 +203,12 @@ export function VisualErdCanvas() {
 
     const scaleX = rect.width / contentW;
     const scaleY = rect.height / contentH;
-    const newZoom = Math.min(1.2, Math.max(0.4, +(Math.min(scaleX, scaleY) * 0.85).toFixed(2)));
+    let newZoom = Math.min(1.2, Math.max(0.4, +(Math.min(scaleX, scaleY) * 0.85).toFixed(2)));
+
+    // Snap to 100% (1.0) if close to 1.0
+    if (newZoom >= 0.92 && newZoom <= 1.08) {
+      newZoom = 1;
+    }
 
     const midX = (minX + maxX) / 2;
     const midY = (minY + maxY) / 2;
@@ -307,876 +221,491 @@ export function VisualErdCanvas() {
     toast.info('Canvas centered');
   };
 
-  // Reset to default (0, 0, 100%)
-  const handleResetLayout = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-    toast.success('Reset canvas view');
-  };
+  // Handle port connection click
+  const handlePortClick = (entity, field, e) => {
+    e.stopPropagation();
 
-  // Field port connection handler
-  const handlePortClick = (entityName, fieldName) => {
     if (!connectingField) {
-      setConnectingField({ entityName, fieldName });
-      toast.info(`Port selected: ${entityName}.${fieldName}. Click target field to connect.`);
-    } else if (connectingField.entityName === entityName && connectingField.fieldName === fieldName) {
+      setConnectingField({
+        entityId: entity.id,
+        fieldId: field.id,
+        entityName: entity.name,
+        fieldName: field.name,
+      });
+      toast.info(`Connecting from ${entity.name}.${field.name} → Click target field`);
+    } else if (connectingField.entityId === entity.id && connectingField.fieldId === field.id) {
       setConnectingField(null);
     } else {
-      // Connect source to target field-to-field
-      const newLink = {
-        id: `link-${connectingField.entityName}.${connectingField.fieldName}->${entityName}.${fieldName}`,
-        source: connectingField.entityName,
-        sourceField: connectingField.fieldName,
-        target: entityName,
-        targetField: fieldName,
-        cardinality: '1 : N',
-      };
-
-      addConnection(newLink);
+      // Connect
+      addRelation(
+        connectingField.entityId,
+        connectingField.fieldId,
+        entity.id,
+        field.id,
+        'many-to-one'
+      );
       setConnectingField(null);
     }
   };
 
-  // Add Entity Modal Handler
-  const handleOpenAddEntity = () => {
-    const defaultName = `Entity_${(currentSchema?.entities?.length || 0) + 1}`;
-    setNewEntityNameInput(defaultName);
-    setIsAddEntityModalOpen(true);
+  const startRename = (entity) => {
+    setEditingEntityId(entity.id);
+    setTempEntityName(entity.name);
   };
 
-  const handleConfirmAddEntity = () => {
-    if (!newEntityNameInput.trim()) return;
-
-    // Calculate smart placement at center of visible canvas
-    let centerPos = { x: 80, y: 80 };
-    if (canvasRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      centerPos = {
-        x: Math.round((rect.width / 2 - pan.x) / zoom - 140),
-        y: Math.round((rect.height / 2 - pan.y) / zoom - 100),
-      };
-    }
-
-    addEntity(newEntityNameInput.trim(), centerPos);
-    setIsAddEntityModalOpen(false);
-    setNewEntityNameInput('');
-  };
-
-  // Entity renaming inline
-  const startRenameEntity = (entityName) => {
-    setEditingEntityName(entityName);
-    setTempEntityName(entityName);
-  };
-
-  const submitRenameEntity = (oldName) => {
+  const submitRename = (entityId) => {
     if (tempEntityName && tempEntityName.trim()) {
-      renameEntity(oldName, tempEntityName.trim());
+      renameEntity(entityId, tempEntityName.trim());
     }
-    setEditingEntityName(null);
-  };
-
-  // Inline Add Field inside Card Footer
-  const handleStartAddField = (entityName) => {
-    setAddingFieldEntity(entityName);
-    setNewFieldName('');
-    setNewFieldType('VARCHAR(255)');
-    setNewFieldPk(false);
-  };
-
-  const handleSaveNewField = (entityName) => {
-    if (!newFieldName.trim()) {
-      setAddingFieldEntity(null);
-      return;
-    }
-    addField(entityName, {
-      name: newFieldName.trim(),
-      type: newFieldType,
-      isPrimary: newFieldPk,
-      isRequired: newFieldPk,
-      isUnique: newFieldPk,
-    });
-    setAddingFieldEntity(null);
-    setNewFieldName('');
-  };
-
-  // Field Edit Popover
-  const handleOpenEditField = (entityName, fieldIndex, field) => {
-    setEditingFieldModal({ entityName, fieldIndex, field });
-    setEditFieldNameInput(field.name);
-    setEditFieldTypeInput(field.type || 'VARCHAR(255)');
-    setEditFieldPkInput(!!field.isPrimary);
-    setEditFieldReqInput(!!field.isRequired);
-  };
-
-  const handleSaveEditField = () => {
-    if (!editingFieldModal || !editFieldNameInput.trim()) return;
-    updateField(editingFieldModal.entityName, editingFieldModal.fieldIndex, {
-      name: editFieldNameInput.trim(),
-      type: editFieldTypeInput,
-      isPrimary: editFieldPkInput,
-      isRequired: editFieldReqInput || editFieldPkInput,
-      isUnique: editFieldPkInput,
-    });
-    setEditingFieldModal(null);
-  };
-
-  const handleCopyMermaid = async () => {
-    if (!currentSchema?.mermaidErDiagram) return;
-    try {
-      await navigator.clipboard.writeText(currentSchema.mermaidErDiagram);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast.success('Copied Mermaid ERD syntax');
-    } catch {
-      toast.error('Failed to copy');
-    }
+    setEditingEntityId(null);
   };
 
   return (
-    <div className={styles.canvasContainer}>
-      {/* Top Header Bar */}
-      <div className={styles.topBar}>
-        <div className={styles.titleArea}>
-          <Network size={15} className="text-accent" />
-          <h4>Architecture & Entity Relationships</h4>
-          {currentSchema && (
-            <div className={styles.badgeGroup}>
-              <span className={styles.metaBadge}>
-                {currentSchema.entities?.length || 0} Entities
-              </span>
-              <span className={styles.metaBadge}>
-                {connections.length} Relationships
-              </span>
-            </div>
-          )}
-        </div>
+    <div className={styles.canvasWrapper}>
+      {/* Suggest -> Review -> Confirm Banner */}
+      {aiPreview && (
+        <div className={styles.previewBanner}>
+          <div className={styles.previewBadge}>
+            <Sparkles size={13} className={styles.sparkleIcon} />
+            <span>AI Proposal</span>
+          </div>
 
-        <div className={styles.controls}>
-          {/* Add Entity Quick Action */}
+          <div className={styles.previewSummary} title={aiPreview.summary}>
+            {aiPreview.summary}
+          </div>
+
+          <div className={styles.previewActions}>
+            <button
+              type="button"
+              className={styles.discardBtn}
+              onClick={discardAiPreview}
+              title="Discard AI changes"
+            >
+              <X size={13} />
+              <span>Discard</span>
+            </button>
+            <button
+              type="button"
+              className={styles.acceptBtn}
+              onClick={confirmAiPreview}
+              title="Accept AI proposed diagram"
+            >
+              <Check size={13} />
+              <span>Accept Changes</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Generating Loading Overlay */}
+      {isLoading && (
+        <div className={styles.loadingBanner}>
+          <div className={styles.loadingSpinner} />
+          <span>Generating database architecture…</span>
+        </div>
+      )}
+
+      {/* Connection Help Banner */}
+      {connectingField && (
+        <div className={styles.connectingBanner}>
+          <Link2 size={14} />
+          <span>
+            Connecting from <strong>{connectingField.entityName}.{connectingField.fieldName}</strong> &rarr; Click target field to connect
+          </span>
           <button
             type="button"
-            className={`${styles.btnAction} ${styles.btnAddEntity}`}
-            onClick={handleOpenAddEntity}
-            title="Create new model/table on canvas"
+            className={styles.cancelBtn}
+            onClick={() => setConnectingField(null)}
           >
-            <Plus size={13} />
-            <span>Add Entity</span>
+            <X size={13} />
+            <span>Cancel</span>
           </button>
-
-          {currentSchema && (
-            <>
-              {/* Tool Mode: Pointer vs Pan Hand */}
-              <div className={styles.modeToggle}>
-                <button
-                  type="button"
-                  className={`${styles.btnAction} ${canvasTool === 'pointer' ? styles.active : ''}`}
-                  onClick={() => setCanvasTool('pointer')}
-                  title="Pointer tool: select & move entities"
-                >
-                  <MousePointer size={12} />
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.btnAction} ${canvasTool === 'hand' ? styles.active : ''}`}
-                  onClick={() => setCanvasTool('hand')}
-                  title="Hand tool: pan infinite canvas"
-                >
-                  <Hand size={12} />
-                </button>
-              </div>
-
-              {/* View Mode: Interactive vs Mermaid */}
-              <div className={styles.modeToggle}>
-                <button
-                  type="button"
-                  className={`${styles.btnAction} ${renderMode === 'interactive' ? styles.active : ''}`}
-                  onClick={() => setRenderMode('interactive')}
-                  title="Interactive canvas view"
-                >
-                  <Sparkles size={12} />
-                  <span>Interactive</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.btnAction} ${renderMode === 'mermaid' ? styles.active : ''}`}
-                  onClick={() => setRenderMode('mermaid')}
-                  title="Mermaid diagram format"
-                >
-                  <Network size={12} />
-                  <span>Mermaid</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                className={styles.btnAction}
-                onClick={handleCopyMermaid}
-                title="Copy raw Mermaid code"
-              >
-                {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
-                <span>{copied ? 'Copied' : 'Copy'}</span>
-              </button>
-
-              <button
-                type="button"
-                className={styles.btnAction}
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                title={isFullscreen ? 'Exit Fullscreen' : 'Expand Fullscreen'}
-              >
-                {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-              </button>
-            </>
-          )}
         </div>
-      </div>
+      )}
 
-      {/* Viewport Area */}
+      {/* Main Interactive Stage */}
       <div
-        className={`${styles.viewportContainer} ${canvasTool === 'hand' ? styles.isHandTool : ''} ${
+        className={`${styles.viewport} ${canvasTool === 'hand' ? styles.isHandTool : ''} ${
           isPanning ? styles.isPanning : ''
         }`}
         ref={canvasRef}
         onMouseDown={handleCanvasMouseDown}
         onWheel={handleWheel}
       >
-        {/* Floating guidance banner during connection mode */}
-        {connectingField && (
-          <div className={styles.connectionHelpHint}>
-            <Link2 size={14} className="text-accent" />
-            <span>
-              Connecting from <strong>{connectingField.entityName}.{connectingField.fieldName}</strong> &rarr; Click any target field to link
-            </span>
-            <button
-              type="button"
-              className={styles.cancelLinkBtn}
-              onClick={() => setConnectingField(null)}
-              title="Cancel connection"
-            >
-              <X size={13} />
-              <span>Cancel</span>
-            </button>
-          </div>
-        )}
+        <div
+          className={styles.stage}
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: '0 0',
+          }}
+        >
+          {/* SVG Relations Layer (Orthogonal Right-Angle Connectors) */}
+          <svg className={styles.svgLayer} width="8000" height="8000">
+            {relations.map((rel) => {
+              const fromEnt = entities.find((e) => e.id === rel.from?.entityId);
+              const toEnt = entities.find((e) => e.id === rel.to?.entityId);
 
-        {/* Selected Connection Floating Bar */}
-        {selectedConnectionId && (
-          <div className={styles.selectedConnBar}>
-            <Link2 size={13} className="text-accent" />
-            <span>Selected Connection</span>
+              if (!fromEnt || !toEnt) return null;
+
+              const fromPos = layout[fromEnt.id] || { x: 50, y: 50 };
+              const toPos = layout[toEnt.id] || { x: 400, y: 50 };
+
+              // Find exact field index in each entity
+              let fromIdx = (fromEnt.fields || []).findIndex((f) => f.id === rel.from?.fieldId);
+              let toIdx = (toEnt.fields || []).findIndex((f) => f.id === rel.to?.fieldId);
+              if (fromIdx === -1) fromIdx = 0;
+              if (toIdx === -1) toIdx = 0;
+
+              const cardW = 260;
+              const headerH = 36;
+              const rowH = 28;
+
+              // Exact vertical middle of the respective field row
+              const fromY = Math.round(fromPos.y + headerH + fromIdx * rowH + rowH / 2);
+              const toY = Math.round(toPos.y + headerH + toIdx * rowH + rowH / 2);
+
+              let fromX, toX;
+              if (fromPos.x + cardW <= toPos.x) {
+                fromX = fromPos.x + cardW;
+                toX = toPos.x;
+              } else if (fromPos.x >= toPos.x + cardW) {
+                fromX = fromPos.x;
+                toX = toPos.x + cardW;
+              } else {
+                fromX = fromPos.x + cardW;
+                toX = toPos.x + cardW;
+              }
+
+              // Orthogonal Step-Routing (Right-angle with mid-break)
+              const midX = Math.round((fromX + toX) / 2);
+              const pathData = `M ${fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${toX} ${toY}`;
+
+              const isRelSelected = selectedRelationId === rel.id;
+              const isTableRelated =
+                selectedEntityId === fromEnt.id || selectedEntityId === toEnt.id;
+              const hasSelection = Boolean(selectedEntityId);
+
+              // Source entity accent color
+              const relColor = fromEnt.color || 'var(--color-accent, #3b82f6)';
+
+              // Cardinality Labels
+              const fromMarker =
+                rel.type === 'many-to-one' || rel.type === 'many-to-many' ? 'N' : '1';
+              const toMarker =
+                rel.type === 'one-to-many' || rel.type === 'many-to-many' ? 'N' : '1';
+
+              return (
+                <g
+                  key={rel.id}
+                  className={`${styles.relationGroup} ${
+                    isRelSelected ? styles.relSelected : ''
+                  } ${isTableRelated ? styles.relHighlight : ''} ${
+                    hasSelection && !isTableRelated ? styles.relDimmed : ''
+                  }`}
+                  style={{ '--rel-color': relColor }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedRelationId(rel.id);
+                  }}
+                >
+                  <path d={pathData} className={styles.relationPathHitbox} />
+                  <path d={pathData} className={styles.relationPath} />
+
+                  {/* Endpoint Pins */}
+                  <circle cx={fromX} cy={fromY} r="3" className={styles.endpointDot} />
+                  <circle cx={toX} cy={toY} r="3" className={styles.endpointDot} />
+
+                  {/* Cardinality Badge Pills drawn directly on line */}
+                  <g transform={`translate(${fromX <= toX ? fromX + 12 : fromX - 12}, ${fromY})`}>
+                    <rect x="-7" y="-8" width="14" height="15" rx="3" className={styles.markerBg} />
+                    <text y="3" textAnchor="middle" className={styles.markerText}>
+                      {fromMarker}
+                    </text>
+                  </g>
+
+                  <g transform={`translate(${toX <= fromX ? toX + 12 : toX - 12}, ${toY})`}>
+                    <rect x="-7" y="-8" width="14" height="15" rx="3" className={styles.markerBg} />
+                    <text y="3" textAnchor="middle" className={styles.markerText}>
+                      {toMarker}
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Entity Cards */}
+          {entities.map((entity) => {
+            const pos = layout[entity.id] || { x: 50, y: 50 };
+            const isSelected = selectedEntityId === entity.id;
+            const hasSelection = Boolean(selectedEntityId);
+            const isDimmed = hasSelection && !isSelected;
+            const isRenaming = editingEntityId === entity.id;
+
+            return (
+              <div
+                key={entity.id}
+                className={`${styles.entityCard} ${isSelected ? styles.cardSelected : ''} ${
+                  isDimmed ? styles.cardDimmed : ''
+                }`}
+                style={{
+                  left: `${pos.x}px`,
+                  top: `${pos.y}px`,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedEntityId(entity.id);
+                }}
+              >
+                {/* Entity Header with 8px Color Square Indicator */}
+                <div
+                  className={styles.cardHeader}
+                  onMouseDown={(e) => handleCardMouseDown(e, entity.id)}
+                >
+                  <div className={styles.headerTitleArea}>
+                    <span
+                      className={styles.colorSquare}
+                      style={{
+                        backgroundColor: entity.color || 'var(--color-accent, #3b82f6)',
+                      }}
+                      title={`Color: ${entity.color || 'default'}`}
+                    />
+                    {isRenaming ? (
+                      <input
+                        type="text"
+                        value={tempEntityName}
+                        onChange={(e) => setTempEntityName(e.target.value)}
+                        onBlur={() => submitRename(entity.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitRename(entity.id);
+                          if (e.key === 'Escape') setEditingEntityId(null);
+                        }}
+                        autoFocus
+                        className={styles.headerRenameInput}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span
+                        className={styles.entityTitle}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          startRename(entity);
+                        }}
+                        title="Double-click to rename"
+                      >
+                        {entity.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.headerActions} onMouseDown={(e) => e.stopPropagation()}>
+                    <span className={styles.countBadge}>{entity.fields?.length || 0}</span>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={() => startRename(entity)}
+                      title="Rename Table"
+                    >
+                      <Edit2 size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.actionBtn} ${styles.btnDanger}`}
+                      onClick={() => deleteEntity(entity.id)}
+                      title="Delete Table"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Field Rows List */}
+                <div className={styles.fieldRowsList}>
+                  {(entity.fields || []).map((field) => {
+                    const isFk = relations.some(
+                      (r) => r.from.entityId === entity.id && r.from.fieldId === field.id
+                    );
+
+                    return (
+                      <div key={field.id} className={styles.fieldRow}>
+                        <div className={styles.fieldLeft}>
+                          {/* Fixed 16px icon column for perfect field name alignment */}
+                          <div className={styles.fieldIconCol}>
+                            {field.pk ? (
+                              <Key size={11} className={styles.pkIcon} title="Primary Key" />
+                            ) : isFk ? (
+                              <Link2 size={11} className={styles.fkIcon} title="Foreign Key" />
+                            ) : null}
+                          </div>
+
+                          <span className={styles.fieldName} title={field.name}>
+                            {field.name}
+                          </span>
+                        </div>
+
+                        <div className={styles.fieldRight}>
+                          <span className={styles.fieldType}>{field.type}</span>
+
+                          {field.unique && <span className={styles.modBadge}>UQ</span>}
+                          {field.nullable && <span className={styles.modBadge}>NULL</span>}
+
+                          {/* Quick delete field button (visible on hover) */}
+                          <button
+                            type="button"
+                            className={styles.deleteFieldBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteField(entity.id, field.id);
+                            }}
+                            title="Remove field"
+                          >
+                            <X size={10} />
+                          </button>
+
+                          {/* Connection Port Dot */}
+                          <button
+                            type="button"
+                            className={`${styles.portBtn} ${
+                              connectingField?.fieldId === field.id ? styles.portActive : ''
+                            }`}
+                            onClick={(e) => handlePortClick(entity, field, e)}
+                            title="Click to connect relation"
+                          >
+                            <span className={styles.portDot} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add Field Row Button */}
+                <div className={styles.cardFooter}>
+                  <button
+                    type="button"
+                    className={styles.addFieldBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addField(entity.id);
+                    }}
+                  >
+                    <Plus size={11} />
+                    <span>Add Field</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Floating Relation Menu Popover (When a relation is selected) */}
+      {selectedRelationId && (
+        <div className={styles.relationPopover}>
+          <div className={styles.relPopoverHeader}>
+            <span>Relationship Type</span>
             <button
               type="button"
-              className={styles.connBarAction}
-              onClick={() => toggleCardinality(selectedConnectionId)}
-              title="Toggle cardinality (1:N, 1:1, N:M)"
-            >
-              Toggle Type
-            </button>
-            <button
-              type="button"
-              className={`${styles.connBarAction} ${styles.btnDanger}`}
-              onClick={() => {
-                deleteConnection(selectedConnectionId);
-                setSelectedConnectionId(null);
-              }}
-              title="Remove relationship"
-            >
-              <Trash2 size={12} />
-              Delete
-            </button>
-            <button
-              type="button"
-              className={styles.connBarClose}
-              onClick={() => setSelectedConnectionId(null)}
+              className={styles.closeBtn}
+              onClick={() => setSelectedRelationId(null)}
             >
               <X size={12} />
             </button>
           </div>
-        )}
 
-        {currentSchema?.entities?.length ? (
-          renderMode === 'interactive' ? (
-            <>
-              {/* Floating Canvas Controls (Zoom, Fit, Reset) */}
-              <div className={styles.floatingCanvasToolbar}>
-                <button
-                  type="button"
-                  className={styles.canvasToolBtn}
-                  onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.15).toFixed(2)))}
-                  title="Zoom In (or Ctrl+Scroll)"
-                >
-                  <ZoomIn size={14} />
-                </button>
-                <span className={styles.zoomLabel}>{Math.round(zoom * 100)}%</span>
-                <button
-                  type="button"
-                  className={styles.canvasToolBtn}
-                  onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.15).toFixed(2)))}
-                  title="Zoom Out (or Ctrl+Scroll)"
-                >
-                  <ZoomOut size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.canvasToolBtn}
-                  onClick={handleFitView}
-                  title="Fit & Center All Entities"
-                >
-                  <Focus size={13} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.canvasToolBtn}
-                  onClick={handleResetLayout}
-                  title="Reset View (100% Pan/Zoom)"
-                >
-                  <RotateCcw size={13} />
-                </button>
-              </div>
-
-              {/* Transform Stage: Supports Infinite Panning & Zooming */}
-              <div
-                className={styles.interactiveCanvas}
-                style={{
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                  transformOrigin: '0 0',
+          <div className={styles.relTypesList}>
+            {RELATION_TYPES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={styles.relTypeOption}
+                onClick={() => {
+                  updateRelationType(selectedRelationId, t.id);
+                  setSelectedRelationId(null);
                 }}
               >
-                {/* SVG Connections Overlay with Field-to-Field Smooth Curves */}
-                <svg className={styles.svgConnectionsLayer} width="6000" height="6000">
-                  <defs>
-                    <marker
-                      id="arrowhead"
-                      markerWidth="9"
-                      markerHeight="7"
-                      refX="8"
-                      refY="3.5"
-                      orient="auto"
-                    >
-                      <polygon
-                        points="0 0, 9 3.5, 0 7"
-                        fill="var(--color-accent)"
-                      />
-                    </marker>
-                  </defs>
+                <span>{t.label}</span>
+              </button>
+            ))}
+          </div>
 
-                  {connections.map((conn, connIdx) => {
-                    const srcEntity = currentSchema.entities.find((e) => e.name === conn.source);
-                    const tgtEntity = currentSchema.entities.find((e) => e.name === conn.target);
-
-                    if (!srcEntity || !tgtEntity) return null;
-
-                    const srcPos = entityPositions[conn.source] || { x: 50, y: 50 };
-                    const tgtPos = entityPositions[conn.target] || { x: 400, y: 50 };
-
-                    let srcFieldIdx = srcEntity.fields.findIndex(
-                      (f) => f.name === conn.sourceField
-                    );
-                    if (srcFieldIdx === -1) srcFieldIdx = 0;
-
-                    let tgtFieldIdx = tgtEntity.fields.findIndex(
-                      (f) => f.name === conn.targetField
-                    );
-                    if (tgtFieldIdx === -1) {
-                      tgtFieldIdx = tgtEntity.fields.findIndex((f) => f.isPrimary);
-                      if (tgtFieldIdx === -1) tgtFieldIdx = 0;
-                    }
-
-                    const cardW = 280;
-                    const headerH = 40;
-                    const rowH = 32;
-
-                    // Exact vertical center of field row
-                    const srcY = srcPos.y + headerH + srcFieldIdx * rowH + 16;
-                    const tgtY = tgtPos.y + headerH + tgtFieldIdx * rowH + 16;
-
-                    let srcX, tgtX;
-                    if (srcPos.x + cardW <= tgtPos.x) {
-                      srcX = srcPos.x + cardW;
-                      tgtX = tgtPos.x;
-                    } else if (srcPos.x >= tgtPos.x + cardW) {
-                      srcX = srcPos.x;
-                      tgtX = tgtPos.x + cardW;
-                    } else {
-                      srcX = srcPos.x + cardW;
-                      tgtX = tgtPos.x + cardW;
-                    }
-
-                    const dx = Math.max(50, Math.abs(tgtX - srcX) * 0.45);
-                    const pathData = `M ${srcX} ${srcY} C ${
-                      srcX <= tgtX ? srcX + dx : srcX - dx
-                    } ${srcY}, ${srcX <= tgtX ? tgtX - dx : tgtX + dx} ${tgtY}, ${tgtX} ${tgtY}`;
-
-                    // Stagger badge position along the curve (38% to 62%) so multiple links never collide
-                    const t = 0.38 + ((connIdx % 3) * 0.12);
-                    const badgeX = (1 - t) * srcX + t * tgtX;
-                    const badgeY = (1 - t) * srcY + t * tgtY;
-
-                    const isSelected = selectedConnectionId === conn.id;
-
-                    return (
-                      <g key={conn.id} className={styles.connectionGroup}>
-                        {/* Hidden thick path for easy click/hover targeting */}
-                        <path
-                          d={pathData}
-                          className={styles.connectionHoverTarget}
-                          onClick={() => setSelectedConnectionId(conn.id)}
-                        />
-
-                        {/* Smooth Bezier Connection Line */}
-                        <path
-                          d={pathData}
-                          className={`${styles.connectionCurve} ${isSelected ? styles.isSelectedCurve : ''}`}
-                          markerEnd="url(#arrowhead)"
-                          onClick={() => setSelectedConnectionId(conn.id)}
-                        />
-
-                        {/* Anchor Endpoint Dots */}
-                        <circle
-                          cx={srcX}
-                          cy={srcY}
-                          r="3"
-                          className={styles.connectionEndpointDot}
-                        />
-                        <circle
-                          cx={tgtX}
-                          cy={tgtY}
-                          r="3"
-                          className={styles.connectionEndpointDot}
-                        />
-
-                        {/* Minimalist Cardinality Pill */}
-                        <g
-                          className={styles.cardinalityBadgeGroup}
-                          transform={`translate(${badgeX}, ${badgeY})`}
-                          onClick={() => toggleCardinality(conn.id)}
-                          title="Click to toggle (1:N, 1:1, N:M)"
-                        >
-                          <rect
-                            x={-18}
-                            y={-9}
-                            width={36}
-                            height={18}
-                            rx={4}
-                            className={styles.cardinalityBadge}
-                          />
-                          <text x={0} y={3} className={styles.cardinalityText}>
-                            {conn.cardinality || '1 : N'}
-                          </text>
-                        </g>
-                      </g>
-                    );
-                  })}
-                </svg>
-
-                {/* Entity Cards */}
-                {currentSchema.entities.map((entity) => {
-                  const pos = entityPositions[entity.name] || { x: 50, y: 50 };
-                  const isRenaming = editingEntityName === entity.name;
-                  const isAddingField = addingFieldEntity === entity.name;
-
-                  return (
-                    <div
-                      key={entity.name}
-                      className={styles.entityCard}
-                      style={{
-                        left: `${pos.x}px`,
-                        top: `${pos.y}px`,
-                      }}
-                    >
-                      {/* Entity Header */}
-                      <div
-                        className={styles.entityCardHeader}
-                        onMouseDown={(e) => handleCardMouseDown(e, entity.name)}
-                      >
-                        <div className={styles.entityNameArea}>
-                          <Table size={13} className="text-accent" />
-                          {isRenaming ? (
-                            <input
-                              type="text"
-                              className={styles.headerRenameInput}
-                              value={tempEntityName}
-                              onChange={(e) => setTempEntityName(e.target.value)}
-                              onBlur={() => submitRenameEntity(entity.name)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') submitRenameEntity(entity.name);
-                                if (e.key === 'Escape') setEditingEntityName(null);
-                              }}
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span
-                              className={styles.entityNameText}
-                              onDoubleClick={(e) => {
-                                e.stopPropagation();
-                                startRenameEntity(entity.name);
-                              }}
-                              title="Double-click to rename entity"
-                            >
-                              {entity.name}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className={styles.headerActions} onMouseDown={(e) => e.stopPropagation()}>
-                          <span className={styles.colCountBadge}>
-                            {entity.fields?.length || 0}
-                          </span>
-                          <button
-                            type="button"
-                            className={styles.headerActionBtn}
-                            onClick={() => startRenameEntity(entity.name)}
-                            title="Rename Entity"
-                          >
-                            <Edit2 size={11} />
-                          </button>
-                          <button
-                            type="button"
-                            className={`${styles.headerActionBtn} ${styles.btnDanger}`}
-                            onClick={() => deleteEntity(entity.name)}
-                            title="Delete Entity"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Clean Field List */}
-                      <div className={styles.fieldList}>
-                        {(entity.fields || []).map((field, idx) => {
-                          const isConnectingThisField =
-                            connectingField?.entityName === entity.name &&
-                            connectingField?.fieldName === field.name;
-
-                          return (
-                            <div
-                              key={field.name || idx}
-                              className={`${styles.fieldRow} ${
-                                isConnectingThisField ? styles.isFieldConnecting : ''
-                              } ${connectingField && !isConnectingThisField ? styles.isTargetCandidate : ''}`}
-                              onClick={() => {
-                                if (connectingField && !isConnectingThisField) {
-                                  handlePortClick(entity.name, field.name);
-                                }
-                              }}
-                            >
-                              {/* Left Anchor Port */}
-                              <button
-                                type="button"
-                                className={`${styles.portHandle} ${styles.portLeft}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePortClick(entity.name, field.name);
-                                }}
-                                title={`Connect from ${entity.name}.${field.name}`}
-                              />
-
-                              {/* Field Name & Badges */}
-                              <div className={styles.fieldLeft}>
-                                {field.isPrimary && (
-                                  <Key size={10} className={styles.keyIcon} title="Primary Key" />
-                                )}
-                                <span
-                                  className={styles.fieldName}
-                                  onDoubleClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenEditField(entity.name, idx, field);
-                                  }}
-                                  title="Double-click to edit field"
-                                >
-                                  {field.name}
-                                </span>
-                              </div>
-
-                              {/* Clean Type & Minimal Badges */}
-                              <div className={styles.fieldRight} onClick={(e) => e.stopPropagation()}>
-                                <span
-                                  className={styles.cleanTypeTag}
-                                  onClick={() => handleOpenEditField(entity.name, idx, field)}
-                                  title="Click to edit field settings"
-                                >
-                                  {(field.type || 'varchar').toLowerCase()}
-                                </span>
-
-                                {field.isPrimary && <span className={styles.tagPk}>PK</span>}
-                                {field.isForeignKey && <span className={styles.tagFk}>FK</span>}
-
-                                {/* Row Hover Actions */}
-                                <div className={styles.rowActions}>
-                                  <button
-                                    type="button"
-                                    className={styles.rowActionBtn}
-                                    onClick={() => handleOpenEditField(entity.name, idx, field)}
-                                    title="Edit Field"
-                                  >
-                                    <Edit2 size={10} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`${styles.rowActionBtn} ${styles.btnDanger}`}
-                                    onClick={() => deleteField(entity.name, idx)}
-                                    title="Delete Field"
-                                  >
-                                    <X size={10} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Right Anchor Port */}
-                              <button
-                                type="button"
-                                className={`${styles.portHandle} ${styles.portRight}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePortClick(entity.name, field.name);
-                                }}
-                                title={`Connect from ${entity.name}.${field.name}`}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Inline Add Field Row */}
-                      {isAddingField ? (
-                        <div className={styles.inlineAddFieldRow} onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="text"
-                            className={styles.inlineInput}
-                            placeholder="Field name (e.g. email, price)..."
-                            value={newFieldName}
-                            onChange={(e) => setNewFieldName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveNewField(entity.name);
-                              if (e.key === 'Escape') setAddingFieldEntity(null);
-                            }}
-                            autoFocus
-                          />
-                          <select
-                            className={styles.inlineSelect}
-                            value={newFieldType}
-                            onChange={(e) => setNewFieldType(e.target.value)}
-                          >
-                            {FIELD_TYPES.map((t) => (
-                              <option key={t} value={t}>
-                                {t.toLowerCase()}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            className={`${styles.inlinePkBtn} ${newFieldPk ? styles.active : ''}`}
-                            onClick={() => setNewFieldPk(!newFieldPk)}
-                            title="Primary Key"
-                          >
-                            PK
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.inlineSaveBtn}
-                            onClick={() => handleSaveNewField(entity.name)}
-                          >
-                            Add
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.inlineCancelBtn}
-                            onClick={() => setAddingFieldEntity(null)}
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className={styles.cardFooter}>
-                          <button
-                            type="button"
-                            className={styles.btnAddField}
-                            onClick={() => handleStartAddField(entity.name)}
-                          >
-                            <Plus size={11} />
-                            <span>Add Field</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div style={{ height: '100%', overflow: 'auto', padding: '16px' }}>
-              <MermaidBlock chart={currentSchema.mermaidErDiagram} isStreaming={isLoading} />
-            </div>
-          )
-        ) : (
-          <div className={styles.emptyArea}>
-            <Network size={44} className={styles.emptyIcon} />
-            <h4>No Active Data Model</h4>
-            <p>
-              Click <strong>Add Entity</strong> above or use the AI prompt bar below to design your domain architecture.
-            </p>
+          <div className={styles.relPopoverFooter}>
             <button
               type="button"
-              className={styles.btnEmptyCreate}
-              onClick={handleOpenAddEntity}
+              className={styles.deleteRelBtn}
+              onClick={() => deleteRelation(selectedRelationId)}
             >
-              <Plus size={14} />
-              <span>Create First Entity</span>
+              <Trash2 size={12} />
+              <span>Delete Relationship</span>
             </button>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Floating Bottom-Center Toolbar */}
+      <div className={styles.floatingToolbar}>
+        <button
+          type="button"
+          className={styles.pillBtn}
+          onClick={() => addEntity()}
+          title="Add New Table"
+        >
+          <Plus size={13} />
+          <span>Table</span>
+        </button>
+
+        <div className={styles.pillDivider} />
+
+        <button
+          type="button"
+          className={`${styles.pillBtn} ${canvasTool === 'pointer' ? styles.pillActive : ''}`}
+          onClick={() => setCanvasTool('pointer')}
+          title="Pointer Tool"
+        >
+          <MousePointer size={13} />
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.pillBtn} ${canvasTool === 'hand' ? styles.pillActive : ''}`}
+          onClick={() => setCanvasTool('hand')}
+          title="Hand (Pan Canvas)"
+        >
+          <Hand size={13} />
+        </button>
+
+        <div className={styles.pillDivider} />
+
+        <button type="button" className={styles.pillBtn} onClick={handleZoomIn} title="Zoom In">
+          <ZoomIn size={13} />
+        </button>
+
+        <button type="button" className={styles.pillBtn} onClick={handleZoomOut} title="Zoom Out">
+          <ZoomOut size={13} />
+        </button>
+
+        <button type="button" className={styles.pillBtn} onClick={handleFitView} title="Fit View">
+          <Focus size={13} />
+        </button>
+
+        <button
+          type="button"
+          className={styles.pillBtn}
+          onClick={handleResetZoom}
+          title="Reset Zoom"
+        >
+          <RotateCcw size={13} />
+        </button>
       </div>
 
-      {/* Add Entity Modal */}
-      {isAddEntityModalOpen && (
-        <div className={styles.modalBackdrop} onClick={() => setIsAddEntityModalOpen(false)}>
-          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className="flex items-center gap-2">
-                <Table size={15} className="text-accent" />
-                <h5>Create New Entity</h5>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setIsAddEntityModalOpen(false)}
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <div className={styles.modalBody}>
-              <label className={styles.modalLabel}>Entity Name</label>
-              <input
-                type="text"
-                className={styles.modalInput}
-                placeholder="e.g. Customer, OrderItem, Invoice..."
-                value={newEntityNameInput}
-                onChange={(e) => setNewEntityNameInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleConfirmAddEntity();
-                  if (e.key === 'Escape') setIsAddEntityModalOpen(false);
-                }}
-                autoFocus
-              />
-              <p className={styles.modalHelp}>
-                Will be placed in the center of your visible canvas with default ID & timestamp columns.
-              </p>
-            </div>
-            <div className={styles.modalFooter}>
-              <button
-                type="button"
-                className={styles.modalCancelBtn}
-                onClick={() => setIsAddEntityModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={styles.modalSubmitBtn}
-                onClick={handleConfirmAddEntity}
-                disabled={!newEntityNameInput.trim()}
-              >
-                Add Entity
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Field Edit Popover Modal */}
-      {editingFieldModal && (
-        <div className={styles.modalBackdrop} onClick={() => setEditingFieldModal(null)}>
-          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className="flex items-center gap-2">
-                <Edit2 size={14} className="text-accent" />
-                <h5>Edit Column: {editingFieldModal.entityName}.{editingFieldModal.field.name}</h5>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setEditingFieldModal(null)}
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <div className={styles.modalBody}>
-              <div className={styles.formRow}>
-                <label className={styles.modalLabel}>Column Name</label>
-                <input
-                  type="text"
-                  className={styles.modalInput}
-                  value={editFieldNameInput}
-                  onChange={(e) => setEditFieldNameInput(e.target.value)}
-                />
-              </div>
-
-              <div className={styles.formRow}>
-                <label className={styles.modalLabel}>Data Type</label>
-                <select
-                  className={styles.modalSelect}
-                  value={editFieldTypeInput}
-                  onChange={(e) => setEditFieldTypeInput(e.target.value)}
-                >
-                  {FIELD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.checkboxGroup}>
-                <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={editFieldPkInput}
-                    onChange={(e) => setEditFieldPkInput(e.target.checked)}
-                  />
-                  <span>Primary Key (PK)</span>
-                </label>
-
-                <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={editFieldReqInput}
-                    onChange={(e) => setEditFieldReqInput(e.target.checked)}
-                  />
-                  <span>Required (NOT NULL)</span>
-                </label>
-              </div>
-            </div>
-            <div className={styles.modalFooter}>
-              <button
-                type="button"
-                className={`${styles.modalCancelBtn} ${styles.btnDanger}`}
-                onClick={() => {
-                  deleteField(editingFieldModal.entityName, editingFieldModal.fieldIndex);
-                  setEditingFieldModal(null);
-                }}
-              >
-                Delete Column
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className={styles.modalCancelBtn}
-                  onClick={() => setEditingFieldModal(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className={styles.modalSubmitBtn}
-                  onClick={handleSaveEditField}
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Bottom-Left Stats */}
+      <div className={styles.statsFooter}>
+        <span>{entities.length} tables</span>
+        <span>·</span>
+        <span>{relations.length} relations</span>
+        <span>·</span>
+        <span>{Math.round(zoom * 100)}%</span>
+      </div>
     </div>
   );
 }

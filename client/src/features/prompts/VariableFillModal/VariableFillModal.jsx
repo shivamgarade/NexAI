@@ -12,31 +12,34 @@ export function VariableFillModal({
   open,
   onClose,
   prompt,
+  skill,
   onConfirm,
   actionLabel = 'Use Prompt in Chat',
 }) {
+  const targetItem = skill || prompt;
   const [values, setValues] = useState({});
   const [copied, setCopied] = useState(false);
 
   const variables = useMemo(() => {
-    return prompt?.variables || [];
-  }, [prompt]);
+    return targetItem?.variables || [];
+  }, [targetItem]);
 
   useEffect(() => {
-    if (open && prompt) {
+    if (open && targetItem) {
       const initial = {};
-      (prompt.variables || []).forEach((v) => {
+      (targetItem.variables || []).forEach((v) => {
         initial[v] = '';
       });
       setValues(initial);
       setCopied(false);
     }
-  }, [open, prompt]);
+  }, [open, targetItem]);
 
   // Real-time compilation of the template with user substituted variables
   const compiledPrompt = useMemo(() => {
-    if (!prompt?.template) return '';
-    let result = prompt.template;
+    const templateText = targetItem?.template || targetItem?.instructions;
+    if (!templateText) return '';
+    let result = templateText;
     const regex = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
     result = result.replace(regex, (match, varName) => {
       const trimmed = varName.trim();
@@ -44,7 +47,7 @@ export function VariableFillModal({
       return val !== undefined && val !== '' ? val : match;
     });
     return result;
-  }, [prompt, values]);
+  }, [targetItem, values]);
 
   const handleValueChange = (varName, val) => {
     setValues((prev) => ({ ...prev, [varName]: val }));

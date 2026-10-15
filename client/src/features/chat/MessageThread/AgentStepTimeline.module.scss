@@ -1,0 +1,226 @@
+@use '@/styles/abstracts' as *;
+
+.timelineContainer {
+  margin-bottom: var(--space-2);
+  width: 100%;
+  font-family: var(--font-sans);
+  background: transparent;
+  border: none;
+}
+
+.timelineHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-2);
+}
+
+.timelineToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  user-select: none;
+  color: var(--color-text-secondary, #94a3b8);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: var(--weight-medium, 500);
+  transition: color var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary, #ffffff);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.headerTitle {
+  font-size: 13.5px;
+  font-weight: var(--weight-medium, 500);
+  color: inherit;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevronIcon {
+  color: var(--color-text-muted);
+  transition: transform var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+
+  &.chevronRotated {
+    transform: rotate(180deg);
+  }
+}
+
+.badgePill {
+  font-size: 11px;
+  font-weight: var(--weight-medium, 500);
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+  background: var(--color-bg-surface, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.timelineBody {
+  margin-top: var(--space-2);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+}
+
+.timelineList {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.timelineItem {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 14px;
+
+  &:last-child {
+    padding-bottom: 2px;
+
+    .connectingLine {
+      display: none;
+    }
+  }
+}
+
+.iconColumn {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.nodeIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-muted, #94a3b8);
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.nodeIcon {
+  color: var(--color-text-muted, #94a3b8);
+}
+
+.googleIcon {
+  flex-shrink: 0;
+}
+
+.connectingLine {
+  position: absolute;
+  top: 20px;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: var(--color-border, rgba(255, 255, 255, 0.12));
+  z-index: 0;
+}
+
+.itemContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 1px;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--color-text-primary, #e2e8f0);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.itemOutput {
+  font-size: 12.5px;
+  color: var(--color-text-muted, #94a3b8);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Citations block (minimal neutral pill design, no aggressive green)
+.citationsContainer {
+  margin-top: 10px;
+  padding-left: 32px;
+}
+
+.citationsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.citationLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-bg-surface, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    background: var(--color-bg-hover, rgba(255, 255, 255, 0.08));
+    color: var(--color-text-primary);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.citationIcon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.citationText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+.citationExt {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}

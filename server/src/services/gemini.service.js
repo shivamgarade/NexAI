@@ -93,6 +93,7 @@ export async function* streamContent({
 }) {
   const client = getGeminiClient();
   const modelName = getModelName(model);
+  let activeModelName = modelName;
 
   let stream = null;
   let attempt = 0;
@@ -101,7 +102,7 @@ export async function* streamContent({
   while (true) {
     try {
       stream = await client.models.generateContentStream({
-        model: modelName,
+        model: activeModelName,
         contents,
         config: {
           ...(systemInstruction ? { systemInstruction } : {}),
@@ -111,17 +112,51 @@ export async function* streamContent({
       break;
     } catch (err) {
       attempt++;
+
+      // If quota exhausted (429), failover to resilient flash-lite model before giving up
+      if (
+        (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) &&
+        activeModelName !== 'gemini-3.1-flash-lite'
+      ) {
+        logger.warn(
+          { fromModel: activeModelName, toModel: 'gemini-3.1-flash-lite' },
+          'Model quota exhausted (429), failing over to resilient gemini-3.1-flash-lite...',
+        );
+        activeModelName = 'gemini-3.1-flash-lite';
+        continue;
+      }
+
+      // If tools contained native googleSearch and failed with 429 quota exhaustion, strip it and retry immediately
+      if (
+        (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) &&
+        config?.tools?.some((t) => t.googleSearch)
+      ) {
+        logger.warn(
+          'Gemini Google Search Grounding quota exhausted (429). Retrying without native googleSearch tool...',
+        );
+        config = {
+          ...config,
+          tools: config.tools.filter((t) => !t.googleSearch),
+        };
+        if (config.tools.length === 0) {
+          delete config.tools;
+        }
+        continue;
+      }
+
       const isTransient =
         err.message?.includes('503') ||
         err.message?.includes('UNAVAILABLE') ||
-        err.message?.includes('high demand');
+        err.message?.includes('high demand') ||
+        err.message?.includes('429') ||
+        err.message?.includes('RESOURCE_EXHAUSTED');
 
       if (isTransient && attempt <= maxRetries) {
         logger.warn(
           { attempt, maxRetries },
-          'Transient Gemini 503 high demand spike, retrying after 1s...',
+          'Transient Gemini spike or limit, retrying after 1.5s...',
         );
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         continue;
       }
       logger.error({ error: err.message }, 'Gemini stream initialization error');
@@ -135,12 +170,31 @@ export async function* streamContent({
       let text = '';
       let thought = '';
 
-      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+      const candidate = chunk.candidates?.[0];
+      const parts = candidate?.content?.parts ?? [];
+      let codeStep = null;
+
       for (const part of parts) {
         if (part.thought && typeof part.text === 'string') {
           thought += part.text;
         } else if (!part.thought && typeof part.text === 'string') {
           text += part.text;
+        }
+
+        if (part.executableCode) {
+          codeStep = {
+            type: 'code_execution',
+            language: part.executableCode.language || 'python',
+            code: part.executableCode.code,
+          };
+        }
+
+        if (part.codeExecutionResult) {
+          codeStep = {
+            type: 'code_result',
+            outcome: part.codeExecutionResult.outcome,
+            output: part.codeExecutionResult.output,
+          };
         }
       }
 
@@ -149,8 +203,19 @@ export async function* streamContent({
         text = chunk.text;
       }
 
-      if (text || thought || usageMetadata) {
-        yield { text, thought, usageMetadata };
+      const groundingMetadata = candidate?.groundingMetadata || null;
+      const functionCalls = chunk.functionCalls || null;
+
+      if (text || thought || usageMetadata || groundingMetadata || codeStep || functionCalls || parts.length > 0) {
+        yield {
+          text,
+          thought,
+          usageMetadata,
+          groundingMetadata,
+          codeStep,
+          functionCalls,
+          candidateParts: parts,
+        };
       }
     }
   } catch (error) {
@@ -177,6 +242,7 @@ export async function generateContent({
 }) {
   const client = getGeminiClient();
   const modelName = getModelName(model);
+  let activeModelName = modelName;
 
   let attempt = 0;
   const maxRetries = 1;
@@ -184,7 +250,7 @@ export async function generateContent({
   while (true) {
     try {
       const response = await client.models.generateContent({
-        model: modelName,
+        model: activeModelName,
         contents,
         config: {
           ...(systemInstruction ? { systemInstruction } : {}),
@@ -205,6 +271,19 @@ export async function generateContent({
       };
     } catch (error) {
       attempt++;
+
+      // If quota exhausted (429), failover to resilient flash-lite model before giving up
+      if (
+        (error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) &&
+        activeModelName !== 'gemini-3.1-flash-lite'
+      ) {
+        logger.warn(
+          { fromModel: activeModelName, toModel: 'gemini-3.1-flash-lite' },
+          'Model quota exhausted (429), failing over to resilient gemini-3.1-flash-lite...',
+        );
+        activeModelName = 'gemini-3.1-flash-lite';
+        continue;
+      }
       const isTransient =
         error.message?.includes('503') ||
         error.message?.includes('UNAVAILABLE') ||
