@@ -204,6 +204,12 @@
   gap: var(--space-4);
   padding: var(--space-2) 0;
 
+  @include down(sm) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
   &:not(:last-child) {
     border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
     padding-bottom: var(--space-4);

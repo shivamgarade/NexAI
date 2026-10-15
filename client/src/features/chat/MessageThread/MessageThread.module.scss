@@ -190,6 +190,10 @@
     .messageContentWrapper {
       max-width: min(85%, 720px);
       align-items: flex-end;
+
+      @include down(sm) {
+        max-width: 92%;
+      }
     }
 
     .metaHeader {
@@ -508,6 +512,11 @@
   transition:
     opacity var(--duration-fast) var(--ease-standard),
     transform var(--duration-fast) var(--ease-standard);
+
+  @media (hover: none), (pointer: coarse) {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .actionBtn {

@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { Menu, Sun, Moon, Search, PanelLeftOpen } from 'lucide-react';
+import { Menu, Sun, Moon, Search, PanelLeftOpen, Download } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTheme } from '@/hooks/useTheme';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { IconButton } from '@/components/ui/IconButton';
 import { Kbd } from '@/components/ui/Kbd';
 import { CreditBadge } from '@/components/common/CreditBadge';
@@ -12,6 +13,7 @@ import styles from './Topbar.module.scss';
 export function Topbar() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
+  const { isInstallable, isInstalled, promptInstall } = usePWAInstall();
   const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const isSidebarCollapsed = useUiStore((state) => state.isSidebarCollapsed);
   const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed);
@@ -54,6 +56,18 @@ export function Topbar() {
       </div>
 
       <div className={styles.rightGroup}>
+        {isInstallable && !isInstalled && (
+          <button
+            type="button"
+            className={styles.installPill}
+            onClick={promptInstall}
+            title="Install NexAI App"
+            aria-label="Install NexAI App"
+          >
+            <Download size={14} />
+            <span>Install</span>
+          </button>
+        )}
         <CreditBadge credits={credits} onClick={() => navigate(ROUTES.WALLET)} />
         <IconButton
           icon={isDark ? <Sun size={18} /> : <Moon size={18} />}

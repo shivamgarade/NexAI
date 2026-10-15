@@ -4,7 +4,17 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import styles from './Drawer.module.scss';
 
-export function Drawer({ open, onClose, title, children, footer, side = 'left', className }) {
+export function Drawer({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  side = 'left',
+  hideHeader = false,
+  bodyClassName,
+  className,
+}) {
   useEffect(() => {
     if (!open) return;
 
@@ -35,18 +45,20 @@ export function Drawer({ open, onClose, title, children, footer, side = 'left', 
         aria-modal="true"
         aria-label={title || 'Drawer'}
       >
-        <div className={styles.header}>
-          <h2 className={styles.title}>{title}</h2>
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="Close drawer"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className={styles.body}>{children}</div>
+        {!hideHeader && (
+          <div className={styles.header}>
+            <h2 className={styles.title}>{title}</h2>
+            <button
+              type="button"
+              className={styles.closeButton}
+              onClick={onClose}
+              aria-label="Close drawer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
+        <div className={cn(styles.body, bodyClassName)}>{children}</div>
         {footer && <div className={styles.footer}>{footer}</div>}
       </div>
     </>,

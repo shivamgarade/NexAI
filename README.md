@@ -113,9 +113,11 @@ NexAI is a personal knowledge and developer productivity workspace designed with
   - Role-gated `/admin` portal with `requireRole('admin')` server middleware
   - Aggregated platform KPIs: active users, total tokens, revenue, and error metrics
   - Time-series charts, Gemini Flash vs Pro split, and live transaction/error tables
-- [x] **Step 13: Hardening & Viva Prep** (`feature/hardening`)
-  - Complete 8-stage Supertest End-to-End user journey test suite (`server/tests/e2e.journey.test.js`)
-  - Zero lint errors, production build verified, and CSS warnings resolved
-  - Comprehensive diploma/capstone viva defense guide (`docs/viva-prep.md`)
-  - 227 tests passing across monorepo (127 backend, 100 frontend)
+- [x] **Step 14: Mobile Responsiveness & Enterprise-Grade PWA** (`feature/mobile-pwa`)
+  - Modern dynamic viewport unit overhaul (`100dvh`) across AppLayout, Chat, Modals, Drawers, and Schema Designer to eliminate mobile address bar and software keyboard cutoffs.
+  - Responsive mobile drawer navigation with touch backdrop, 44x44px accessible touch targets, and overflow-proof Topbar with auto-compacting search trigger and credit pill.
+  - Mobile Chat Composer optimization: responsive mic/attachment actions, 16px iOS auto-zoom prevention, and stacked model selector pill.
+  - Bottom-sheet overlay transformation for Modals, Prompts Variable Fill, and Model Selector Popovers on `< 640px` viewports.
+  - Enterprise Progressive Web App (PWA) with `vite-plugin-pwa`, standalone display mode, orientation locking, dark theme `#121214` token alignment, and offline Workbox caching for app shells, Google Fonts, and assets.
+  - Native in-app install UX with `usePWAInstall` hook, custom dismissible install prompt banner, one-click install button in Topbar/Settings, and step-by-step iOS Safari Add-to-Home-Screen guide.
 

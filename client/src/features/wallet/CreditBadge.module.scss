@@ -95,4 +95,9 @@
   opacity: 0.85;
   font-weight: var(--weight-normal);
   margin-left: 2px;
+
+  @media (max-width: 480px) {
+    display: none;
+  }
 }
+

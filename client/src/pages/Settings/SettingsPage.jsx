@@ -12,7 +12,8 @@ import {
   Check,
   Sun,
   Moon,
-  Zap,
+  Download,
+  Smartphone,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -22,6 +23,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/components/ui/Toast';
 import { useTheme } from '@/hooks/useTheme';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
 import { useWalletStore } from '@/store/walletStore';
@@ -63,6 +65,7 @@ export default function SettingsPage() {
   const activeTab = searchParams.get('tab') || 'general';
 
   const { isDark, toggleTheme } = useTheme();
+  const { isInstallable, isInstalled, promptInstall } = usePWAInstall();
   const { user, updateSettings } = useAuthStore();
   const { thinkingLevel, setThinkingLevel, isSimulation, toggleSimulation } = useChatStore();
   const { governance, wallet, fetchWallet } = useWalletStore();
@@ -245,6 +248,56 @@ export default function SettingsPage() {
                         {!isDark && <Check size={14} className={styles.activeCheck} />}
                       </div>
                     </div>
+                  </div>
+                </Card.Body>
+              </Card>
+
+              <Card padding="md" className={styles.sectionCard}>
+                <Card.Header>
+                  <div className={styles.cardHeaderContent}>
+                    <div className={styles.headerIcon}>
+                      <Smartphone size={18} />
+                    </div>
+                    <div className={styles.headerText}>
+                      <h3 className={styles.cardTitle}>Progressive Web App (PWA)</h3>
+                      <p className={styles.cardSubtitle}>
+                        Install NexAI as a native-like standalone app on mobile or desktop with instant loading
+                      </p>
+                    </div>
+                  </div>
+                </Card.Header>
+                <Card.Body className={styles.cardBody}>
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <span className={styles.settingLabel}>Installation State</span>
+                      <span className={styles.settingDesc}>
+                        {isInstalled
+                          ? 'NexAI is currently active as an installed standalone web application.'
+                          : 'Install to your device home screen or dock for quick access and full-screen experience.'}
+                      </span>
+                    </div>
+                    {isInstalled ? (
+                      <Badge tone="accent">Installed</Badge>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Download size={14} />}
+                        onClick={promptInstall}
+                        disabled={!isInstallable}
+                      >
+                        Install App
+                      </Button>
+                    )}
+                  </div>
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <span className={styles.settingLabel}>Service Worker & Offline Cache</span>
+                      <span className={styles.settingDesc}>
+                        Workbox caches critical app shells, fonts, and assets for rapid responsiveness
+                      </span>
+                    </div>
+                    <Badge tone="accent">Workbox Active</Badge>
                   </div>
                 </Card.Body>
               </Card>
