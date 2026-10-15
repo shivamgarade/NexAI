@@ -232,7 +232,7 @@
   padding: var(--space-6);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   background-color: var(--color-bg-surface);
   // Architectural blueprint dot-grid pattern
   background-image: radial-gradient(color-mix(in srgb, var(--color-border) 70%, transparent) 1px, transparent 1px);
@@ -265,7 +265,7 @@
 
 .diagramCanvas {
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
   align-items: center;
   transition: transform var(--duration-fast) var(--ease-standard);
   transform-origin: top center;

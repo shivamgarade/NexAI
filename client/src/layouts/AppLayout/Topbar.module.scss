@@ -105,7 +105,7 @@
   align-items: center;
   justify-content: center;
 
-  @include up(sm) {
+  @include up(md) {
     display: none;
   }
 }
@@ -127,7 +127,7 @@
     border-color var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard);
 
-  @include down(sm) {
+  @include down(md) {
     display: none !important;
   }
 
@@ -215,6 +215,30 @@
     background-color: color-mix(in srgb, var(--color-text-secondary) 18%, transparent);
     color: var(--color-text-primary);
     border: 1px solid var(--color-border);
+  }
+}
+
+.profileBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    border-color: var(--color-border);
+    transform: scale(1.05);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
   }
 }
 

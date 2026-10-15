@@ -695,20 +695,21 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                   key={messageId}
                   className={cn(styles.messageRow, isUser ? styles.userRow : styles.assistantRow)}
                 >
-                  <div className={styles.avatarWrapper}>
-                    {isUser ? (
-                      <Avatar name={user?.email || 'User'} size="sm" />
-                    ) : isCurrentlyStreaming && !message.content ? (
-                      <ThinkingIndicator variant="dots" size="sm" />
-                    ) : (
-                      <div className={styles.aiAvatar}>
-                        <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
-                      </div>
-                    )}
-                  </div>
-
                   <div className={styles.messageContentWrapper}>
                     <div className={styles.metaHeader}>
+                      {!isUser ? (
+                        isCurrentlyStreaming && !message.content ? (
+                          <ThinkingIndicator variant="dots" size="sm" />
+                        ) : (
+                          <div className={styles.aiAvatar}>
+                            <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
+                          </div>
+                        )
+                      ) : (
+                        <span className={styles.userIconWrapper}>
+                          <Avatar name={user?.email || 'User'} size="xs" />
+                        </span>
+                      )}
                       <span className={styles.senderName}>{isUser ? 'You' : 'NexAI'}</span>
                       {timeString && <span className={styles.timestamp}>{timeString}</span>}
                       {message.tokensUsed ? (

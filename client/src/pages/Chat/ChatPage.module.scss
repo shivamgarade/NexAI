@@ -87,7 +87,7 @@
   flex-shrink: 0;
   min-height: 42px;
 
-  @include down(sm) {
+  @include down(md) {
     display: none !important;
   }
 }
