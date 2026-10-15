@@ -168,18 +168,25 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     toggleListening();
   };
 
-  // Adjust textarea height dynamically with smooth auto-grow up to 200px
+  // Adjust textarea height dynamically with smooth auto-grow up to 200px (no scrollbar until max height)
   useEffect(() => {
     if (textareaRef.current) {
       if (!input) {
-        textareaRef.current.style.height = '24px';
+        textareaRef.current.style.height = '32px';
+        textareaRef.current.style.overflowY = 'hidden';
         return;
       }
       textareaRef.current.style.height = 'auto';
       const scrollH = textareaRef.current.scrollHeight;
-      const minH = 24;
+      const minH = 32;
       const maxH = 200;
-      textareaRef.current.style.height = `${Math.min(Math.max(scrollH, minH), maxH)}px`;
+      if (scrollH > maxH) {
+        textareaRef.current.style.overflowY = 'auto';
+        textareaRef.current.style.height = `${maxH}px`;
+      } else {
+        textareaRef.current.style.overflowY = 'hidden';
+        textareaRef.current.style.height = `${Math.max(scrollH, minH)}px`;
+      }
     }
   }, [input]);
 
@@ -228,7 +235,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     baseTextRef.current = "";
     setAttachedContext(null);
     if (textareaRef.current) {
-      textareaRef.current.style.height = "24px";
+      textareaRef.current.style.height = "32px";
+      textareaRef.current.style.overflowY = "hidden";
     }
 
     // Check for Data Modeling / ER Diagram intent
@@ -238,7 +246,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
       baseTextRef.current = "";
       setAttachedContext(null);
       if (textareaRef.current) {
-        textareaRef.current.style.height = "24px";
+        textareaRef.current.style.height = "32px";
+        textareaRef.current.style.overflowY = "hidden";
       }
       toast.info("Opening ER Diagram studio...");
       useSchemaStore.getState().setPrompt(schemaMatch.cleanPrompt);

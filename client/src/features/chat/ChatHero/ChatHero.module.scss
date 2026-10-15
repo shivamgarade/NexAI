@@ -300,12 +300,13 @@
   font-size: 15px;
   line-height: 24px;
   color: var(--color-text-primary);
-  min-height: 24px;
+  min-height: 32px;
   max-height: 200px;
-  padding: 4px 2px;
+  padding: 4px 0;
   margin: 0;
   resize: none;
-  overflow-y: auto;
+  overflow-y: hidden;
+  overflow-x: hidden;
   word-break: break-word;
   overflow-wrap: break-word;
   white-space: pre-wrap;
@@ -316,8 +317,8 @@
   @include down(sm) {
     font-size: 16px; // prevents iOS auto zoom
     line-height: 24px;
-    min-height: 24px;
-    padding: 4px 2px;
+    min-height: 32px;
+    padding: 4px 0;
   }
 
   &::placeholder {
@@ -754,10 +755,10 @@
   }
 
   .inputField {
-    min-height: 24px;
+    min-height: 32px;
     font-size: 16px;
     line-height: 24px;
-    padding: 4px 2px;
+    padding: 4px 0;
   }
 
   .quickPromptsList {

@@ -162,17 +162,25 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     }
   }, [prefillValue, onClearPrefill]);
 
-  // Adjust height of textarea dynamically
+  // Adjust height of textarea dynamically (no scrollbar until max height)
   useEffect(() => {
     if (textareaRef.current) {
       if (!input) {
-        textareaRef.current.style.height = '24px';
+        textareaRef.current.style.height = '32px';
+        textareaRef.current.style.overflowY = 'hidden';
         return;
       }
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const newHeight = Math.min(Math.max(scrollHeight, 24), 220);
-      textareaRef.current.style.height = `${newHeight}px`;
+      const minH = 32;
+      const maxH = 220;
+      if (scrollHeight > maxH) {
+        textareaRef.current.style.overflowY = 'auto';
+        textareaRef.current.style.height = `${maxH}px`;
+      } else {
+        textareaRef.current.style.overflowY = 'hidden';
+        textareaRef.current.style.height = `${Math.max(scrollHeight, minH)}px`;
+      }
     }
   }, [input]);
 
@@ -218,7 +226,8 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     baseTextRef.current = '';
     setAttachedContext(null);
     if (textareaRef.current) {
-      textareaRef.current.style.height = '24px';
+      textareaRef.current.style.height = '32px';
+      textareaRef.current.style.overflowY = 'hidden';
     }
 
     // Check for Data Modeling / ER Diagram intent
