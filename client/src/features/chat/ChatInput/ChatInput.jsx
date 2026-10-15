@@ -523,7 +523,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
               }
             }}
             onKeyDown={handleKeyDown}
-            placeholder={activeSkill ? `Ask ${activeSkill.title}...` : "Write a message... ('/' for skills)"}
+            placeholder={activeSkill ? `Ask ${activeSkill.title}...` : 'Ask NexAI...'}
             className={styles.textarea}
             aria-label="Chat input message"
           />

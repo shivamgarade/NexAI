@@ -198,9 +198,7 @@
   padding: 0 4px;
 
   @include down(sm) {
-    justify-content: flex-end;
-    margin-top: 4px;
-    padding: 0 2px;
+    display: none !important;
   }
 }
 

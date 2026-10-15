@@ -605,8 +605,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                   activeSkill
                     ? `Ask ${activeSkill.title}...`
                     : isSimulation
-                      ? 'Simulation Mode (0 tokens) — How can I help you today? (\'/\' for skills)'
-                      : "How can I help you today? ('/' for skills)"
+                      ? 'Ask NexAI (Simulation)...'
+                      : 'Ask NexAI...'
                 }
                 className={styles.inputField}
                 aria-label="Ask NexAI anything"

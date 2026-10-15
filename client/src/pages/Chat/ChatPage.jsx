@@ -242,6 +242,7 @@ export default function ChatPage() {
                   }
                   items={chatMenuItems}
                   align="left"
+                  portal={true}
                 />
               ) : (
                 <div className={styles.titleInfo}>

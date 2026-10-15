@@ -13,6 +13,10 @@
 .scrollArea {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 0 var(--space-3) calc(var(--space-16) + var(--space-2));
   display: flex;
   flex-direction: column;
@@ -176,13 +180,23 @@
   max-width: 980px;
   margin: 0 auto;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding-top: var(--space-4);
+
+  @include down(sm) {
+    gap: var(--space-5);
+    padding-top: var(--space-2);
+  }
 }
 
 .messageRow {
   display: flex;
   gap: var(--space-3);
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 
   &.userRow {
     flex-direction: row-reverse;
@@ -190,9 +204,11 @@
     .messageContentWrapper {
       max-width: min(85%, 720px);
       align-items: flex-end;
+      min-width: 0;
+      box-sizing: border-box;
 
       @include down(sm) {
-        max-width: 92%;
+        max-width: 90%;
       }
     }
 
@@ -207,9 +223,10 @@
 
   &.assistantRow {
     .messageContentWrapper {
-      max-width: 100%;
+      max-width: calc(100% - 38px);
       flex: 1 1 auto;
       min-width: 0;
+      box-sizing: border-box;
     }
 
     .metaHeader {
@@ -346,6 +363,10 @@
     padding: 0;
     border-radius: 0;
     color: var(--color-text-primary);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   &.errorBubble {
@@ -354,6 +375,8 @@
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+    max-width: 100%;
+    box-sizing: border-box;
   }
 }
 
@@ -361,11 +384,18 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .aiMarkdown {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .blinkingCursor {

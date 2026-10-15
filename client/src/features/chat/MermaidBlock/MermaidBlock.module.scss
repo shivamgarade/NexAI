@@ -7,6 +7,10 @@
   background-color: var(--color-bg-surface);
   overflow: hidden;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   transition: border-color var(--duration-fast) var(--ease-standard);
 
   &:hover {
@@ -219,6 +223,9 @@
 .canvasWrapper {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: 180px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -420,17 +427,23 @@
     padding: var(--space-4) var(--space-2);
     justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: auto;
   }
 
   .diagramCanvas {
-    min-width: 480px;
     width: max-content;
+    min-width: 100%;
+    max-width: none;
     justify-content: flex-start;
 
     svg {
-      min-width: 480px;
-      width: auto;
       max-width: none;
+      width: auto;
+      height: auto;
     }
   }
 }

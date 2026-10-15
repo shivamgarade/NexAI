@@ -50,6 +50,66 @@
   color: var(--color-text-primary);
 }
 
+.topbarModelWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.topbarModelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-elevated) 80%, transparent);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  @include down(sm) {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 12px;
+    background: var(--color-bg-elevated);
+  }
+
+  .modelName {
+    white-space: nowrap;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .modelChevron {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-accent);
+  }
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+}
+
+.mobileNewChatBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  @include up(sm) {
+    display: none;
+  }
+}
+
 .searchTrigger {
   display: flex;
   align-items: center;
@@ -68,9 +128,7 @@
     color var(--duration-fast) var(--ease-standard);
 
   @include down(sm) {
-    width: 36px;
-    padding: 0;
-    justify-content: center;
+    display: none !important;
   }
 
   &:hover {

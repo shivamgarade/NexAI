@@ -7,6 +7,13 @@
   z-index: 1000;
   animation: compactPopIn 0.14s ease-out;
 
+  &.bottom {
+    bottom: auto;
+    top: calc(100% + 8px);
+    left: 0;
+    right: auto;
+  }
+
   @include down(sm) {
     position: fixed;
     inset: 0;
@@ -15,7 +22,7 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    z-index: var(--z-modal, 1000);
+    z-index: 99999;
     animation: fadeIn var(--duration-fast) var(--ease-standard);
   }
 }
