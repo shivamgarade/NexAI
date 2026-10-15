@@ -82,6 +82,11 @@
   -webkit-backdrop-filter: blur(12px);
   flex-shrink: 0;
   min-height: 42px;
+
+  @include down(sm) {
+    padding: var(--space-1) var(--space-3);
+    min-height: 36px;
+  }
 }
 
 .headerLeft {
@@ -109,6 +114,11 @@
   cursor: pointer;
   max-width: 420px;
   transition: all var(--duration-fast) var(--ease-standard);
+
+  @include down(sm) {
+    max-width: 220px;
+    padding: 2px 4px;
+  }
 
   &:hover {
     background-color: var(--color-bg-hover);
@@ -161,6 +171,12 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-standard);
+
+  @include down(sm) {
+    padding: 3px 8px;
+    font-size: 11.5px;
+    gap: 4px;
+  }
 
   &:hover {
     color: var(--color-text-primary);
@@ -230,5 +246,10 @@
 
   > * {
     pointer-events: auto;
+  }
+
+  @include down(sm) {
+    padding: var(--space-1) 0 var(--space-2);
+    margin-top: 0;
   }
 }

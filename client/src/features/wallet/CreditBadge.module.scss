@@ -101,3 +101,20 @@
   }
 }
 
+@media (max-width: 640px) {
+  .badge {
+    padding: 3px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .quotaPill {
+    display: none;
+  }
+
+  .unit {
+    display: none;
+  }
+}
+
+
