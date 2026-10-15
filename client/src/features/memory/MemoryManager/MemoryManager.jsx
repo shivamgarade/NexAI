@@ -11,6 +11,8 @@ import {
   Edit2,
   Check,
   RefreshCw,
+  Copy,
+  MessageSquare,
 } from 'lucide-react';
 import { useMemoryStore } from '@/store/memoryStore';
 import { useAuthStore } from '@/store/authStore';
@@ -91,6 +93,18 @@ export function MemoryManager() {
   // Inline edit state
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState('');
+  const [copiedMemoryId, setCopiedMemoryId] = useState(null);
+
+  const handleCopyFact = async (text, id) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMemoryId(id);
+      setTimeout(() => setCopiedMemoryId(null), 2000);
+      toast.success('Fact copied to clipboard');
+    } catch {
+      toast.error('Failed to copy fact');
+    }
+  };
 
   useEffect(() => {
     fetchMemories();
@@ -263,7 +277,7 @@ export function MemoryManager() {
               <div className={styles.title}>
                 <Brain size={18} style={{ color: 'var(--color-primary-base)' }} />
                 <span>AI Memory Bank</span>
-                <span className={styles.countBadge}>{memories.length}</span>
+                <span className={styles.countBadge}>{memories.length} / 200</span>
               </div>
               <div className={styles.subtitle}>
                 Dynamic knowledge discovered by NexAI or manually entered. Automatically retrieved
@@ -448,18 +462,38 @@ export function MemoryManager() {
                         </button>
                       </div>
                     ) : (
-                      <span
-                        className={styles.factText}
-                        onClick={() => handleStartEdit(mem)}
-                        title="Click to edit memory"
-                      >
-                        {mem.fact}
-                      </span>
+                      <div className={styles.factWrapper}>
+                        <span
+                          className={styles.factText}
+                          onClick={() => handleStartEdit(mem)}
+                          title="Click to edit memory"
+                        >
+                          {mem.fact}
+                        </span>
+                        {mem.sourceMessage && (
+                          <div className={styles.sourceChatSnippet}>
+                            <MessageSquare size={11} className={styles.sourceChatIcon} />
+                            <span>From: &ldquo;{mem.sourceMessage.slice(0, 70)}{mem.sourceMessage.length > 70 ? '...' : ''}&rdquo;</span>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
                   {editingId !== mem._id && (
                     <div className={styles.itemActions}>
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        title={copiedMemoryId === mem._id ? 'Copied!' : 'Copy fact'}
+                        onClick={() => handleCopyFact(mem.fact, mem._id)}
+                      >
+                        {copiedMemoryId === mem._id ? (
+                          <Check size={13} style={{ color: 'var(--color-success)' }} />
+                        ) : (
+                          <Copy size={13} />
+                        )}
+                      </button>
                       <button
                         type="button"
                         className={styles.iconBtn}

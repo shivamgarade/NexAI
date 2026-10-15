@@ -1,9 +1,12 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { ChatHero } from './ChatHero';
 import { getFirstName, getGreetingContext } from './greetingHelper';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
+
+const renderWithRouter = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe('ChatHero Component and Context Awareness', () => {
   beforeEach(() => {
@@ -97,7 +100,7 @@ describe('ChatHero Component and Context Awareness', () => {
 
   describe('ChatHero UI rendering', () => {
     it('renders context-aware headline, subtitle, and input card without extra badge tag', () => {
-      render(<ChatHero onSendPrompt={vi.fn()} />);
+      renderWithRouter(<ChatHero onSendPrompt={vi.fn()} />);
 
       expect(screen.queryByTestId('greeting-badge')).not.toBeInTheDocument();
 
@@ -116,7 +119,7 @@ describe('ChatHero Component and Context Awareness', () => {
         isAuthenticated: true,
       });
 
-      render(<ChatHero onSendPrompt={vi.fn()} />);
+      renderWithRouter(<ChatHero onSendPrompt={vi.fn()} />);
 
       const heading = screen.getByRole('heading', { level: 1 });
       expect(heading.textContent).toContain('Elena');
@@ -124,7 +127,7 @@ describe('ChatHero Component and Context Awareness', () => {
 
     it('renders starter prompt suggestion chips and triggers callback when clicked', () => {
       const handleSendPrompt = vi.fn();
-      render(<ChatHero onSendPrompt={handleSendPrompt} />);
+      renderWithRouter(<ChatHero onSendPrompt={handleSendPrompt} />);
 
       expect(screen.getByText('Explain a Concept')).toBeInTheDocument();
       expect(screen.getByText('Code Assistance')).toBeInTheDocument();
@@ -141,7 +144,7 @@ describe('ChatHero Component and Context Awareness', () => {
 
     it('submits text input on form submission', () => {
       const handleSendPrompt = vi.fn();
-      render(<ChatHero onSendPrompt={handleSendPrompt} />);
+      renderWithRouter(<ChatHero onSendPrompt={handleSendPrompt} />);
 
       const textarea = screen.getByLabelText(/ask nexai anything/i);
       fireEvent.change(textarea, { target: { value: 'How does an event loop work in Node.js?' } });
@@ -157,7 +160,7 @@ describe('ChatHero Component and Context Awareness', () => {
 
     it('submits on Enter keypress without Shift', () => {
       const handleSendPrompt = vi.fn();
-      render(<ChatHero onSendPrompt={handleSendPrompt} />);
+      renderWithRouter(<ChatHero onSendPrompt={handleSendPrompt} />);
 
       const textarea = screen.getByLabelText(/ask nexai anything/i);
       fireEvent.change(textarea, { target: { value: 'Explain closures' } });

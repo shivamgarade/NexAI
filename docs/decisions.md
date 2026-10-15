@@ -367,3 +367,86 @@ This log tracks architectural and design decisions made for the NexAI project, p
        - `🎙️ Gemini 3.8 Flash-Lite TTS (Cloud)`
      - Dynamic telemetry badges and `VoiceRipple` visualizer status strings reflect the active voice engine in real time.
 
+
+## ADR-032: Canonical Intermediate Representation (IR) Architecture, Deterministic Schema Linter, and Relational Seed Data Engine
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+- **Context:** Previous iterations relied on parsing and synchronizing raw code strings across four distinct database dialects (Mongoose, PostgreSQL DDL, Prisma, TypeScript) and canvas states using regex heuristics. Treating code as the source of truth causes synchronization brittleness, loss of relational fidelity, and name collision bugs during renaming. Furthermore, developers need actionable architectural validation and reproducible mock data during database design.
+- **Decision:**
+  1. **Canonical Schema IR as Single Source of Truth (`schemaIR.js`):**
+     - Established a single versioned `IR` (`version: 1`) holding `entities: Record<string, Entity>` and a decoupled `layout: Record<string, { x, y }>`.
+     - Entities and fields use stable immutable identifiers (`ent_*`, `fld_*`). Renaming an entity or field updates its label without breaking links, foreign keys, or layout positioning.
+     - Cardinality (`1:1`, `1:N`) is derived deterministically from Foreign Keys (`field.fk: { entityId, fieldId, onDelete }`) and unique constraints (`field.unique`).
+  2. **Pure Projection Generators:**
+     - All outputs are pure mathematical projections of the IR:
+       - `generateSQL(ir)`: PostgreSQL DDL with table declarations, UUID defaults, foreign key constraints with ON DELETE rules, and automated foreign key indexes.
+       - `generatePrisma(ir)`: Prisma schema with `@id`, `@relation`, `@unique`, and reverse relations.
+       - `generateMongoose(ir)`: Mongoose models with `ObjectId` refs, timestamps, and indexes.
+       - `generateTypeScript(ir)`: Clean TypeScript interfaces with nullability and relational typing.
+       - `generateMermaid(ir)`: Standard crow's-foot ER diagram syntax (`||--||`, `||--o{`).
+       - `generateDBML(ir)`: DBML export supporting the dbdiagram.io ecosystem.
+  3. **Deterministic Schema Linter & Health Score Engine (`schemaLinter.js`):**
+     - Runs 100% locally with $0 compute overhead.
+     - Enforces production rules: missing Primary Keys (-15 pts), unindexed Foreign Keys (-8 pts), missing audit timestamps (`createdAt`/`updatedAt`), unbounded string types, and orphan tables.
+     - Calculates a live Health Score (0–100%) with letter grades (`A+` to `F`), issue severity categorizations, and one-click interactive auto-fixes applied directly to the IR.
+  4. **Topologically Sorted Relational Seed Data Generator (`schemaSeed.js`):**
+     - Implements Kahn's topological sort algorithm over foreign key edges to resolve relational dependencies.
+     - Generates valid relational mock records where child tables strictly reference existing parent primary keys.
+  5. **Developer Workflows & UI Integration:**
+     - `SchemaHeader.jsx`: Added real-time Health Score badge with diagnostics drawer, Auto-Arrange button, 1-click PostgreSQL `.sql` migration file download, and Seed Data generator modal.
+     - `CodeInspector.jsx`: Added DBML tab for dbdiagram.io compatibility.
+
+## ADR-033: Eraser-Style ER Diagram Studio with First-Class Relations and Deterministic Bi-directional Sync
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+- **Context:** The Data Modeling studio suffered from UI clutter (health scores, telemetry drawers, seed data modals, simulation modes, and multiple dialect tabs) and relationship drift caused by storing relations as field attributes or separate unlinked manual links. Developers required a distraction-free ER Diagram experience inspired by Eraser.io: an intuitive declarative language (`users.orgId > organizations.id`), deterministic two-way sync, orthogonal connector lines with cardinality markers, and a clean workspace matching the Chat interface.
+- **Decision:**
+  1. **Canonical Relational Model (`erLang.js`):**
+     - Canonical store model: `model: { entities: [{ id, name, color, fields }], relations: [{ id, from, to, type }], layout: Record<string, {x, y}> }`.
+     - Relationships are first-class citizens (`many-to-one` `>`, `one-to-many` `<`, `one-to-one` `-`, `many-to-many` `<>`) rather than embedded field attributes.
+  2. **Custom Eraser ER Language (`erLang.js`):**
+     - Fast deterministic parser and serializer (`parse(text)`, `serialize(model)`).
+     - Exports PostgreSQL DDL and Prisma schemas as pure functions of the model.
+  3. **Robust Two-Way Sync:**
+     - Canvas edits mutate the model, serialize into code, and update the editor.
+     - Code edits debounce 400ms and parse back to the model. Syntax errors surface in an inline diagnostic banner while keeping the canvas diagram intact.
+  4. **Orthogonal Connectors & Interactive Canvas:**
+     - Field-to-field connection ports (EAST to WEST / WEST to EAST) with SVG orthogonal routing (rounded corners) and `1` / `*` cardinality labels.
+     - Direct port drag-and-drop or click-to-connect interactions.
+     - Selected entity dimming (`opacity: 0.45` on unrelated cards) for visual hierarchy.
+  5. **Focused UI Scope:**
+     - Renamed feature to **ER Diagram** (`/schema`).
+     - Slim 48px top bar with inline title editing, `Split | Diagram | Code` segmented view, New canvas reset, and Save to Library.
+     - Centered `SchemaHero` empty state matching Chat Hero styling.
+     - Docked bottom `SchemaPromptBar` with Gemini model toggle and Suggest -> Review -> Confirm workflow.
+
+
+## ADR-034: Memory Engine Phase 1 Overhaul: Strict Thresholds, ADD/UPDATE/DELETE Decision Pipeline, and Temporal Superseding
+
+- **Date:** 2026-10-13
+- **Status:** Accepted
+- **Context:** Previously, NexAI's memory subsystem suffered from:
+  1. Low-quality context pollution caused by random recency backfill.
+  2. Fragile regex heuristics for updating or invalidating facts (e.g. failing to notice *"I moved to London"* conflicts with *"I live in New York"*).
+  3. No temporal audit trail for past user state.
+  4. Leakage of project-specific facts into unrelated global chats.
+- **Decision:**
+  1. **Strict Cosine Threshold Filtering & Weighted Ranking (`memory.service.js`):**
+     - Hard cosine similarity cutoff at >= 0.75. Queries below threshold inject zero vector memories.
+     - Weighted composite scoring formula: score = sim * 0.6 + recency * 0.2 + confidence * 0.1 + pinnedBoost.
+     - Completely removed the unfiltered recency backfill.
+     - Added telemetry tracking: updating `lastUsedAt` and incrementing `useCount` upon retrieval.
+  2. **LLM ADD / UPDATE / DELETE / NONE Decision Pipeline (`memory.prompt.js` & `memory.service.js`):**
+     - When candidate facts are extracted, vector search retrieves the top 3–5 similar active memories.
+     - Gemini Flash evaluates candidate vs. existing memories and emits an explicit action (`ADD`, `UPDATE`, `DELETE`, `NONE`) with optional semantic slot keys (e.g. `user.location`).
+  3. **Temporal Superseding (`Memory.js`):**
+     - Outdated memories are not hard-deleted; they are marked `active = false`, `validTo = Date.now()`, and `supersededBy = newMemoryId`.
+     - Outdated vector embeddings are purged from Pinecone to eliminate search noise while keeping historical audits in MongoDB.
+  4. **Two-Layer Memory Scoping (`global` vs `project`):**
+     - `scope: 'global' | 'project'` and `projectId`. Global memories are candidate context everywhere; project memories are bounded strictly to chats within that specific project.
+  5. **Safety Guardrails:**
+     - Extraction is strictly bypassed for temporary chats (`isTemporary === true`).
+     - Sensitive credentials (passwords, API keys, cards, tokens) are filtered out unless explicitly accompanied by a `"remember that"` directive.
+     - Per-user cap of 200 memories with automatic pruning of oldest unpinned, low-use records.

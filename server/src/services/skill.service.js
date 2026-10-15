@@ -55,6 +55,19 @@ export const SYSTEM_SKILLS = [
     isSystem: true,
     tags: ['writing', 'executive', 'brief', 'prd'],
   },
+  {
+    title: 'Database & ERD Architect',
+    slug: 'database-erd-architect',
+    description:
+      'Designs normalized relational database models, entity relationships, indexes, and visual ER diagrams.',
+    icon: 'Database',
+    category: 'Architecture',
+    tools: ['schema_modeling'],
+    instructions:
+      'You are a Principal Database Architect. Model entity relationship diagrams, database schemas, foreign keys, and indexes.',
+    isSystem: true,
+    tags: ['database', 'schema', 'erd', 'sql', 'prisma', 'modeling'],
+  },
 ];
 
 /**

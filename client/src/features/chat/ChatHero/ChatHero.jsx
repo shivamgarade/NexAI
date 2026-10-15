@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
-import { SkillPickerModal, VariableFillModal } from '@/features/skills';
+import { SlashSkillsPopover, VariableFillModal } from '@/features/skills';
 import { ModelSelectorPopover } from '../ModelSelector';
 import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useSkillStore } from '@/store/skillStore';
@@ -26,6 +26,10 @@ import { libraryApi } from '@/lib/api/library.api';
 import { toast } from '@/store/uiStore';
 import { getGreetingContext } from './greetingHelper';
 import { cn } from '@/lib/utils/cn';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/constants/routes';
+import { useSchemaStore } from '@/store/schemaStore';
+import { matchSchemaIntent } from '@/features/schemaDesigner';
 import logoImg from '@/assets/logo.png';
 import styles from './ChatHero.module.scss';
 
@@ -54,6 +58,7 @@ const STARTER_PROMPTS = [
 ];
 
 export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const greeting = getGreetingContext(user);
 
@@ -83,7 +88,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const [input, setInput] = useState('');
   const [attachedContext, setAttachedContext] = useState(null);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isSlashOpen, setIsSlashOpen] = useState(false);
   const { activeSkill, setActiveSkill, clearActiveSkill } = useSkillStore();
   const [selectedSkillForVariables, setSelectedSkillForVariables] = useState(null);
   const textareaRef = useRef(null);
@@ -107,11 +112,19 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   };
 
   const handleSelectSkill = (skill) => {
+    setIsSlashOpen(false);
+    if (input.startsWith('/')) {
+      setInput('');
+      baseTextRef.current = '';
+    }
     if (skill.variables && skill.variables.length > 0) {
       setSelectedSkillForVariables(skill);
     } else {
       setActiveSkill(skill);
       toast.info(`Active Skill: ${skill.title}`);
+    }
+    if (textareaRef.current) {
+      textareaRef.current.focus();
     }
   };
 
@@ -229,6 +242,22 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
       textareaRef.current.style.height = "52px";
     }
 
+    // Check for Data Modeling / ER Diagram intent
+    const schemaMatch = matchSchemaIntent(trimmed, activeSkill);
+    if (schemaMatch.isMatch) {
+      setInput("");
+      baseTextRef.current = "";
+      setAttachedContext(null);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "52px";
+      }
+      toast.info("Opening ER Diagram studio...");
+      useSchemaStore.getState().setPrompt(schemaMatch.cleanPrompt);
+      useSchemaStore.getState().generateSchema(schemaMatch.cleanPrompt);
+      navigate(ROUTES.SCHEMA);
+      return;
+    }
+
     if (onSendPrompt) {
       if (attachments.length > 0) {
         onSendPrompt(finalPrompt, attachments);
@@ -238,13 +267,26 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     }
   };
 
+  const slashPopoverRef = useRef(null);
+  const isSkillsPanelOpen = isSlashOpen || input.startsWith('/');
+  const slashQuery = input.startsWith('/') ? input.slice(1) : '';
+
   const handleKeyDown = (e) => {
+    if (isSkillsPanelOpen && slashPopoverRef.current?.handleKeyDown?.(e)) {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
-    } else if ((e.key === '/' || e.key === '@') && (!input || input.trim() === '')) {
+    } else if (e.key === 'Escape' && isSkillsPanelOpen) {
       e.preventDefault();
-      setIsPickerOpen(true);
+      setIsSlashOpen(false);
+      if (input.startsWith('/')) {
+        setInput('');
+        baseTextRef.current = '';
+      }
     }
   };
 
@@ -396,6 +438,15 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
 
   const handleSelectChip = (promptText) => {
     if (isStreaming) return;
+    const schemaMatch = matchSchemaIntent(promptText, activeSkill);
+    if (schemaMatch.isMatch) {
+      toast.info("Opening ER Diagram studio...");
+      useSchemaStore.getState().setPrompt(schemaMatch.cleanPrompt);
+      useSchemaStore.getState().generateSchema(schemaMatch.cleanPrompt);
+      navigate(ROUTES.SCHEMA);
+      return;
+    }
+
     if (onSendPrompt) {
       onSendPrompt(promptText);
     } else {
@@ -452,7 +503,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
           className={cn(
             styles.composerCard,
             isDraggingOver && styles.composerCardDragging,
-            isTemporaryChat && styles.composerCardTemporary
+            isTemporaryChat && styles.composerCardTemporary,
+            isSkillsPanelOpen && styles.composerCardWithSkills,
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -476,15 +528,24 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               />
             )}
 
-            {/* Active Tool-Enabled Skill Pill */}
+            {/* Active Tool-Enabled Skill Badge */}
             {activeSkill && (
               <div className={styles.activeSkillPill}>
-                <Zap size={13} className={styles.activeSkillIcon} />
-                <span className={styles.activeSkillName}>{activeSkill.title}</span>
+                <div className={styles.activeSkillIconWrapper}>
+                  <Zap size={12} className={styles.activeSkillIcon} />
+                </div>
+                <div className={styles.activeSkillInfo}>
+                  <span className={styles.activeSkillBadge}>Skill</span>
+                  <span className={styles.activeSkillName}>{activeSkill.title}</span>
+                </div>
                 {activeSkill.tools && activeSkill.tools.length > 0 && (
-                  <span className={styles.activeSkillTools}>
-                    • {activeSkill.tools.join(', ')}
-                  </span>
+                  <div className={styles.activeSkillToolsList}>
+                    {activeSkill.tools.map((tool) => (
+                      <span key={tool} className={styles.activeSkillToolTag}>
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
                 )}
                 <button
                   type="button"
@@ -508,6 +569,21 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               accept="image/*,audio/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.js,.ts,.jsx,.tsx,.py,.html,.css,.yaml,.yml,.sql"
             />
 
+            {/* Slash Skills Popover — Compact, hierarchical, positioned above composer */}
+            <SlashSkillsPopover
+              ref={slashPopoverRef}
+              open={isSkillsPanelOpen}
+              onClose={() => {
+                setIsSlashOpen(false);
+                if (input.startsWith('/')) {
+                  setInput('');
+                  baseTextRef.current = '';
+                }
+              }}
+              onSelectSkill={handleSelectSkill}
+              searchQuery={slashQuery}
+            />
+
             {/* Top Textarea Area */}
             <div className={styles.inputArea}>
               <textarea
@@ -515,8 +591,14 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                 rows={2}
                 value={input}
                 onChange={(e) => {
-                  setInput(e.target.value);
-                  baseTextRef.current = e.target.value;
+                  const val = e.target.value;
+                  setInput(val);
+                  baseTextRef.current = val;
+                  if (val.startsWith('/')) {
+                    setIsSlashOpen(true);
+                  } else {
+                    setIsSlashOpen(false);
+                  }
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={
@@ -531,7 +613,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               />
             </div>
 
-            {/* Bottom Actions Toolbar: Attach (+) & Skills on left; Model Selector, Mic, Send on right */}
+            {/* Bottom Actions Toolbar: Attach (+) on left; Model Selector, Mic, Send on right */}
             <div className={styles.composerBottomRow}>
               <div className={styles.bottomLeftActions}>
                 <div className={styles.attachAnchorWrapper}>
@@ -554,16 +636,6 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     onUploadLocal={() => fileInputRef.current?.click()}
                   />
                 </div>
-
-                <button
-                  type="button"
-                  className={cn(styles.attachBtn, activeSkill && styles.attachBtnActive)}
-                  onClick={() => setIsPickerOpen(true)}
-                  title={activeSkill ? `Active Skill: ${activeSkill.title} (Click to change)` : 'Choose Agent Skill (/)'}
-                  aria-label="Choose Agent Skill"
-                >
-                  <Zap size={17} />
-                </button>
               </div>
 
               <div className={styles.bottomRightActions}>
@@ -652,12 +724,6 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
       </div>
 
 
-      {/* Skill Selector Modal */}
-      <SkillPickerModal
-        open={isPickerOpen}
-        onClose={() => setIsPickerOpen(false)}
-        onSelectSkill={handleSelectSkill}
-      />
 
       {/* Variable Fill Modal for Skill */}
       {selectedSkillForVariables && (

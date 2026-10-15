@@ -13,6 +13,8 @@ import searchRoutes from './search.routes.js';
 import walletRoutes from './wallet.routes.js';
 import memoryRoutes from './memory.routes.js';
 import schemaRoutes from './schema.routes.js';
+import scheduleRoutes from './schedule.routes.js';
+import connectedAppRoutes from './connectedApp.routes.js';
 
 const router = Router();
 
@@ -25,6 +27,8 @@ router.use('/library', libraryRoutes);
 router.use('/projects', projectRoutes);
 router.use('/prompts', promptRoutes);
 router.use('/skills', skillRoutes);
+router.use('/schedules', scheduleRoutes);
+router.use('/connected-apps', connectedAppRoutes);
 router.use('/interview', interviewRoutes);
 router.use('/search', searchRoutes);
 router.use('/wallet', walletRoutes);

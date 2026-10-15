@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
-import { SkillPickerModal, VariableFillModal } from '@/features/skills';
+import { SlashSkillsPopover, VariableFillModal } from '@/features/skills';
 import { ModelSelectorPopover } from '../ModelSelector';
 import { AttachContextPopover } from './AttachContextPopover';
 import { AttachedContextPreview } from './AttachedContextPreview';
@@ -25,11 +25,16 @@ import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useSkillStore } from '@/store/skillStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { libraryApi } from '@/lib/api/library.api';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/constants/routes';
+import { useSchemaStore } from '@/store/schemaStore';
+import { matchSchemaIntent } from '@/features/schemaDesigner';
 import { toast } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
 import styles from './ChatInput.module.scss';
 
 export function ChatInput({ prefillValue, onClearPrefill }) {
+  const navigate = useNavigate();
   const {
     sendMessage,
     isStreaming,
@@ -56,7 +61,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
 
   const [input, setInput] = useState('');
   const [attachedContext, setAttachedContext] = useState(null);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isSlashOpen, setIsSlashOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [selectedPromptForVariables, setSelectedPromptForVariables] = useState(null);
   const textareaRef = useRef(null);
@@ -86,11 +91,19 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   const [selectedSkillForVariables, setSelectedSkillForVariables] = useState(null);
 
   const handleSelectSkill = (skill) => {
+    setIsSlashOpen(false);
+    if (input.startsWith('/')) {
+      setInput('');
+      baseTextRef.current = '';
+    }
     if (skill.variables && skill.variables.length > 0) {
       setSelectedSkillForVariables(skill);
     } else {
       setActiveSkill(skill);
       toast.info(`Active Skill: ${skill.title}`);
+    }
+    if (textareaRef.current) {
+      textareaRef.current.focus();
     }
   };
 
@@ -203,16 +216,40 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     if (textareaRef.current) {
       textareaRef.current.style.height = '28px';
     }
+
+    // Check for Data Modeling / ER Diagram intent
+    const schemaMatch = matchSchemaIntent(trimmed, activeSkill);
+    if (schemaMatch.isMatch) {
+      toast.info('Opening ER Diagram studio...');
+      useSchemaStore.getState().setPrompt(schemaMatch.cleanPrompt);
+      useSchemaStore.getState().generateSchema(schemaMatch.cleanPrompt);
+      navigate(ROUTES.SCHEMA);
+      return;
+    }
+
     await sendMessage(messageToSend, attachments, { skill: activeSkill });
   };
 
+  const slashPopoverRef = useRef(null);
+  const isSkillsPanelOpen = isSlashOpen || input.startsWith('/');
+  const slashQuery = input.startsWith('/') ? input.slice(1) : '';
+
   const handleKeyDown = (e) => {
+    if (isSkillsPanelOpen && slashPopoverRef.current?.handleKeyDown?.(e)) {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
-    } else if ((e.key === '/' || e.key === '@') && (!input || input.trim() === '')) {
+    } else if (e.key === 'Escape' && isSkillsPanelOpen) {
       e.preventDefault();
-      setIsPickerOpen(true);
+      setIsSlashOpen(false);
+      if (input.startsWith('/')) {
+        setInput('');
+        baseTextRef.current = '';
+      }
     }
   };
 
@@ -368,7 +405,8 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
         className={cn(
           styles.composerForm,
           isDraggingOver && styles.composerFormDragging,
-          isTemporaryChat && styles.composerFormTemporary
+          isTemporaryChat && styles.composerFormTemporary,
+          isSkillsPanelOpen && styles.composerFormWithSkills,
         )}
         onSubmit={handleSubmit}
         onDragEnter={handleDragEnter}
@@ -392,15 +430,24 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           />
         )}
 
-        {/* Active Tool-Enabled Skill Pill */}
+        {/* Active Tool-Enabled Skill Badge */}
         {activeSkill && (
           <div className={styles.activeSkillPill}>
-            <Zap size={13} className={styles.activeSkillIcon} />
-            <span className={styles.activeSkillName}>{activeSkill.title}</span>
+            <div className={styles.activeSkillIconWrapper}>
+              <Zap size={12} className={styles.activeSkillIcon} />
+            </div>
+            <div className={styles.activeSkillInfo}>
+              <span className={styles.activeSkillBadge}>Skill</span>
+              <span className={styles.activeSkillName}>{activeSkill.title}</span>
+            </div>
             {activeSkill.tools && activeSkill.tools.length > 0 && (
-              <span className={styles.activeSkillTools}>
-                • {activeSkill.tools.join(', ')}
-              </span>
+              <div className={styles.activeSkillToolsList}>
+                {activeSkill.tools.map((tool) => (
+                  <span key={tool} className={styles.activeSkillToolTag}>
+                    {tool}
+                  </span>
+                ))}
+              </div>
             )}
             <button
               type="button"
@@ -421,6 +468,22 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           style={{ display: 'none' }}
           aria-label="Attach file"
           accept="image/*,audio/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.js,.ts,.jsx,.tsx,.py,.html,.css,.yaml,.yml,.sql"
+        />
+
+        {/* Integrated Slash Skills Section — Part of input container */}
+        {/* Slash Skills Popover — Compact, hierarchical, positioned above composer */}
+        <SlashSkillsPopover
+          ref={slashPopoverRef}
+          open={isSkillsPanelOpen}
+          onClose={() => {
+            setIsSlashOpen(false);
+            if (input.startsWith('/')) {
+              setInput('');
+              baseTextRef.current = '';
+            }
+          }}
+          onSelectSkill={handleSelectSkill}
+          searchQuery={slashQuery}
         />
 
         <div className={styles.composerInputRow}>
@@ -445,23 +508,19 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
             />
           </div>
 
-          <button
-            type="button"
-            className={cn(styles.addBtn, activeSkill && styles.addBtnActive)}
-            onClick={() => setIsPickerOpen(true)}
-            title={activeSkill ? `Active Skill: ${activeSkill.title} (Click to change)` : 'Choose Agent Skill (/)'}
-            aria-label="Choose Agent Skill"
-          >
-            <Zap size={16} />
-          </button>
-
           <textarea
             ref={textareaRef}
             rows={1}
             value={input}
             onChange={(e) => {
-              setInput(e.target.value);
-              baseTextRef.current = e.target.value;
+              const val = e.target.value;
+              setInput(val);
+              baseTextRef.current = val;
+              if (val.startsWith('/')) {
+                setIsSlashOpen(true);
+              } else {
+                setIsSlashOpen(false);
+              }
             }}
             onKeyDown={handleKeyDown}
             placeholder={activeSkill ? `Ask ${activeSkill.title}...` : "Write a message... ('/' for skills)"}
@@ -539,12 +598,6 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
         </div>
       </div>
 
-      {/* Skill Selector Modal */}
-      <SkillPickerModal
-        open={isPickerOpen}
-        onClose={() => setIsPickerOpen(false)}
-        onSelectSkill={handleSelectSkill}
-      />
 
       {/* Variable Fill Modal for Skill */}
       {selectedSkillForVariables && (

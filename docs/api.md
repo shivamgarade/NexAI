@@ -2114,6 +2114,68 @@ Toggle favorite state for a skill.
   - `skillId` (optional, ObjectId string): Active skill ID.
   - `enabledTools` (optional, array of string): Explicitly enabled tools (`"web_search"`, `"fetch_url"`, `"workspace_search"`, `"memory_search"`, `"code_execution"`).
 - **SSE Events:**
-  - `event: step`: Real-time agent progress (`{ id, tool, type, title, status: 'running' | 'completed' | 'failed', output }`).
+  - `event: step`: Real-time agent progress (`{ id, tool, type, title, status: 'running' | 'completed' | 'failed', output, mode }`).
   - `event: grounding`: Web citation sources (`{ webSearchQueries: [...], sources: [{ title, url }] }`).
+
+---
+
+## Automations Hub & Schedules
+
+### GET `/api/schedules`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Returns list of schedules for the current user.
+
+### POST `/api/schedules`
+- **Auth:** Bearer Token
+- **Request Body:**
+```json
+{
+  "title": "Daily Tech Digest",
+  "instructions": "Summarize top 3 AI and dev breakthroughs today.",
+  "frequency": "daily",
+  "weeklyDays": [1, 2, 3, 4, 5],
+  "runTime": "09:00",
+  "deliveryTarget": "chat",
+  "model": "flash"
+}
+```
+- **Response `201 Created`:** Returns created Schedule document.
+
+### PATCH `/api/schedules/:id`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Updates schedule properties.
+
+### PATCH `/api/schedules/:id/toggle`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Toggles schedule `isActive` status between active and paused.
+
+### POST `/api/schedules/:id/run-now`
+- **Auth:** Bearer Token
+- **Description:** Instantly executes the schedule (ideal for live examiner viva demonstrations). Verifies credits, calls Gemini, meters and deducts tokens, saves results to Chat or Library, and logs telemetry.
+- **Response `200 OK`:** `{ success: true, data: { schedule, resultText, tokensUsed, chatId } }`.
+
+### DELETE `/api/schedules/:id`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Deletes schedule.
+
+---
+
+## Connected Apps & Ecosystem Integrations
+
+### GET `/api/connected-apps`
+- **Auth:** Bearer Token
+- **Response `200 OK`:** Returns all ecosystem integrations (`web-search`, `github`, `google-drive`, `notion`, `figma`) with current connection statuses.
+
+### PATCH `/api/connected-apps/:slug`
+- **Auth:** Bearer Token
+- **Request Body:**
+```json
+{
+  "isConnected": true,
+  "accountName": "developer-org",
+  "webhookUrl": "https://...",
+  "apiKey": "token_..."
+}
+```
+- **Response `200 OK`:** Returns updated connected app state.
 

@@ -93,6 +93,7 @@ export async function* streamContent({
 }) {
   const client = getGeminiClient();
   const modelName = getModelName(model);
+  let activeModelName = modelName;
 
   let stream = null;
   let attempt = 0;
@@ -101,7 +102,7 @@ export async function* streamContent({
   while (true) {
     try {
       stream = await client.models.generateContentStream({
-        model: modelName,
+        model: activeModelName,
         contents,
         config: {
           ...(systemInstruction ? { systemInstruction } : {}),
@@ -111,6 +112,19 @@ export async function* streamContent({
       break;
     } catch (err) {
       attempt++;
+
+      // If quota exhausted (429), failover to resilient flash-lite model before giving up
+      if (
+        (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) &&
+        activeModelName !== 'gemini-3.1-flash-lite'
+      ) {
+        logger.warn(
+          { fromModel: activeModelName, toModel: 'gemini-3.1-flash-lite' },
+          'Model quota exhausted (429), failing over to resilient gemini-3.1-flash-lite...',
+        );
+        activeModelName = 'gemini-3.1-flash-lite';
+        continue;
+      }
 
       // If tools contained native googleSearch and failed with 429 quota exhaustion, strip it and retry immediately
       if (
@@ -228,6 +242,7 @@ export async function generateContent({
 }) {
   const client = getGeminiClient();
   const modelName = getModelName(model);
+  let activeModelName = modelName;
 
   let attempt = 0;
   const maxRetries = 1;
@@ -235,7 +250,7 @@ export async function generateContent({
   while (true) {
     try {
       const response = await client.models.generateContent({
-        model: modelName,
+        model: activeModelName,
         contents,
         config: {
           ...(systemInstruction ? { systemInstruction } : {}),
@@ -256,6 +271,19 @@ export async function generateContent({
       };
     } catch (error) {
       attempt++;
+
+      // If quota exhausted (429), failover to resilient flash-lite model before giving up
+      if (
+        (error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) &&
+        activeModelName !== 'gemini-3.1-flash-lite'
+      ) {
+        logger.warn(
+          { fromModel: activeModelName, toModel: 'gemini-3.1-flash-lite' },
+          'Model quota exhausted (429), failing over to resilient gemini-3.1-flash-lite...',
+        );
+        activeModelName = 'gemini-3.1-flash-lite';
+        continue;
+      }
       const isTransient =
         error.message?.includes('503') ||
         error.message?.includes('UNAVAILABLE') ||

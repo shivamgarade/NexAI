@@ -9,6 +9,7 @@ export const ROUTES = {
   DOCUMENT_ID: '/documents/:id',
   PROMPTS: '/prompts',
   SKILLS: '/skills',
+  AUTOMATIONS: '/automations',
   INTERVIEW: '/interview',
   SEARCH: '/search',
   WALLET: '/wallet',

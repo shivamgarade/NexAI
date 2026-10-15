@@ -1,7 +1,6 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { memoryService } from '../services/memory.service.js';
-import { Memory } from '../models/Memory.js';
 
 /**
  * Returns all active long-term memories for the authenticated user.
@@ -17,11 +16,14 @@ export const getMemories = asyncHandler(async (req, res) => {
  * POST /api/memories
  */
 export const createMemory = asyncHandler(async (req, res) => {
-  const { fact, category, pinned } = req.body;
+  const { fact, category, pinned, key, scope, projectId } = req.body;
   const memory = await memoryService.createManualMemory(req.user._id, {
     fact,
     category,
     pinned,
+    key,
+    scope,
+    projectId,
   });
   res.status(201).json({ data: memory });
 });
@@ -32,13 +34,16 @@ export const createMemory = asyncHandler(async (req, res) => {
  */
 export const updateMemory = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { fact, category, pinned, active } = req.body;
+  const { fact, category, pinned, active, key, scope, projectId } = req.body;
 
   const memory = await memoryService.updateUserMemory(req.user._id, id, {
     fact,
     category,
     pinned,
     active,
+    key,
+    scope,
+    projectId,
   });
 
   if (!memory) {

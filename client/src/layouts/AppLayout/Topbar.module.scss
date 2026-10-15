@@ -34,6 +34,16 @@
   }
 }
 
+.desktopToggle {
+  display: none;
+
+  @include up(md) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 .title {
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);

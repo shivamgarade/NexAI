@@ -256,8 +256,14 @@ export const useChatStore = create((set, get) => ({
     });
 
     if (chatId) {
-      await get().fetchMessages(chatId);
+      const msgs = await get().fetchMessages(chatId);
+      if (msgs === null) {
+        set({ activeChatId: null, messages: [] });
+        return false;
+      }
+      return true;
     }
+    return true;
   },
 
   /**
@@ -401,8 +407,15 @@ export const useChatStore = create((set, get) => ({
       }
       return messages;
     } catch (err) {
-      const message = err.message || 'Failed to load messages';
+      const isNotFound =
+        err?.response?.status === 404 ||
+        err?.response?.data?.error?.code === 'CHAT_NOT_FOUND' ||
+        err?.code === 'CHAT_NOT_FOUND';
+      const message = isNotFound ? 'Chat not found' : (err.message || 'Failed to load messages');
       set({ isLoadingMessages: false, error: message });
+      if (isNotFound) {
+        return null;
+      }
       toast.error(message);
       return [];
     } finally {
@@ -421,7 +434,11 @@ export const useChatStore = create((set, get) => ({
       return;
     }
 
-    let targetChatId = get().activeChatId;
+    let targetChatId = options.chatId || get().activeChatId;
+
+    if (options.chatId && get().activeChatId !== options.chatId) {
+      set({ activeChatId: options.chatId });
+    }
 
     // Auto-create chat session if none is selected
     if (!targetChatId) {
@@ -558,6 +575,21 @@ export const useChatStore = create((set, get) => ({
             return { messages: msgs };
           });
         },
+        onMemoryUpdated: (memData) => {
+          set((state) => {
+            const msgs = [...state.messages];
+            const lastMsg = msgs[msgs.length - 1];
+            if (lastMsg && lastMsg.role === 'assistant') {
+              const existing = Array.isArray(lastMsg.memoriesUpdated) ? [...lastMsg.memoriesUpdated] : [];
+              const incoming = Array.isArray(memData?.memories) ? memData.memories : memData ? [memData] : [];
+              msgs[msgs.length - 1] = {
+                ...lastMsg,
+                memoriesUpdated: [...existing, ...incoming],
+              };
+            }
+            return { messages: msgs };
+          });
+        },
         onDone: (doneData) => {
           set((state) => {
             const msgs = [...state.messages];
@@ -571,6 +603,7 @@ export const useChatStore = create((set, get) => ({
                 followUps: doneData.followUps || [],
                 steps: doneData.steps || lastMsg.steps || [],
                 groundingMetadata: doneData.groundingMetadata || lastMsg.groundingMetadata || null,
+                memoriesUpdated: doneData.memoriesUpdated || lastMsg.memoriesUpdated || [],
                 skillId: doneData.skillId || skillId,
                 isStreaming: false,
                 isThinking: false,

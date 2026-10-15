@@ -13,12 +13,14 @@ import {
   Target,
   ArrowLeft,
   Plus,
+  Sparkles,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/components/ui/Toast';
 import { ROUTES } from '@/constants/routes';
+import { usePromptStore } from '@/store/promptStore';
 import { cn } from '@/lib/utils/cn';
 import styles from './Scorecard.module.scss';
 
@@ -118,6 +120,27 @@ ${summary}`;
     navigate(`${ROUTES.LIBRARY}?tab=interviews`);
   };
 
+  const handleGenerateStudyPrompts = async () => {
+    if (!recommendedTopics || recommendedTopics.length === 0) return;
+    try {
+      const createPrompt = usePromptStore.getState().createPrompt;
+      for (const topic of recommendedTopics.slice(0, 3)) {
+        await createPrompt({
+          title: `Study Focus: ${topic}`,
+          description: `Generated from ${session?.role || 'Technical'} interview evaluation scorecard`,
+          template: `You are an expert technical interviewer. I need to master {{${topic.toLowerCase().replace(/[^a-z0-9]/g, '_')}}}.\n\nExplain the core architectural concepts, common production failure modes, and top 3 senior-level interview questions with model answers.`,
+          tags: ['interview-prep', 'study-guide', session?.role ? session.role.toLowerCase() : 'technical'],
+        });
+      }
+      toast.success('Generated study templates saved to Prompt Vault!');
+      navigate(ROUTES.PROMPTS);
+    } catch {
+      toast.error('Failed to generate study prompts');
+    }
+  };
+
+  const isIncomplete = scorecard?.isIncomplete || scorecard?.rating === 'Incomplete' || session?.status === 'incomplete';
+
   return (
     <div className={styles.scorecardContainer}>
       {/* Header Banner */}
@@ -125,8 +148,8 @@ ${summary}`;
         <div className={styles.heroTop}>
           <div className={styles.roleHeader}>
             <div className={styles.badgeRow}>
-              <Badge variant="accent" size="sm">
-                COMPLETED EVALUATION
+              <Badge variant={isIncomplete ? 'warning' : 'accent'} size="sm">
+                {isIncomplete ? 'INCOMPLETE SESSION' : 'COMPLETED EVALUATION'}
               </Badge>
               <Badge variant="secondary" size="sm">
                 {session?.difficulty}
@@ -137,16 +160,25 @@ ${summary}`;
           </div>
 
           {/* Overall Score Dial / Badge */}
-          <div className={styles.scoreBadgeBox}>
-            <div className={cn(styles.scoreCircle, getScoreColorClass(overallScore))}>
-              <span className={styles.scoreNum}>{overallScore}</span>
-              <span className={styles.scoreTotal}>/100</span>
+          {!isIncomplete ? (
+            <div className={styles.scoreBadgeBox}>
+              <div className={cn(styles.scoreCircle, getScoreColorClass(overallScore))}>
+                <span className={styles.scoreNum}>{overallScore}</span>
+                <span className={styles.scoreTotal}>/100</span>
+              </div>
+              <Badge variant={getScoreVariant(overallScore)} size="md" className={styles.ratingBadge}>
+                <Award size={14} />
+                {rating}
+              </Badge>
             </div>
-            <Badge variant={getScoreVariant(overallScore)} size="md" className={styles.ratingBadge}>
-              <Award size={14} />
-              {rating}
-            </Badge>
-          </div>
+          ) : (
+            <div className={styles.scoreBadgeBox}>
+              <Badge variant="warning" size="md" className={styles.ratingBadge}>
+                <AlertTriangle size={14} />
+                Session Incomplete
+              </Badge>
+            </div>
+          )}
         </div>
 
         {/* Action Toolbar */}
@@ -170,6 +202,18 @@ ${summary}`;
             >
               {hasCopied ? 'Copied' : 'Copy Report'}
             </Button>
+            {recommendedTopics && recommendedTopics.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleGenerateStudyPrompts}
+                leftIcon={<Sparkles size={15} />}
+                className={styles.studyPromptsBtn}
+                title="Convert recommended focus areas into Prompt Vault templates"
+              >
+                Generate Study Prompts
+              </Button>
+            )}
           </div>
 
           <div className={styles.rightActions}>

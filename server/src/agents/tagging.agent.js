@@ -16,23 +16,34 @@ const taggingOutputSchema = z.object({
  * @returns {string[]}
  */
 function normalizeTags(rawTags) {
+  const disallowed = new Set(['interview', 'mid', 'junior', 'senior', 'document', 'note', 'link', 'file', 'info', 'text']);
+
   const cleaned = rawTags
-    .map((tag) =>
-      tag
+    .map((tag) => {
+      let t = tag
         .toLowerCase()
         .trim()
-        .replace(/[^a-z0-9-]/g, '')
-        .replace(/^-+|-+$/g, ''),
-    )
-    .filter((tag) => tag.length >= 2 && tag.length <= 30);
+        .replace(/[^a-z0-9-\s]/g, '')
+        .trim();
+
+      // If model returned a sentence with spaces or hyphens, take the first 1-2 words
+      const words = t.split(/[\s-]+/).filter(Boolean);
+      if (words.length > 2) {
+        t = words.slice(0, 2).join('-');
+      } else {
+        t = words.join('-');
+      }
+      return t.replace(/^-+|-+$/g, '');
+    })
+    .filter((tag) => tag.length >= 2 && tag.length <= 25 && !disallowed.has(tag));
 
   const unique = Array.from(new Set(cleaned));
   if (unique.length < 3) {
-    if (!unique.includes('library')) unique.push('library');
-    if (!unique.includes('reference')) unique.push('reference');
-    if (!unique.includes('notes')) unique.push('notes');
+    if (!unique.includes('reference') && !disallowed.has('reference')) unique.push('reference');
+    if (!unique.includes('workspace') && !disallowed.has('workspace')) unique.push('workspace');
+    if (!unique.includes('guide') && !disallowed.has('guide')) unique.push('guide');
   }
-  return unique.slice(0, 6);
+  return unique.slice(0, 5);
 }
 
 /**

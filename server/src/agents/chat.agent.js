@@ -109,13 +109,19 @@ export async function* streamChatReply({
   personalization,
   skill = null,
   enabledTools = [],
+  toolExecutionMode = 'auto',
   context = {},
 }) {
   const contents = formatConversationHistory(messages);
 
   let systemInstruction = CHAT_SYSTEM_PROMPT;
 
-  // 1. Inject global user personalization directives if configured
+  // 1. Inject autonomous tool capabilities if active
+  if (!skill && enabledTools.length > 0) {
+    systemInstruction += `\n\n[AUTONOMOUS TOOL CAPABILITY]:\nYou have real-time access to tools: ${enabledTools.join(', ')}. When user inquiries require live information, up-to-date facts, URL reading, or project searches, autonomously invoke the appropriate tool.`;
+  }
+
+  // 2. Inject global user personalization directives if configured
   if (personalization?.customInstructions && personalization.customInstructions.trim()) {
     systemInstruction += `\n\n[USER GLOBAL CUSTOM INSTRUCTIONS]:\nThe user has provided the following global directives that must be honored across all conversations:\n${personalization.customInstructions.trim()}`;
   }
@@ -260,6 +266,7 @@ export async function* streamChatReply({
           title: actionTitle,
           input: call.args,
           status: 'running',
+          mode: toolExecutionMode,
         },
       };
 

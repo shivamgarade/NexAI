@@ -14,7 +14,7 @@
   --color-warning: var(--amber-500);
   --color-danger: var(--red-500);
   --color-info: var(--blue-500);
-  --color-focus-ring: color-mix(in srgb, var(--green-600) 40%, transparent);
+  --color-focus-ring: rgba(0, 0, 0, 0.14);
   --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
   --shadow-md: 0 6px 20px rgb(16 24 40 / 0.08);
   --shadow-lg: 0 16px 48px rgb(16 24 40 / 0.12);

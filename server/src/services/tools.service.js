@@ -6,15 +6,21 @@ import { Document } from '../models/Document.js';
 import { logger } from '../utils/logger.js';
 
 /**
- * Searches the web using DuckDuckGo HTML results, extracting titles, snippets, and source URLs.
- * Works quota-free without external API tokens.
+ * Searches the web using Bing HTML results with DuckDuckGo and Wikipedia fallback.
+ * Works quota-free without external API tokens, extracting real titles, snippets, and decoded URLs.
  *
  * @param {string} query
  * @returns {Promise<{ query: string, resultsCount: number, results: Array<{ title: string, snippet: string, url: string }> }>}
  */
 export async function performWebSearch(query) {
+  const cleanQuery = query.trim();
+  if (!cleanQuery) {
+    return { query, resultsCount: 0, results: [] };
+  }
+
+  // 1. Primary Engine: Bing Web Search
   try {
-    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const url = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}&setlang=en`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -22,63 +28,158 @@ export async function performWebSearch(query) {
       signal: controller.signal,
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 NexAI/1.0',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 NexAI/1.0',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
     });
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      return { query, resultsCount: 0, results: [], error: `Search status ${response.status}` };
-    }
+    if (response.ok) {
+      const html = await response.text();
+      const $ = cheerio.load(html);
+      const results = [];
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
-    const results = [];
+      $('li.b_algo').each((_, el) => {
+        if (results.length >= 6) return;
+        const title = $(el).find('h2').text().trim();
+        const snippet = $(el).find('.b_caption p, .b_lineclamp2, .b_snippet, p').first().text().trim();
+        const rawHref = $(el).find('h2 a').attr('href') || '';
 
-    $('.result').each((i, el) => {
-      if (results.length >= 5) return;
-      const title = $(el).find('.result__title').text().trim();
-      const snippet = $(el).find('.result__snippet').text().trim();
-      const rawUrl = $(el).find('.result__url').text().trim();
-      const href = $(el).find('.result__url').attr('href') || $(el).find('.result__title a').attr('href');
-
-      let link = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
-      if (href && href.includes('uddg=')) {
-        try {
-          const match = href.match(/uddg=([^&]+)/);
-          if (match && match[1]) {
-            link = decodeURIComponent(match[1]);
+        let finalUrl = rawHref;
+        const match = rawHref.match(/u=a1([A-Za-z0-9_-]+)/);
+        if (match) {
+          try {
+            finalUrl = Buffer.from(
+              match[1].replace(/-/g, '+').replace(/_/g, '/'),
+              'base64',
+            ).toString('utf8');
+          } catch {
+            finalUrl = rawHref;
           }
-        } catch {
-          // fallback to link
+        }
+
+        if (title && (snippet || finalUrl)) {
+          results.push({
+            title,
+            snippet: snippet || title,
+            url: finalUrl.startsWith('http') ? finalUrl : `https://${finalUrl}`,
+          });
+        }
+      });
+
+      if (results.length > 0) {
+        return {
+          query: cleanQuery,
+          resultsCount: results.length,
+          results,
+        };
+      }
+    }
+  } catch (bingErr) {
+    logger.warn({ error: bingErr.message, query: cleanQuery }, 'Primary web search provider fallback triggered');
+  }
+
+  // 2. Secondary Engine: DuckDuckGo HTML
+  try {
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanQuery)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const response = await fetch(ddgUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const html = await response.text();
+      const $ = cheerio.load(html);
+      const results = [];
+
+      $('.result').each((_, el) => {
+        if (results.length >= 5) return;
+        const title = $(el).find('.result__title').text().trim();
+        const snippet = $(el).find('.result__snippet').text().trim();
+        const rawUrl = $(el).find('.result__url').text().trim();
+        const href = $(el).find('.result__url').attr('href') || $(el).find('.result__title a').attr('href');
+
+        let link = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+        if (href && href.includes('uddg=')) {
+          try {
+            const match = href.match(/uddg=([^&]+)/);
+            if (match && match[1]) {
+              link = decodeURIComponent(match[1]);
+            }
+          } catch {
+            // keep link
+          }
+        }
+
+        if (title && snippet) {
+          results.push({
+            title,
+            snippet,
+            url: link,
+          });
+        }
+      });
+
+      if (results.length > 0) {
+        return {
+          query: cleanQuery,
+          resultsCount: results.length,
+          results,
+        };
+      }
+    }
+  } catch (ddgErr) {
+    logger.warn({ error: ddgErr.message, query: cleanQuery }, 'DuckDuckGo search fallback failed');
+  }
+
+  // 3. Tertiary Fallback: Wikipedia OpenSearch API (for tech/science/concept lookups)
+  try {
+    const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(cleanQuery)}&limit=4&namespace=0&format=json`;
+    const response = await fetch(wikiUrl);
+    if (response.ok) {
+      const data = await response.json();
+      const titles = data[1] || [];
+      const snippets = data[2] || [];
+      const urls = data[3] || [];
+      const results = [];
+
+      for (let i = 0; i < titles.length; i++) {
+        if (titles[i]) {
+          results.push({
+            title: titles[i],
+            snippet: snippets[i] || titles[i],
+            url: urls[i] || `https://en.wikipedia.org/wiki/${encodeURIComponent(titles[i])}`,
+          });
         }
       }
 
-      if (title && snippet) {
-        results.push({
-          title,
-          snippet,
-          url: link,
-        });
+      if (results.length > 0) {
+        return {
+          query: cleanQuery,
+          resultsCount: results.length,
+          results,
+        };
       }
-    });
-
-    return {
-      query,
-      resultsCount: results.length,
-      results,
-    };
-  } catch (err) {
-    logger.warn({ error: err.message, query }, 'Agent web search fallback triggered');
-    return {
-      query,
-      resultsCount: 0,
-      results: [],
-      error: `Search request error: ${err.message}`,
-    };
+    }
+  } catch {
+    // ignore
   }
+
+  return {
+    query: cleanQuery,
+    resultsCount: 0,
+    results: [],
+  };
 }
 
 /**

@@ -1,7 +1,7 @@
 import { Memory } from '../models/Memory.js';
 import { generateContent, embedContent } from './gemini.service.js';
 import { vectorDbService } from './vectorDb.service.js';
-import { MEMORY_EXTRACTION_PROMPT } from '../agents/prompts/memory.prompt.js';
+import { MEMORY_EXTRACTION_PROMPT, MEMORY_DECISION_PROMPT } from '../agents/prompts/memory.prompt.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -17,54 +17,36 @@ function extractDeterministicMemories(text) {
 
   const clean = text.trim();
 
-  // 1. Forget / delete requests
+  // 1. Explicit Forget / delete requests
   const forgetMatch = clean.match(/(?:forget that|forget my|don't remember|do not remember|bhool jao|yaad mat rakhna|delete kar do)\s+([^.!?\n]+)/i);
   if (forgetMatch) {
     forgetRequests.push(forgetMatch[1].trim());
   }
 
-  // 2. Identity: Name
+  // 2. Explicit Identity Directives (Direct name introductions)
   let identifiedName = null;
 
-  // Pattern A: "its shivam this side" / "it's shivam here"
-  const thisSideMatch = clean.match(/\b(?:it'?s|this is)\s+([A-Za-z]{2,25})\s+this side\b/i);
-  if (thisSideMatch) {
-    identifiedName = thisSideMatch[1].trim();
+  // Pattern A: "my name is Alice" / "call me Bob"
+  const directNameMatch = clean.match(/\b(?:my name is|call me)\s+([A-Za-z]{2,25})\b/i);
+  if (directNameMatch) {
+    identifiedName = directNameMatch[1].trim();
   }
 
-  // Pattern B: "hello ... its shivam" / "hi, i am shivam"
-  if (!identifiedName) {
-    const greetingMatch = clean.match(/(?:hello|hi|hey|greetings)[^.!?\n]*\b(?:it'?s|this is|i'?m|i am)\s+([A-Za-z]{2,25})\b/i);
-    if (greetingMatch) {
-      identifiedName = greetingMatch[1].trim();
-    }
-  }
-
-  // Pattern C: "my name is Alice" / "call me Bob" / "i am called Charlie"
-  if (!identifiedName) {
-    const directNameMatch = clean.match(/\b(?:my name is|call me|i am called|i'm called)\s+([A-Za-z]{2,25})\b/i);
-    if (directNameMatch) {
-      identifiedName = directNameMatch[1].trim();
-    }
-  }
-
-  // Pattern D (Hindi/Hinglish): "mera naam shivam hai" / "mera naam shivam" / "mera naam ... save kar lo"
+  // Pattern B (Hindi/Hinglish): "mera naam Shivam hai" / "mera naam Shivam" / "mujhe Shivam bulao"
   if (!identifiedName) {
     const hindiNameMatch =
-      clean.match(/\b(?:mera\s+naam|naam\s+mera)\s+(?:hai\s+)?([A-Za-z]{2,25})\b/i) ||
-      clean.match(/\bmera\s+naam\s+([A-Za-z]{2,25})\s*(?:hai|save)?\b/i);
+      clean.match(/\bmera\s+naam\s+([A-Za-z]{2,25})(?:\s+hai|\s+save)?\b/i) ||
+      clean.match(/\bmujhe\s+([A-Za-z]{2,25})\s+bulao\b/i);
     if (hindiNameMatch) {
       identifiedName = hindiNameMatch[1].trim();
     }
   }
 
-  // Pattern E (Hindi/Hinglish): "mujhe shivam bulao" / "main shivam hoon"
+  // Pattern C: "its Shivam this side"
   if (!identifiedName) {
-    const mujheMatch =
-      clean.match(/\b(?:mujhe)\s+([A-Za-z]{2,25})\s+(?:bulao|kehte)\b/i) ||
-      clean.match(/\b(?:main|mai)\s+([A-Za-z]{2,25})\s+hoon\b/i);
-    if (mujheMatch) {
-      identifiedName = mujheMatch[1].trim();
+    const thisSideMatch = clean.match(/\b(?:it'?s|this is)\s+([A-Za-z]{2,25})\s+this side\b/i);
+    if (thisSideMatch) {
+      identifiedName = thisSideMatch[1].trim();
     }
   }
 
@@ -75,30 +57,11 @@ function extractDeterministicMemories(text) {
       fact: `User's name is ${formattedName}`,
       category: 'identity',
       confidence: 0.98,
+      key: 'user.name',
     });
   }
 
-  // 3. Identity: Profession / Role
-  const roleMatch = clean.match(/(?:i work as an?|i am an?|i'm an?)\s+([A-Za-z0-9\s-]{3,40}(?:developer|engineer|designer|manager|student|founder|architect|creator|freelancer))/i);
-  if (roleMatch) {
-    memories.push({
-      fact: `User works as ${roleMatch[1].trim()}`,
-      category: 'identity',
-      confidence: 0.95,
-    });
-  }
-
-  // 4. Project: Building something or working on a project/capstone
-  const projectMatch = clean.match(/\b(?:my project|capstone project|working on|building)\s+(?:is\s+)?([^.,!?\n]{3,60})/i);
-  if (projectMatch) {
-    memories.push({
-      fact: `User is working on ${projectMatch[1].trim()}`,
-      category: 'project',
-      confidence: 0.9,
-    });
-  }
-
-  // 5. Explicit instruction: Remember that... / Yaad rakhna... / Save kar lo...
+  // 3. Explicit instruction: Remember that... / Yaad rakhna... / Save kar lo...
   const rememberMatch = clean.match(/(?:remember that|note that|keep in mind that|yaad rakhna ki|yaad rakhna|save kar lo ki|save kar lo)\s+([^.!?\n]{3,120})/i);
   if (rememberMatch) {
     memories.push({
@@ -142,83 +105,179 @@ export const memoryService = {
    * @param {number} [options.limit=8]
    * @returns {Promise<Array<import('../models/Memory.js').Memory>>}
    */
-  async getRelevantMemories({ userId, query = '', limit = 8 }) {
+  /**
+   * Syncs active memory documents from MongoDB into vector store for zero-latency retrieval.
+   *
+   * @param {string|import('mongoose').Types.ObjectId} [userId] Optional filter by user
+   * @returns {Promise<number>} Count of memories loaded into vector store
+   */
+  async syncActiveMemoryVectors(userId = null) {
+    try {
+      const filter = { active: true };
+      if (userId) filter.userId = userId;
+      const memories = await Memory.find(filter);
+      return vectorDbService.warmupFromMemories(memories);
+    } catch (err) {
+      logger.warn({ error: err.message }, 'Failed to sync active memory vectors to vector store');
+      return 0;
+    }
+  },
+
+  /**
+   * Retrieves relevant long-term memories for a user, combining core pinned/identity memories
+   * with strict vector similarity thresholding and multi-factor ranking.
+   * Eliminates random recency backfill.
+   *
+   * @param {Object} options
+   * @param {string|import('mongoose').Types.ObjectId} options.userId
+   * @param {string} [options.query='']
+   * @param {number} [options.limit=6]
+   * @param {string|import('mongoose').Types.ObjectId} [options.projectId=null]
+   * @param {number} [options.threshold=0.65]
+   * @returns {Promise<Array<import('../models/Memory.js').Memory>>}
+   */
+  async getRelevantMemories({ userId, query = '', limit = 6, projectId = null, threshold = 0.65 }) {
     if (!userId) return [];
 
     try {
-      // Auto-backfill memories from past chat messages if user has none recorded yet
-      const existingCount = await Memory.countDocuments({ userId, active: true });
-      if (existingCount === 0) {
-        await this.backfillUserMemories(userId);
+      // Warm up vector store from MongoDB if empty (e.g. after server boot or reload)
+      if (vectorDbService.getLocalStoreSize() === 0) {
+        await this.syncActiveMemoryVectors(userId);
       }
 
-      // 1. Fetch pinned and identity memories (always highest priority context)
-      const priorityMemories = await Memory.find({
+      // 1. Fetch pinned and identity memories (Global + Current Project only)
+      const priorityScopeFilter = {
         userId,
         active: true,
         $or: [{ pinned: true }, { category: 'identity' }],
-      })
+        $and: [
+          {
+            $or: [
+              { scope: 'global' },
+              { scope: { $exists: false } },
+              ...(projectId ? [{ scope: 'project', projectId }] : []),
+            ],
+          },
+        ],
+      };
+
+      const priorityMemories = await Memory.find(priorityScopeFilter)
         .sort({ pinned: -1, updatedAt: -1 })
         .limit(4);
 
       const priorityIds = new Set(priorityMemories.map((m) => m._id.toString()));
 
-      // 2. Fetch context-relevant memories via vector similarity if query is present
-      const vectorMemoryList = [];
+      // 2. Fetch context-relevant memories via vector similarity with strict threshold
+      const rankedVectorMemories = [];
       if (query && query.trim().length > 3) {
         try {
           const queryEmbedding = await embedContent({ contents: query.trim() });
           if (queryEmbedding && queryEmbedding.length > 0) {
             const matches = await vectorDbService.query({
               values: queryEmbedding,
-              topK: limit,
+              topK: limit * 2,
               filter: { userId: userId.toString(), type: 'memory' },
             });
 
-            const matchedRefIds = matches
-              .map((m) => m.metadata?.refId)
-              .filter((id) => id && !priorityIds.has(id));
+            // Filter by threshold
+            const qualifiedMatches = matches.filter(
+              (m) => (m.score ?? 0) >= threshold && m.metadata?.refId && !priorityIds.has(m.metadata.refId),
+            );
 
-            if (matchedRefIds.length > 0) {
+            if (qualifiedMatches.length > 0) {
+              const matchedRefIds = qualifiedMatches.map((m) => m.metadata.refId);
               const matchedDocs = await Memory.find({
                 _id: { $in: matchedRefIds },
                 userId,
                 active: true,
+                $or: [
+                  { scope: 'global' },
+                  { scope: { $exists: false } },
+                  ...(projectId ? [{ scope: 'project', projectId }] : []),
+                ],
               });
 
-              // Maintain score order from vector matches
               const docMap = new Map(matchedDocs.map((d) => [d._id.toString(), d]));
-              for (const refId of matchedRefIds) {
-                const found = docMap.get(refId);
-                if (found) {
-                  vectorMemoryList.push(found);
+              const now = Date.now();
+              const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+              for (const match of qualifiedMatches) {
+                const doc = docMap.get(match.metadata.refId);
+                if (doc) {
+                  const similarity = match.score ?? 0;
+                  const docAge = now - new Date(doc.updatedAt || doc.createdAt).getTime();
+                  const recency = Math.max(0, 1 - docAge / thirtyDaysMs);
+                  const confidence = doc.confidence ?? 0.9;
+                  const pinnedBoost = doc.pinned ? 0.2 : 0;
+
+                  // Weighted score formula: similarity*0.6 + recency*0.2 + confidence*0.1 + pinnedBoost
+                  const compositeScore = similarity * 0.6 + recency * 0.2 + confidence * 0.1 + pinnedBoost;
+                  rankedVectorMemories.push({ doc, compositeScore });
                 }
               }
+
+              rankedVectorMemories.sort((a, b) => b.compositeScore - a.compositeScore);
             }
           }
         } catch (vecErr) {
-          logger.warn({ error: vecErr.message }, 'Vector similarity retrieval for memories failed; falling back to recent');
+          logger.warn({ error: vecErr.message }, 'Vector similarity retrieval for memories skipped or failed');
+        }
+
+        // 3. Keyword / Lexical Fallback: If vector search found no candidates, check for keyword overlap
+        if (rankedVectorMemories.length === 0) {
+          const rawTokens = query
+            .toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter((w) => w.length >= 4 && !/^(what|when|where|which|about|could|would|should|please|thank|there|their|these|those)\b/i.test(w));
+
+          if (rawTokens.length > 0) {
+            const regexPatterns = rawTokens.map((t) => new RegExp(`\\b${t}`, 'i'));
+            const lexicalCandidates = await Memory.find({
+              userId,
+              active: true,
+              _id: { $nin: Array.from(priorityIds) },
+              $or: regexPatterns.map((p) => ({ fact: p })),
+              $and: [
+                {
+                  $or: [
+                    { scope: 'global' },
+                    { scope: { $exists: false } },
+                    ...(projectId ? [{ scope: 'project', projectId }] : []),
+                  ],
+                },
+              ],
+            }).limit(limit - priorityMemories.length);
+
+            for (const lexDoc of lexicalCandidates) {
+              rankedVectorMemories.push({ doc: lexDoc, compositeScore: 0.70 });
+            }
+          }
         }
       }
 
-      // 3. If we still need more context, fetch recent active memories
-      const currentCombined = [...priorityMemories, ...vectorMemoryList];
-      const seenIds = new Set(currentCombined.map((m) => m._id.toString()));
-
-      if (currentCombined.length < limit) {
-        const remainingLimit = limit - currentCombined.length;
-        const recentDocs = await Memory.find({
-          userId,
-          active: true,
-          _id: { $nin: Array.from(seenIds) },
-        })
-          .sort({ updatedAt: -1 })
-          .limit(remainingLimit);
-
-        currentCombined.push(...recentDocs);
+      // Combine priority memories and threshold-qualified vector memories
+      const combinedDocs = [...priorityMemories];
+      for (const item of rankedVectorMemories) {
+        if (combinedDocs.length >= limit) break;
+        if (!priorityIds.has(item.doc._id.toString())) {
+          combinedDocs.push(item.doc);
+          priorityIds.add(item.doc._id.toString());
+        }
       }
 
-      return currentCombined.slice(0, limit);
+      // Update telemetry for retrieved memories (lastUsedAt and useCount)
+      if (combinedDocs.length > 0) {
+        const retrievedIds = combinedDocs.map((m) => m._id);
+        await Memory.updateMany(
+          { _id: { $in: retrievedIds } },
+          { $set: { lastUsedAt: new Date() }, $inc: { useCount: 1 } },
+        ).catch((err) => {
+          logger.warn({ error: err.message }, 'Failed to record memory usage telemetry');
+        });
+      }
+
+      return combinedDocs.slice(0, limit);
     } catch (error) {
       logger.error({ error: error.message, userId }, 'Error retrieving relevant memories');
       return [];
@@ -253,14 +312,47 @@ export const memoryService = {
    * @param {boolean} [options.isSimulation=false]
    * @returns {Promise<{ extractedCount: number, savedMemories: Array<any> }>}
    */
-  async extractAndSaveMemories({ userId, messageContent, chatId = null, isSimulation = false }) {
+  /**
+   * Extracts durable user facts from message content and persists them to MongoDB and Vector DB
+   * using the ADD/UPDATE/DELETE/NONE decision engine with temporal superseding.
+   *
+   * @param {Object} options
+   * @param {string|import('mongoose').Types.ObjectId} options.userId
+   * @param {string} options.messageContent - Raw user's message
+   * @param {string|import('mongoose').Types.ObjectId} [options.chatId]
+   * @param {string|import('mongoose').Types.ObjectId} [options.projectId=null]
+   * @param {boolean} [options.isSimulation=false]
+   * @param {boolean} [options.isTemporary=false]
+   * @returns {Promise<{ extractedCount: number, savedMemories: Array<any>, disabled?: boolean }>}
+   */
+  async extractAndSaveMemories({
+    userId,
+    messageContent,
+    chatId = null,
+    projectId = null,
+    isSimulation = false,
+    isTemporary = false,
+  }) {
     if (!userId || !messageContent || typeof messageContent !== 'string') {
       return { extractedCount: 0, savedMemories: [] };
+    }
+
+    // Safety Rule: Don't extract in Temporary chats
+    if (isTemporary) {
+      return { extractedCount: 0, savedMemories: [], skippedTemporary: true };
     }
 
     const trimmed = messageContent.trim();
     if (trimmed.length < 3) {
       return { extractedCount: 0, savedMemories: [] };
+    }
+
+    // Safety Rule: Filter out sensitive credentials/tokens/secrets unless explicit directive
+    const isSensitive =
+      /\b(password|passwd|api[_-]?key|secret[_-]?key|access[_-]?token|bearer|card\s*number|cvv|pin\s*code|bank\s*account)\b/i.test(trimmed);
+    const hasExplicitRemember = /\b(remember that|save kar lo|yaad rakhna)\b/i.test(trimmed);
+    if (isSensitive && !hasExplicitRemember) {
+      return { extractedCount: 0, savedMemories: [], skippedSensitive: true };
     }
 
     // Check user personalization setting for autonomous AI memory learning
@@ -275,21 +367,23 @@ export const memoryService = {
     }
 
     try {
-      // 1. Run deterministic regex extraction first (fast & reliable)
+      // 1. Run deterministic regex extraction first (explicit remember/forget commands)
       const { memories: deterministicMemories, forgetRequests: deterministicForgets } =
         extractDeterministicMemories(trimmed);
 
-      let allCandidates = [...deterministicMemories];
+      let rawCandidates = [...deterministicMemories];
       let allForgets = [...deterministicForgets];
 
-      // 2. If not simulation and message might contain personal context, run AI extraction
+      // 2. If not simulation and message might contain personal clues, run AI extraction
       const hasPersonalClues =
-        /\b(i am|i'm|my|i like|i prefer|i use|i work|remember|note|call me|building|project|mera|meri|mujhe|main|mai|naam|save|yaad|rakhna|batao|kar lo)\b/i.test(trimmed);
+        /\b(i am|i'm|my|i like|i prefer|i use|i work|remember|note|call me|building|project|mera|meri|mujhe|main|mai|naam|save|yaad|rakhna|batao|kar lo)\b/i.test(
+          trimmed,
+        );
 
       if (!isSimulation && hasPersonalClues) {
         try {
           const aiResult = await generateContent({
-            contents: [{ role: 'user', parts: [{ text: `User message:\n${trimmed}` }] }],
+            contents: [{ role: 'user', parts: [{ text: `User typed message:\n${trimmed}` }] }],
             model: 'flash',
             systemInstruction: MEMORY_EXTRACTION_PROMPT,
             config: {
@@ -302,11 +396,15 @@ export const memoryService = {
           if (Array.isArray(parsed.memories)) {
             for (const mem of parsed.memories) {
               if (mem.fact && typeof mem.fact === 'string') {
-                allCandidates.push({
-                  fact: mem.fact.trim(),
-                  category: mem.category || 'fact',
-                  confidence: typeof mem.confidence === 'number' ? mem.confidence : 0.9,
-                });
+                const conf = typeof mem.confidence === 'number' ? mem.confidence : 0.9;
+                // Safety Rule: Confidence cutoff >= 0.70
+                if (conf >= 0.7) {
+                  rawCandidates.push({
+                    fact: mem.fact.trim(),
+                    category: mem.category || 'fact',
+                    confidence: conf,
+                  });
+                }
               }
             }
           }
@@ -318,7 +416,7 @@ export const memoryService = {
         }
       }
 
-      // 3. Process forget requests
+      // 3. Process explicit forget requests
       if (allForgets.length > 0) {
         for (const req of allForgets) {
           const safeRegex = new RegExp(req.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -330,6 +428,7 @@ export const memoryService = {
 
           for (const m of memoriesToDeactivate) {
             m.active = false;
+            m.validTo = new Date();
             await m.save();
             if (m.vectorId) {
               await vectorDbService.remove(m.vectorId);
@@ -338,53 +437,196 @@ export const memoryService = {
         }
       }
 
-      // 4. Save and index candidate memories
+      if (rawCandidates.length === 0) {
+        return { extractedCount: 0, savedMemories: [] };
+      }
+
+      // 4. Cap check: Max 200 active memories per user. Prune oldest unpinned low-use memories if exceeded
+      const activeCount = await Memory.countDocuments({ userId, active: true });
+      if (activeCount >= 200) {
+        const excess = activeCount - 195;
+        const toPrune = await Memory.find({ userId, active: true, pinned: false })
+          .sort({ useCount: 1, createdAt: 1 })
+          .limit(excess);
+        for (const p of toPrune) {
+          p.active = false;
+          p.validTo = new Date();
+          await p.save();
+          if (p.vectorId) await vectorDbService.remove(p.vectorId);
+        }
+      }
+
       const savedMemories = [];
 
-      for (const candidate of allCandidates) {
+      // 5. Reconciliation Decision Loop for each candidate memory
+      for (const candidate of rawCandidates) {
         if (!candidate.fact || candidate.fact.length < 4) continue;
 
-        // Check for existing duplicate fact
-        const existing = await Memory.findOne({
-          userId,
-          fact: { $regex: new RegExp(`^${candidate.fact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-        });
+        // Fetch top 3-5 existing similar memories to compare
+        let similarMemories = [];
+        try {
+          const candEmbedding = await embedContent({ contents: candidate.fact });
+          if (candEmbedding && candEmbedding.length > 0) {
+            const matches = await vectorDbService.query({
+              values: candEmbedding,
+              topK: 4,
+              filter: { userId: userId.toString(), type: 'memory' },
+            });
+            const refIds = matches.map((m) => m.metadata?.refId).filter(Boolean);
+            if (refIds.length > 0) {
+              similarMemories = await Memory.find({
+                _id: { $in: refIds },
+                userId,
+                active: true,
+              });
+            }
+          }
+        } catch {
+          // Vector lookup non-blocking
+        }
 
-        if (existing) {
-          existing.active = true;
-          existing.confidence = Math.max(existing.confidence, candidate.confidence || 0.9);
-          existing.updatedAt = new Date();
-          await existing.save();
-          savedMemories.push(existing);
+        // Fast-path duplicate check
+        const directMatch = similarMemories.find(
+          (m) => m.fact.toLowerCase() === candidate.fact.toLowerCase(),
+        );
+        if (directMatch) {
+          directMatch.updatedAt = new Date();
+          directMatch.confidence = Math.max(directMatch.confidence, candidate.confidence || 0.9);
+          await directMatch.save();
+          savedMemories.push(directMatch);
           continue;
         }
 
-        // If updating a core identity aspect (e.g. name), deactivate outdated names
-        if (candidate.category === 'identity' && candidate.fact.toLowerCase().startsWith("user's name is")) {
-          const oldNames = await Memory.find({
-            userId,
-            active: true,
-            fact: { $regex: /^user's name is/i },
-          });
-          for (const old of oldNames) {
-            old.active = false;
-            await old.save();
-            if (old.vectorId) await vectorDbService.remove(old.vectorId);
+        let action = 'ADD';
+        let targetId = null;
+        let finalFact = candidate.fact;
+        let finalCategory = candidate.category || 'fact';
+        let finalKey = candidate.key || null;
+
+        // If similar memories exist and not in simulation, invoke Flash Reconciliation
+        if (similarMemories.length > 0 && !isSimulation) {
+          try {
+            const existingContext = similarMemories
+              .map((m) => `ID: ${m._id}\nCategory: ${m.category}\nFact: ${m.fact}\nKey: ${m.key || 'none'}`)
+              .join('\n---\n');
+
+            const reconciliationPrompt = `Candidate Memory:\nFact: "${candidate.fact}"\nCategory: ${candidate.category}\n\nExisting Similar Active Memories for this user:\n${existingContext}`;
+
+            const reconResult = await generateContent({
+              contents: [{ role: 'user', parts: [{ text: reconciliationPrompt }] }],
+              model: 'flash',
+              systemInstruction: MEMORY_DECISION_PROMPT,
+              config: {
+                responseMimeType: 'application/json',
+                temperature: 0.1,
+              },
+            });
+
+            const parsedRecon = parseExtractionJson(reconResult.text);
+            const decision = parsedRecon?.decisions?.[0];
+            if (decision && ['ADD', 'UPDATE', 'DELETE', 'NONE'].includes(decision.action)) {
+              action = decision.action;
+              targetId = decision.targetMemoryId;
+              if (decision.fact) finalFact = decision.fact.trim();
+              if (decision.category) finalCategory = decision.category;
+              if (decision.key) finalKey = decision.key;
+            }
+          } catch (reconErr) {
+            logger.warn({ error: reconErr.message }, 'Flash memory reconciliation decision fallback');
           }
         }
 
-        // Create new memory document
+        // Execute reconciliation decision
+        if (action === 'NONE') {
+          continue;
+        }
+
+        if (action === 'DELETE' && targetId) {
+          const targetMem = await Memory.findOne({ _id: targetId, userId, active: true });
+          if (targetMem) {
+            targetMem.active = false;
+            targetMem.validTo = new Date();
+            await targetMem.save();
+            if (targetMem.vectorId) await vectorDbService.remove(targetMem.vectorId);
+          }
+          continue;
+        }
+
+        if (action === 'UPDATE' && targetId) {
+          const targetMem = await Memory.findOne({ _id: targetId, userId, active: true });
+          if (targetMem) {
+            // Supersede existing memory: mark inactive, set validTo and purge vector
+            targetMem.active = false;
+            targetMem.validTo = new Date();
+
+            // Create new updated memory
+            const updatedMemory = await Memory.create({
+              userId,
+              fact: finalFact,
+              category: finalCategory,
+              key: finalKey || targetMem.key,
+              confidence: candidate.confidence || 0.95,
+              sourceChatId: chatId,
+              sourceMessage: trimmed.slice(0, 300),
+              scope: projectId ? 'project' : 'global',
+              projectId: projectId || null,
+              active: true,
+              validFrom: new Date(),
+            });
+
+            targetMem.supersededBy = updatedMemory._id;
+            await targetMem.save();
+            if (targetMem.vectorId) {
+              await vectorDbService.remove(targetMem.vectorId);
+            }
+
+            // Index new memory in vector DB
+            try {
+              const embedding = await embedContent({ contents: updatedMemory.fact });
+              if (embedding && embedding.length > 0) {
+                const vectorId = `mem_${updatedMemory._id.toString()}`;
+                const indexed = await vectorDbService.upsert({
+                  id: vectorId,
+                  values: embedding,
+                  metadata: {
+                    userId: userId.toString(),
+                    type: 'memory',
+                    category: updatedMemory.category,
+                    refId: updatedMemory._id.toString(),
+                    scope: updatedMemory.scope,
+                    ...(updatedMemory.projectId ? { projectId: updatedMemory.projectId.toString() } : {}),
+                  },
+                });
+                if (indexed) {
+                  updatedMemory.vectorId = vectorId;
+                  updatedMemory.embedding = embedding;
+                  await updatedMemory.save();
+                }
+              }
+            } catch (vecErr) {
+              logger.warn({ error: vecErr.message, memoryId: updatedMemory._id }, 'Vector indexing failed');
+            }
+
+            savedMemories.push(updatedMemory);
+            continue;
+          }
+        }
+
+        // Action === 'ADD' or fallback
         const newMemory = await Memory.create({
           userId,
-          fact: candidate.fact,
-          category: candidate.category || 'fact',
+          fact: finalFact,
+          category: finalCategory,
+          key: finalKey,
           confidence: candidate.confidence || 0.9,
           sourceChatId: chatId,
           sourceMessage: trimmed.slice(0, 300),
+          scope: projectId ? 'project' : 'global',
+          projectId: projectId || null,
           active: true,
+          validFrom: new Date(),
         });
 
-        // Index in vector DB
         try {
           const embedding = await embedContent({ contents: newMemory.fact });
           if (embedding && embedding.length > 0) {
@@ -397,16 +639,18 @@ export const memoryService = {
                 type: 'memory',
                 category: newMemory.category,
                 refId: newMemory._id.toString(),
+                scope: newMemory.scope,
+                ...(newMemory.projectId ? { projectId: newMemory.projectId.toString() } : {}),
               },
             });
-
             if (indexed) {
               newMemory.vectorId = vectorId;
+              newMemory.embedding = embedding;
               await newMemory.save();
             }
           }
         } catch (vecErr) {
-          logger.warn({ error: vecErr.message, memoryId: newMemory._id }, 'Failed to vectorize memory');
+          logger.warn({ error: vecErr.message, memoryId: newMemory._id }, 'Vector indexing error');
         }
 
         savedMemories.push(newMemory);
@@ -440,16 +684,23 @@ export const memoryService = {
    * @param {string} data.fact
    * @param {string} [data.category='fact']
    * @param {boolean} [data.pinned=false]
+   * @param {string} [data.key=null]
+   * @param {'global'|'project'} [data.scope='global']
+   * @param {string|null} [data.projectId=null]
    * @returns {Promise<import('../models/Memory.js').Memory>}
    */
-  async createManualMemory(userId, { fact, category = 'fact', pinned = false }) {
+  async createManualMemory(userId, { fact, category = 'fact', pinned = false, key = null, scope = 'global', projectId = null }) {
     const memory = await Memory.create({
       userId,
       fact: fact.trim(),
       category,
       pinned,
+      key,
+      scope,
+      projectId: projectId || null,
       confidence: 1.0,
       active: true,
+      validFrom: new Date(),
     });
 
     try {
@@ -464,11 +715,14 @@ export const memoryService = {
             type: 'memory',
             category: memory.category,
             refId: memory._id.toString(),
+            scope: memory.scope,
+            ...(memory.projectId ? { projectId: memory.projectId.toString() } : {}),
           },
         });
 
         if (indexed) {
           memory.vectorId = vectorId;
+          memory.embedding = embedding;
           await memory.save();
         }
       }
@@ -503,6 +757,9 @@ export const memoryService = {
     if (updates.category !== undefined) memory.category = updates.category;
     if (updates.pinned !== undefined) memory.pinned = updates.pinned;
     if (updates.active !== undefined) memory.active = updates.active;
+    if (updates.key !== undefined) memory.key = updates.key;
+    if (updates.scope !== undefined) memory.scope = updates.scope;
+    if (updates.projectId !== undefined) memory.projectId = updates.projectId;
 
     await memory.save();
 
@@ -519,6 +776,8 @@ export const memoryService = {
               type: 'memory',
               category: memory.category,
               refId: memory._id.toString(),
+              scope: memory.scope,
+              ...(memory.projectId ? { projectId: memory.projectId.toString() } : {}),
             },
           });
           if (indexed && !memory.vectorId) {

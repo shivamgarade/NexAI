@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import {
   Mic,
@@ -8,8 +8,6 @@ import {
   Send,
   Square,
   Award,
-  ChevronDown,
-  ChevronUp,
   Copy,
   Check,
   Bot,
@@ -18,6 +16,14 @@ import {
   ArrowLeft,
   Plus,
   Zap,
+  MoreHorizontal,
+  ChevronDown,
+  ChevronUp,
+  Code2,
+  Sparkles,
+  AlertCircle,
+  X,
+  FastForward,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -27,6 +33,67 @@ import { toast } from '@/components/ui/Toast';
 import { MarkdownRenderer } from '@/features/chat/MarkdownRenderer/MarkdownRenderer';
 import { cn } from '@/lib/utils/cn';
 import styles from './InterviewArena.module.scss';
+
+const BENCHMARK_QUESTIONS_TOTAL = 5;
+
+/**
+ * Intelligently decomposes an interviewer response into:
+ * - Scenario / Context (preceding paragraphs)
+ * - Core Question (the prominent final question/prompt)
+ */
+function parseInterviewerContent(rawText, defaultTopic) {
+  if (!rawText) return { scenario: '', question: '', topicTag: defaultTopic };
+
+  const paragraphs = rawText
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length <= 1) {
+    // If only one paragraph, check for question mark sentences at the end
+    const sentences = rawText.split(/(?<=[.?!])\s+/);
+    if (sentences.length > 2) {
+      const qSentences = [];
+      const sSentences = [];
+      let foundQuestion = false;
+
+      for (let i = sentences.length - 1; i >= 0; i--) {
+        const s = sentences[i];
+        if (
+          !foundQuestion &&
+          (s.includes('?') || /^(how|what|why|walk|explain|can you|describe)/i.test(s))
+        ) {
+          qSentences.unshift(s);
+          if (qSentences.length >= 2) foundQuestion = true;
+        } else {
+          foundQuestion = true;
+          sSentences.unshift(s);
+        }
+      }
+
+      return {
+        topicTag: defaultTopic,
+        scenario: sSentences.join(' '),
+        question: qSentences.join(' ') || rawText,
+      };
+    }
+
+    return {
+      topicTag: defaultTopic,
+      scenario: '',
+      question: rawText,
+    };
+  }
+
+  const question = paragraphs[paragraphs.length - 1];
+  const scenario = paragraphs.slice(0, paragraphs.length - 1).join('\n\n');
+
+  return {
+    topicTag: defaultTopic,
+    scenario,
+    question,
+  };
+}
 
 export function InterviewArena({
   session,
@@ -49,14 +116,16 @@ export function InterviewArena({
   onSpeakText,
 }) {
   const [responseText, setResponseText] = useState('');
-  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPastTurnsOpen, setIsPastTurnsOpen] = useState(false);
+  const [showConcludeConfirm, setShowConcludeConfirm] = useState(false);
   const [hasCopiedTranscript, setHasCopiedTranscript] = useState(false);
   const [isSpeechSupported, setIsSpeechSupported] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const recognitionRef = useRef(null);
   const textareaRef = useRef(null);
-  const transcriptBottomRef = useRef(null);
+  const menuRef = useRef(null);
 
   // Timer effect
   useEffect(() => {
@@ -72,7 +141,20 @@ export function InterviewArena({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Initialize Web Speech Recognition
+  // Close more menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isMenuOpen]);
+
+  // Web Speech Recognition
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition =
@@ -135,6 +217,14 @@ export function InterviewArena({
     };
   }, [setIsListening]);
 
+  // Auto-grow textarea
+  const handleTextareaInput = (e) => {
+    setResponseText(e.target.value);
+    const target = e.target;
+    target.style.height = 'auto';
+    target.style.height = `${Math.min(260, Math.max(88, target.scrollHeight))}px`;
+  };
+
   // Toggle Speech-to-Text dictation
   const handleToggleMic = () => {
     if (!isSpeechSupported) {
@@ -159,6 +249,18 @@ export function InterviewArena({
     }
   };
 
+  // Insert code block helper
+  const handleInsertCodeSnippet = () => {
+    const snippet = '```javascript\n// Write code implementation here\n\n```';
+    setResponseText((prev) => (prev ? `${prev}\n\n${snippet}` : snippet));
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.style.height = `${Math.min(260, Math.max(88, textareaRef.current.scrollHeight))}px`;
+      }
+    }, 0);
+  };
+
   // Submit response
   const handleSubmit = (e) => {
     e?.preventDefault?.();
@@ -176,6 +278,19 @@ export function InterviewArena({
 
     onSendResponse(trimmed);
     setResponseText('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  };
+
+  // Skip question
+  const handleSkipQuestion = () => {
+    if (isStreaming) return;
+    onSendResponse("I would like to skip this specific question. Please move on to the next technical topic.");
+    setResponseText('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
   };
 
   // Enter to send, Shift+Enter for newline
@@ -207,336 +322,504 @@ export function InterviewArena({
     }
   };
 
-  // Latest interviewer question
+  // Message grouping & past turns
   const assistantMessages = messages.filter((m) => m.role === 'assistant');
   const latestAssistantMessage = assistantMessages[assistantMessages.length - 1];
+  const questionNumber = assistantMessages.length || 1;
+  const progressPercent = Math.min(
+    100,
+    Math.round((questionNumber / BENCHMARK_QUESTIONS_TOTAL) * 100),
+  );
+
+  // Group earlier turns into Q&A pairs
+  const earlierTurns = useMemo(() => {
+    if (assistantMessages.length <= 1) return [];
+    const pairs = [];
+    let currentPair = null;
+
+    messages.slice(0, -1).forEach((msg) => {
+      if (msg.role === 'assistant') {
+        if (currentPair) pairs.push(currentPair);
+        currentPair = { question: msg.content, answer: null, timestamp: msg.timestamp };
+      } else if (msg.role === 'user' && currentPair) {
+        currentPair.answer = msg.content;
+        pairs.push(currentPair);
+        currentPair = null;
+      }
+    });
+
+    if (currentPair) pairs.push(currentPair);
+    return pairs;
+  }, [messages, assistantMessages.length]);
+
+  // Topic checklist items parsed from session topic
+  const topicChecklist = useMemo(() => {
+    const raw = session?.topic || 'Architecture, Design, Best Practices';
+    const parts = raw
+      .split(/[,&/]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    return parts.slice(0, 4).map((part, idx) => {
+      let status = 'pending';
+      if (idx < questionNumber - 1) status = 'done';
+      else if (idx === questionNumber - 1) status = 'current';
+      return { label: part, status };
+    });
+  }, [session?.topic, questionNumber]);
+
+  // Decompose latest question into scenario and prominent question callout
+  const parsedQuestion = useMemo(() => {
+    return parseInterviewerContent(
+      latestAssistantMessage?.content || '',
+      session?.topic || 'Technical Screening',
+    );
+  }, [latestAssistantMessage?.content, session?.topic]);
+
+  const wordCount = responseText.trim() ? responseText.trim().split(/\s+/).length : 0;
+  const estimatedCreditsUsed = Math.max(1, Math.ceil(messages.length / 2));
+
+  // Determine state label directly under orb
+  const getOrbState = () => {
+    if (isStreaming) return { label: 'Thinking', class: styles.stateThinking };
+    if (isListening) return { label: 'Listening', class: styles.stateListening };
+    if (isSpeaking && speakingSource === 'interviewer') {
+      return {
+        label: voiceEngine === 'edge' ? 'Speaking (Edge)' : 'Speaking (Gemini)',
+        class: styles.stateSpeaking,
+      };
+    }
+    return { label: 'Ready', class: styles.stateReady };
+  };
+
+  const orbState = getOrbState();
 
   return (
     <div className={styles.arenaContainer}>
-      {/* Top Session Bar */}
+      {/* ------------------------------------------------------------- */}
+      {/* 1. TOP BAR: Single row, clean, uncrowded                      */}
+      {/* ------------------------------------------------------------- */}
       <header className={styles.topBar}>
-        <div className={styles.sessionInfo}>
+        {/* Left: Back & Role */}
+        <div className={styles.navGroup}>
           {onReset && (
-            <div className={styles.navRow}>
-              <button
-                type="button"
-                className={styles.backButton}
-                onClick={onReset}
-                title="Return to Interview Setup"
-                aria-label="Back to Setup"
-              >
-                <ArrowLeft size={14} />
-                <span>Back to Setup</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              className={styles.backButton}
+              onClick={onReset}
+              title="Return to Interview Setup"
+              aria-label="Back to Setup"
+            >
+              <ArrowLeft size={14} />
+              <span>Setup</span>
+            </button>
           )}
-          <div className={styles.titleRow}>
-            <h2 className={styles.roleTitle}>{session?.role || 'Technical Interview'}</h2>
-            <Badge variant="accent" size="sm" className={styles.diffBadge}>
+
+          <div className={styles.roleIdentity}>
+            <span className={styles.roleTitle}>{session?.role || 'Technical Interview'}</span>
+            <span className={styles.dotSeparator}>·</span>
+            <Badge variant="accent" size="sm" className={styles.difficultyBadge}>
               {session?.difficulty}
             </Badge>
-            {session?.isSimulation ? (
-              <Badge tone="warning" size="sm" className={styles.simBadge}>
-                ⚡ Simulation (0 Credits)
-              </Badge>
-            ) : voiceEngine === 'edge' ? (
-              <Badge tone="accent" size="sm" className={styles.simBadge}>
-                ⚡ Edge Neural (Fast & Free)
-              </Badge>
-            ) : (
-              <Badge tone="success" size="sm" className={styles.simBadge}>
-                🎙️ Gemini 3.8 Flash-Lite TTS
-              </Badge>
-            )}
           </div>
-          <p className={styles.topicSubtitle} title={session?.topic}>
-            {session?.topic}
-          </p>
         </div>
 
-        <div className={styles.topActions}>
-          <div className={styles.timerPill} title="Elapsed Interview Time">
-            <Clock size={14} />
-            <span>{formatTimer(elapsedSeconds)}</span>
+        {/* Center: Progress & Timer */}
+        <div className={styles.progressCenter}>
+          <div className={styles.progressMeta}>
+            <span className={styles.questionCounter}>
+              Q {questionNumber}/{BENCHMARK_QUESTIONS_TOTAL}
+            </span>
+            <div className={styles.progressBarTrack} title={`${progressPercent}% completed`}>
+              <div
+                className={styles.progressBarFill}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
 
-          {/* Dual-Engine Voice Selector */}
-          {!session?.isSimulation && (
-            <div className={styles.engineToggleGroup} role="radiogroup" aria-label="Voice Engine">
-              <button
-                type="button"
-                className={cn(
-                  styles.enginePillBtn,
-                  voiceEngine === 'edge' && styles.enginePillActive,
-                )}
-                onClick={() => onToggleVoiceEngine && onToggleVoiceEngine('edge')}
-                title="⚡ Edge Neural: ~400ms ultra-low latency, studio-quality, 0 credits"
-                aria-pressed={voiceEngine === 'edge'}
-              >
-                <Zap size={12} />
-                <span>Edge Neural</span>
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  styles.enginePillBtn,
-                  voiceEngine === 'gemini' && styles.enginePillActive,
-                )}
-                onClick={() => onToggleVoiceEngine && onToggleVoiceEngine('gemini')}
-                title="🎙️ Gemini 3.8 Flash-Lite TTS: Cloud neural voice (Metered credits)"
-                aria-pressed={voiceEngine === 'gemini'}
-              >
-                <Bot size={12} />
-                <span>Gemini 3.8 TTS</span>
-              </button>
+          <div className={styles.sessionMetrics}>
+            <div className={styles.timerPill} title="Elapsed Interview Time">
+              <span className={styles.liveRecordDot} />
+              <Clock size={12} />
+              <span>{formatTimer(elapsedSeconds)}</span>
             </div>
-          )}
+            <span className={styles.creditEstimateNotice} title="Estimated session credit consumption">
+              Session: ~{estimatedCreditsUsed} cr
+            </span>
+          </div>
+        </div>
 
-          <button
-            type="button"
-            className={cn(
-              styles.audioToggleBtn,
-              isTtsEnabled && styles.ttsActive,
-              isTtsLoading && styles.ttsLoading,
-            )}
-            onClick={onToggleTts}
-            title={
-              isTtsLoading
-                ? voiceEngine === 'edge'
-                  ? 'Synthesizing voice with Edge Neural TTS...'
-                  : 'Synthesizing voice with Gemini 3.8 Flash-Lite TTS...'
-                : isTtsEnabled
-                  ? session?.isSimulation
-                    ? 'AI Voice: Browser Web Speech (Simulation) - Click to Mute'
-                    : voiceEngine === 'edge'
-                      ? 'AI Voice: Edge Neural TTS (Free) - Click to Mute'
-                      : 'AI Voice: Gemini 3.8 Flash-Lite TTS - Click to Mute'
-                  : 'AI Voice Muted - Click to Enable'
-            }
-            aria-label="Toggle voice readout"
-          >
-            {isTtsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          </button>
-
-          {onReset && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onReset}
-              className={styles.newInterviewBtn}
-              leftIcon={<Plus size={14} />}
-              title="Configure a new interview session"
-            >
-              Practice New
-            </Button>
-          )}
-
+        {/* Right: Outlined Conclude & More Menu */}
+        <div className={styles.topBarRight}>
           <Button
-            variant="danger"
+            variant="secondary"
             size="sm"
-            onClick={onConclude}
+            onClick={() => setShowConcludeConfirm(true)}
             loading={isConcluding}
             disabled={isStreaming || isConcluding}
-            className={styles.concludeBtn}
-            leftIcon={<Award size={15} />}
+            className={styles.outlinedConcludeBtn}
+            leftIcon={<Award size={14} />}
           >
-            Conclude & Evaluate
+            Conclude
           </Button>
+
+          {/* More Actions Dropdown (⋯) */}
+          <div className={styles.moreMenuWrap} ref={menuRef}>
+            <button
+              type="button"
+              className={cn(styles.moreMenuBtn, isMenuOpen && styles.menuOpen)}
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="More Options"
+              title="More interview options"
+            >
+              <MoreHorizontal size={17} />
+            </button>
+
+            {isMenuOpen && (
+              <div className={styles.dropdownPopover} role="menu">
+                <div className={styles.dropdownSection}>
+                  <span className={styles.dropdownSectionTitle}>Voice Engine</span>
+                  <div className={styles.engineSelectRow}>
+                    <button
+                      type="button"
+                      className={cn(
+                        styles.engineOptionBtn,
+                        voiceEngine === 'edge' && styles.engineOptionActive,
+                      )}
+                      onClick={() => {
+                        onToggleVoiceEngine?.('edge');
+                      }}
+                    >
+                      <Zap size={12} />
+                      <span>Edge Neural (Free)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        styles.engineOptionBtn,
+                        voiceEngine === 'gemini' && styles.engineOptionActive,
+                      )}
+                      onClick={() => {
+                        onToggleVoiceEngine?.('gemini');
+                      }}
+                    >
+                      <Bot size={12} />
+                      <span>Gemini TTS</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.dropdownDivider} />
+
+                <button
+                  type="button"
+                  className={styles.dropdownItem}
+                  onClick={() => {
+                    onToggleTts();
+                  }}
+                >
+                  {isTtsEnabled ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                  <span>{isTtsEnabled ? 'Mute AI Voice' : 'Unmute AI Voice'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.dropdownItem}
+                  onClick={() => {
+                    handleCopyTranscript();
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Copy size={14} />
+                  <span>Copy Full Transcript</span>
+                </button>
+
+                {onReset && (
+                  <button
+                    type="button"
+                    className={styles.dropdownItem}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onReset();
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>Practice New Session</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Main Simulation Stage */}
-      <main className={styles.stageGrid}>
-        {/* Center Stage: Interviewer Persona & Voice Ripple */}
-        <div className={styles.interviewerStage}>
-          <div className={styles.visualizerArea}>
-            <VoiceRipple
-              isSpeaking={isSpeaking || isStreaming || isListening}
-              source={speakingSource || (isListening ? 'candidate' : isStreaming ? 'interviewer' : 'idle')}
-              size="lg"
-              statusText={
-                isStreaming
-                  ? 'Interviewer is thinking & formulating critique...'
-                  : isListening
-                    ? 'Microphone active — speaking answer...'
-                    : isTtsLoading
-                      ? voiceEngine === 'edge'
-                        ? 'Synthesizing Edge Neural voice...'
-                        : 'Generating Gemini 3.8 Flash-Lite TTS audio...'
-                      : isSpeaking && speakingSource === 'interviewer'
-                        ? session?.isSimulation
-                          ? 'Interviewer is speaking (Web Speech Simulation)...'
-                          : voiceEngine === 'edge'
-                            ? 'Interviewer is speaking (Edge Neural)...'
-                            : 'Interviewer is speaking (Gemini 3.8 Flash-Lite TTS)...'
-                        : 'Interviewer waiting for your response'
-              }
-            />
-          </div>
-
-          {/* Current Question / Critique Card */}
-          <Card className={styles.questionCard} padding="lg">
-            <div className={styles.questionHeader}>
-              <div className={styles.interviewerMeta}>
-                <Bot size={18} className={styles.interviewerIcon} />
-                <span className={styles.interviewerLabel}>
-                  {session?.difficulty?.toUpperCase()} TECH LEAD EXAMINER
-                </span>
+      {/* ------------------------------------------------------------- */}
+      {/* 2. MAIN COCKPIT: Left Examiner (260px) + Right Interaction    */}
+      {/* ------------------------------------------------------------- */}
+      <main className={styles.cockpitGrid}>
+        {/* LEFT PANEL: Examiner Orb & Topics Checklist */}
+        <aside className={styles.examinerPanel}>
+          <Card className={styles.examinerCard} padding="md">
+            <div className={styles.examinerHeader}>
+              <div className={styles.examinerBadge}>
+                <Bot size={14} className={styles.examinerBotIcon} />
+                <span>EXAMINER</span>
               </div>
+              <span className={styles.examinerSub}>{session?.difficulty} Tech Lead</span>
+            </div>
+
+            {/* Speaking Pulse Orb */}
+            <div className={styles.orbContainer}>
+              <VoiceRipple
+                isSpeaking={isSpeaking || isStreaming || isListening}
+                source={
+                  speakingSource ||
+                  (isListening ? 'candidate' : isStreaming ? 'interviewer' : 'idle')
+                }
+                size="md"
+              />
+            </div>
+
+            {/* State Text Directly Under Orb */}
+            <div className={styles.orbStateRow}>
+              <span className={cn(styles.orbStateText, orbState.class)}>
+                {orbState.label}
+              </span>
 
               {latestAssistantMessage && !isStreaming && (
                 <button
                   type="button"
-                  className={styles.replayBtn}
+                  className={styles.miniReplayBtn}
                   onClick={() => onSpeakText(latestAssistantMessage.content)}
-                  title="Replay question audio"
+                  title="Replay question voice"
                   aria-label="Replay audio"
                 >
-                  <Volume2 size={14} />
+                  <Volume2 size={12} />
                   <span>Replay</span>
                 </button>
               )}
             </div>
 
-            <div className={styles.questionBody}>
-              {latestAssistantMessage ? (
-                <div className={styles.questionText}>
-                  <MarkdownRenderer
-                    content={latestAssistantMessage.content}
-                    isStreaming={isStreaming}
-                  />
+            {/* Topics Covered Checklist */}
+            <div className={styles.topicsSection}>
+              <span className={styles.topicsHeader}>Track Topics</span>
+              <ul className={styles.topicsList}>
+                {topicChecklist.map((item, idx) => (
+                  <li
+                    key={idx}
+                    className={cn(
+                      styles.topicItem,
+                      item.status === 'done' && styles.topicDone,
+                      item.status === 'current' && styles.topicCurrent,
+                      item.status === 'pending' && styles.topicPending,
+                    )}
+                  >
+                    <span className={styles.topicStatusIcon}>
+                      {item.status === 'done' ? (
+                        <Check size={11} />
+                      ) : item.status === 'current' ? (
+                        '●'
+                      ) : (
+                        '○'
+                      )}
+                    </span>
+                    <span className={styles.topicName}>{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Card>
+        </aside>
+
+        {/* RIGHT AREA: Question Card + Answer Composer */}
+        <section className={styles.interactionArea}>
+          {/* Collapsible Earlier Turns Thread (▸ Q1, Q2...) */}
+          {earlierTurns.length > 0 && (
+            <div className={styles.pastTurnsAccordion}>
+              <button
+                type="button"
+                className={styles.accordionHeaderBtn}
+                onClick={() => setIsPastTurnsOpen(!isPastTurnsOpen)}
+                aria-expanded={isPastTurnsOpen}
+              >
+                <div className={styles.accordionTitle}>
+                  {isPastTurnsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  <span>Earlier Turns ({earlierTurns.length})</span>
                 </div>
-              ) : (
-                <p className={styles.placeholderText}>Initializing interview session...</p>
+                <span className={styles.accordionHint}>
+                  {isPastTurnsOpen ? 'Collapse' : 'Click to review previous Q&A'}
+                </span>
+              </button>
+
+              {isPastTurnsOpen && (
+                <div className={styles.pastTurnsContent}>
+                  {earlierTurns.map((turn, idx) => (
+                    <div key={idx} className={styles.pastTurnItem}>
+                      <div className={styles.pastQuestionBox}>
+                        <span className={styles.pastSpeakerLabel}>Q{idx + 1} Examiner</span>
+                        <p className={styles.pastText}>{turn.question}</p>
+                      </div>
+                      {turn.answer && (
+                        <div className={styles.pastAnswerBox}>
+                          <span className={styles.pastCandidateLabel}>You</span>
+                          <p className={styles.pastText}>{turn.answer}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Current Structured Question Card */}
+          <Card className={styles.questionCard} padding="lg">
+            <div className={styles.questionHeader}>
+              <div className={styles.questionTopicBadge}>
+                <Sparkles size={12} />
+                <span>{parsedQuestion.topicTag}</span>
+              </div>
+              <span className={styles.questionTurnLabel}>
+                Question {questionNumber} of {BENCHMARK_QUESTIONS_TOTAL}
+              </span>
+            </div>
+
+            <div className={styles.questionBody}>
+              {/* Scenario Context (Muted, 2-3 lines, capped width) */}
+              {parsedQuestion.scenario && (
+                <div className={styles.scenarioContext}>
+                  <MarkdownRenderer content={parsedQuestion.scenario} />
+                </div>
               )}
 
+              {/* Core Question (Bold, prominent callout box) */}
+              {parsedQuestion.question ? (
+                <div className={styles.questionCallout}>
+                  <span className={styles.calloutAccentBar} />
+                  <div className={styles.calloutText}>
+                    <MarkdownRenderer
+                      content={parsedQuestion.question}
+                      isStreaming={isStreaming}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className={styles.placeholderNotice}>
+                  Formulating technical screening question...
+                </p>
+              )}
+
+              {/* Streaming typing animation */}
               {isStreaming && (
-                <span className={styles.typingIndicator}>
+                <div className={styles.typingIndicator}>
                   <span className={styles.dot} />
                   <span className={styles.dot} />
                   <span className={styles.dot} />
-                </span>
+                </div>
               )}
             </div>
           </Card>
-        </div>
 
-        {/* Collapsible Live Transcript Tray */}
-        <div className={styles.transcriptSection}>
-          <button
-            type="button"
-            className={styles.transcriptToggle}
-            onClick={() => setIsTranscriptOpen(!isTranscriptOpen)}
-            aria-expanded={isTranscriptOpen}
-          >
-            <span className={styles.transcriptTitle}>
-              Transcript History ({messages.length} {messages.length === 1 ? 'turn' : 'turns'})
-            </span>
-            {isTranscriptOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-
-          {isTranscriptOpen && (
-            <div className={styles.transcriptContent}>
-              <div className={styles.transcriptActions}>
-                <button
-                  type="button"
-                  className={styles.copyBtn}
-                  onClick={handleCopyTranscript}
-                  title="Copy full transcript"
-                >
-                  {hasCopiedTranscript ? <Check size={13} /> : <Copy size={13} />}
-                  <span>{hasCopiedTranscript ? 'Copied' : 'Copy Transcript'}</span>
-                </button>
-              </div>
-
-              <div className={styles.messageScroll}>
-                {messages.map((m, idx) => {
-                  const isUser = m.role === 'user';
-                  return (
-                    <div
-                      key={idx}
-                      className={cn(
-                        styles.transcriptMessage,
-                        isUser ? styles.userTurn : styles.assistantTurn,
-                      )}
-                    >
-                      <div className={styles.msgHeader}>
-                        <span className={styles.msgRole}>
-                          {isUser ? <User size={12} /> : <Bot size={12} />}
-                          {isUser ? 'Candidate' : 'Interviewer'}
-                        </span>
-                        <span className={styles.msgTime}>
-                          {new Date(m.timestamp || Date.now()).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                      <div className={styles.msgContent}>
-                        <MarkdownRenderer content={m.content} />
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={transcriptBottomRef} />
-              </div>
+          {/* Modern Answer Composer Card */}
+          <Card className={styles.composerCard} padding="sm">
+            {/* Header: Response label & Insert Code helper */}
+            <div className={styles.composerHeader}>
+              <span className={styles.composerLabel}>Your Response</span>
+              <button
+                type="button"
+                className={styles.insertCodeBtn}
+                onClick={handleInsertCodeSnippet}
+                title="Insert markdown code block"
+              >
+                <Code2 size={13} />
+                <span>Insert Code</span>
+              </button>
             </div>
-          )}
-        </div>
 
-        {/* Candidate Response Composer */}
-        <div className={styles.composerSection}>
-          <form className={styles.composerForm} onSubmit={handleSubmit}>
-            <div className={styles.inputWrapper}>
-              <textarea
-                ref={textareaRef}
-                className={styles.textarea}
-                rows={3}
-                placeholder={
-                  isListening
-                    ? 'Listening to microphone... speak clearly, or type here...'
-                    : 'Articulate your technical response, reasoning, trade-offs, and architecture...'
-                }
-                value={responseText}
-                onChange={(e) => setResponseText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isStreaming}
-              />
-
-              <div className={styles.inputActions}>
-                {/* Voice Dictation Button */}
-                <button
-                  type="button"
-                  className={cn(
-                    styles.micButton,
-                    isListening && styles.micActive,
-                    !isSpeechSupported && styles.micDisabled,
-                  )}
-                  onClick={handleToggleMic}
-                  title={
-                    !isSpeechSupported
-                      ? 'Speech recognition not supported in this browser'
-                      : isListening
-                        ? 'Stop speech dictation'
-                        : 'Start voice dictation (Web Speech API)'
+            {/* Auto-growing Textarea */}
+            <form className={styles.composerForm} onSubmit={handleSubmit}>
+              <div className={styles.textareaWrap}>
+                <textarea
+                  ref={textareaRef}
+                  className={styles.autoGrowTextarea}
+                  rows={3}
+                  placeholder={
+                    isListening
+                      ? 'Listening to microphone... speak clearly, or type here...'
+                      : 'Articulate your response, reasoning, trade-offs, and architecture...'
                   }
-                  aria-label={isListening ? 'Stop recording voice' : 'Start recording voice'}
-                >
-                  {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-                  <span className={styles.micStatusText}>
-                    {isListening ? 'Recording...' : 'Voice Input'}
-                  </span>
-                </button>
+                  value={responseText}
+                  onChange={handleTextareaInput}
+                  onKeyDown={handleKeyDown}
+                  disabled={isStreaming}
+                />
 
-                <div className={styles.submitGroup}>
+                {/* Microphone Recording Overlay Pill */}
+                {isListening && (
+                  <div className={styles.recordingOverlay}>
+                    <span className={styles.recordPulseDot} />
+                    <span className={styles.recordWave}>Listening to microphone...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Toolbar */}
+              <div className={styles.composerFooter}>
+                <div className={styles.footerLeft}>
+                  {/* Word Count */}
+                  <span className={styles.wordCountBadge}>
+                    {wordCount} {wordCount === 1 ? 'word' : 'words'}
+                  </span>
+
+                  {/* Mic Dictation Toggle */}
+                  <button
+                    type="button"
+                    className={cn(
+                      styles.micToggleBtn,
+                      isListening && styles.micRecording,
+                      !isSpeechSupported && styles.micDisabled,
+                    )}
+                    onClick={handleToggleMic}
+                    title={
+                      !isSpeechSupported
+                        ? 'Speech dictation not supported'
+                        : isListening
+                          ? 'Stop voice recording'
+                          : 'Start speech-to-text dictation'
+                    }
+                    aria-label={isListening ? 'Stop recording' : 'Start microphone'}
+                  >
+                    {isListening ? <MicOff size={15} /> : <Mic size={15} />}
+                    <span>{isListening ? 'Recording' : 'Voice'}</span>
+                  </button>
+                </div>
+
+                <div className={styles.footerRight}>
+                  <span className={styles.enterKeyHint}>
+                    <kbd>Enter ↵</kbd> submit · <kbd>Shift+Enter</kbd> newline
+                  </span>
+
+                  {/* Skip Question Button */}
+                  <button
+                    type="button"
+                    className={styles.skipBtn}
+                    onClick={handleSkipQuestion}
+                    disabled={isStreaming}
+                    title="Skip this question"
+                  >
+                    <FastForward size={13} />
+                    <span>Skip</span>
+                  </button>
+
+                  {/* Submit / Stop Button */}
                   {isStreaming ? (
                     <Button
                       type="button"
                       variant="secondary"
-                      size="md"
+                      size="sm"
                       onClick={onStopStreaming}
-                      className={styles.stopBtn}
-                      leftIcon={<Square size={14} />}
+                      leftIcon={<Square size={13} />}
                     >
                       Stop
                     </Button>
@@ -544,23 +827,78 @@ export function InterviewArena({
                     <Button
                       type="submit"
                       variant="primary"
-                      size="md"
+                      size="sm"
                       disabled={!responseText.trim() || isStreaming}
-                      className={styles.sendBtn}
-                      leftIcon={<Send size={15} />}
+                      className={styles.submitBtn}
+                      leftIcon={<Send size={13} />}
                     >
-                      Submit Answer
+                      Submit
                     </Button>
                   )}
                 </div>
               </div>
-            </div>
-          </form>
-          <span className={styles.hintText}>
-            Tip: Press <kbd>Enter</kbd> to submit answer, <kbd>Shift+Enter</kbd> for newline.
-          </span>
-        </div>
+            </form>
+          </Card>
+        </section>
       </main>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 3. Conclude Confirmation Dialog                               */}
+      {/* ------------------------------------------------------------- */}
+      {showConcludeConfirm && (
+        <div className={styles.modalBackdrop} onClick={() => setShowConcludeConfirm(false)}>
+          <div
+            className={styles.confirmDialog}
+            onClick={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-labelledby="conclude-title"
+          >
+            <div className={styles.dialogHeader}>
+              <div className={styles.dialogIconWrap}>
+                <AlertCircle size={20} className={styles.dialogIcon} />
+              </div>
+              <div>
+                <h4 id="conclude-title" className={styles.dialogTitle}>
+                  Conclude Interview Session?
+                </h4>
+                <p className={styles.dialogDesc}>
+                  Your interview transcript will be finalized and evaluated by Gemini against
+                  industry competency benchmarks to generate your scorecard report.
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.dialogCloseBtn}
+                onClick={() => setShowConcludeConfirm(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className={styles.dialogActions}>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setShowConcludeConfirm(false)}
+              >
+                Keep Practicing
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
+                loading={isConcluding}
+                onClick={() => {
+                  setShowConcludeConfirm(false);
+                  onConclude();
+                }}
+                leftIcon={<Award size={15} />}
+              >
+                End & Evaluate
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

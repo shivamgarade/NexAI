@@ -14,6 +14,7 @@ import {
   Layers,
   LogOut,
   PanelLeftClose,
+  PanelLeftOpen,
   MoreHorizontal,
   ChevronDown,
   ChevronRight,
@@ -31,11 +32,13 @@ import {
   ExternalLink,
   Clock,
   Database,
+  Workflow,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { IconButton } from '@/components/ui/IconButton';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
@@ -145,19 +148,32 @@ export function Sidebar({ onItemClick, isMobile = false }) {
   const [deletingChatId, setDeletingChatId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Initial fetch of chats and projects
+  // Initial fetch of chats and projects + periodic & window focus sync for background schedules
   useEffect(() => {
     fetchChats();
     fetchProjects();
+
+    const handleFocus = () => {
+      fetchChats();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    const intervalId = setInterval(() => {
+      fetchChats();
+    }, 30000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(intervalId);
+    };
   }, [fetchChats, fetchProjects]);
 
-  // Primary visible navigation links
+  // Primary visible navigation links (Canonical PRD scope)
   const primaryNavItems = [
     { to: ROUTES.CHAT, label: 'Chat', icon: <MessageSquare size={17} /> },
     { to: ROUTES.LIBRARY, label: 'Library', icon: <Bookmark size={17} /> },
-    { to: ROUTES.SKILLS, label: 'Skills', icon: <Zap size={17} /> },
+    { to: ROUTES.PROMPTS, label: 'Prompt Vault', icon: <Terminal size={17} /> },
     { to: ROUTES.INTERVIEW, label: 'Interview', icon: <Mic size={17} /> },
-    { to: ROUTES.SCHEMA, label: 'Data Modeling', icon: <Database size={17} /> },
   ];
 
   // Secondary items for ChatGPT-style floating "... More" popover
@@ -461,39 +477,42 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                 }
                 items={[
                   {
-                    label: 'Share',
-                    icon: <Share2 size={13} />,
-                    onClick: (e) => handleShare(chat, e),
+                    label: isPinned ? 'Unpin' : 'Pin',
+                    icon: <Pin size={13} />,
+                    trailing: 'P',
+                    onClick: (e) => togglePin(chat._id, e),
                   },
                   {
                     label: 'Rename',
                     icon: <Edit2 size={13} />,
+                    trailing: 'R',
                     onClick: (e) => handleStartRename(chat, e),
                   },
                   {
-                    label: isPinned ? 'Unpin chat' : 'Pin chat',
-                    icon: <Pin size={13} />,
-                    onClick: (e) => togglePin(chat._id, e),
+                    label: 'Add to project',
+                    icon: <Folder size={13} />,
+                    trailing: <ChevronRight size={13} />,
+                    onClick: () => {
+                      setMovingChat(chat);
+                    },
+                  },
+                  {
+                    label: 'Share chat',
+                    icon: <Share2 size={13} />,
+                    onClick: (e) => handleShare(chat, e),
                   },
                   {
                     label: 'Archive',
                     icon: <Archive size={13} />,
                     onClick: (e) => handleArchive(chat._id, e),
                   },
+                  { divider: true },
                   {
                     label: 'Delete',
                     icon: <Trash2 size={13} />,
+                    trailing: 'D',
                     danger: true,
                     onClick: (e) => handleStartDelete(chat._id, e),
-                  },
-                  { divider: true },
-                  {
-                    label: 'Move to project',
-                    icon: <Folder size={13} />,
-                    trailing: <ChevronRight size={13} />,
-                    onClick: () => {
-                      setMovingChat(chat);
-                    },
                   },
                 ]}
                 align="flyout"
@@ -510,18 +529,23 @@ export function Sidebar({ onItemClick, isMobile = false }) {
       className={cn(styles.sidebar, isCollapsed && styles.collapsed, isMobile && styles.mobile)}
       aria-label="Sidebar navigation"
     >
-      {/* Brand Header: Single search icon + collapse toggle on top right */}
+      {/* Brand Header */}
       <div className={styles.brandHeader}>
         {isCollapsed ? (
-          <button
-            type="button"
-            className={styles.collapsedBrandBtn}
-            onClick={toggleSidebarCollapsed}
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
-          >
-            <img src={logoImg} alt="NexAI Logo" className={styles.collapsedBrandLogo} />
-          </button>
+          <Tooltip content="Expand sidebar (Ctrl+B)" side="right" portal delay={60}>
+            <button
+              type="button"
+              className={cn(styles.brandTitle, styles.collapsedHeaderBtn)}
+              onClick={toggleSidebarCollapsed}
+              aria-label="Expand sidebar (Ctrl+B)"
+              data-tip="Expand sidebar"
+            >
+              <div className={styles.brandLogoWrapper}>
+                <img src={logoImg} alt="NexAI Logo" className={styles.brandLogo} />
+                <PanelLeftOpen size={18} className={styles.expandIconOverlay} />
+              </div>
+            </button>
+          </Tooltip>
         ) : (
           <>
             <div
@@ -535,7 +559,7 @@ export function Sidebar({ onItemClick, isMobile = false }) {
               title="NexAI"
             >
               <img src={logoImg} alt="NexAI Logo" className={styles.brandLogo} />
-              <span>NexAI</span>
+              <span className={styles.brandName}>NexAI</span>
             </div>
 
             <div className={styles.headerActions}>
@@ -548,16 +572,16 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                   onItemClick?.();
                   navigate(ROUTES.SEARCH);
                 }}
-                className={styles.headerActionBtn}
+                className={styles.headerSearchBtn}
               />
               {!isMobile && (
                 <IconButton
                   icon={<PanelLeftClose size={18} />}
-                  label="Collapse sidebar"
+                  label="Collapse sidebar (Ctrl+B)"
                   size="sm"
                   variant="ghost"
                   onClick={toggleSidebarCollapsed}
-                  className={styles.headerActionBtn}
+                  className={styles.headerToggleBtn}
                 />
               )}
             </div>
@@ -565,89 +589,70 @@ export function Sidebar({ onItemClick, isMobile = false }) {
         )}
       </div>
 
-      {/* Primary Action: New chat & Search */}
+      {/* Primary Action: New chat */}
       <div className={styles.newChatWrapper}>
-        {isCollapsed ? (
-          <div className={styles.collapsedActions}>
-            <IconButton
-              icon={<SquarePen size={18} />}
-              label="New chat"
-              variant="ghost"
-              size="md"
-              onClick={handleNewChat}
-              className={styles.collapsedNewChatBtn}
-            />
-            <IconButton
-              icon={<Search size={18} />}
-              label="Search conversations"
-              variant="ghost"
-              size="md"
-              onClick={() => {
-                onItemClick?.();
-                navigate(ROUTES.SEARCH);
-              }}
-              className={styles.collapsedSearchBtn}
-            />
-          </div>
-        ) : (
-          <div className={styles.newChatRow}>
-            <button
-              type="button"
-              className={styles.expandedNewChatBtn}
-              onClick={handleNewChat}
-              aria-label="New chat"
-            >
-              <SquarePen size={17} className={styles.newChatIcon} />
-              <span>New chat</span>
-            </button>
-          </div>
-        )}
+        <Tooltip content="New chat" side="right" portal delay={60}>
+          <button
+            type="button"
+            className={styles.newChatBtn}
+            onClick={handleNewChat}
+            aria-label="New chat"
+            data-tip="New chat"
+          >
+            <span className={styles.iconCell}>
+              <SquarePen size={18} className={styles.newChatIcon} />
+            </span>
+            <span className={styles.labelCell}>New chat</span>
+          </button>
+        </Tooltip>
       </div>
 
-      {/* Primary Navigation Links + ChatGPT-style floating "... More" popover */}
+      {/* Primary Navigation Links + ChatGPT-style More popover */}
       <nav className={styles.navSection} aria-label="Main Navigation">
         {primaryNavItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onItemClick}
-            title={isCollapsed ? item.label : undefined}
-            className={({ isActive }) => cn(styles.navItem, isActive && styles.active)}
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span className={styles.navLabel}>{item.label}</span>
-          </NavLink>
+          <Tooltip key={item.to} content={item.label} side="right" portal delay={60}>
+            <NavLink
+              to={item.to}
+              onClick={onItemClick}
+              className={({ isActive }) => cn(styles.navItem, isActive && styles.active)}
+              data-tip={item.label}
+            >
+              <span className={styles.iconCell}>{item.icon}</span>
+              <span className={styles.labelCell}>{item.label}</span>
+            </NavLink>
+          </Tooltip>
         ))}
 
-        {/* ChatGPT Style "... More" row with floating flyout dropdown */}
-        {!isCollapsed && (
-          <Dropdown
-            trigger={
+        {/* More navigation row */}
+        <Dropdown
+          trigger={
+            <Tooltip content="More" side="right" portal delay={60}>
               <button
                 type="button"
                 className={cn(styles.navItem, styles.moreTriggerBtn)}
                 aria-label="Toggle more navigation links"
+                data-tip="More"
               >
-                <span className={styles.navIcon}>
+                <span className={styles.iconCell}>
                   <MoreHorizontal size={17} />
                 </span>
-                <span className={styles.navLabel}>More</span>
+                <span className={styles.labelCell}>More</span>
               </button>
-            }
-            items={moreNavDropdownItems}
-            align={isMobile ? 'left' : 'flyout'}
-            className={styles.moreDropdownWrapper}
-          />
-        )}
+            </Tooltip>
+          }
+          items={moreNavDropdownItems}
+          align={isMobile ? 'left' : 'flyout'}
+          className={styles.moreDropdownWrapper}
+        />
       </nav>
+
+      {/* Divider line shown in collapsed rail state */}
+      <div className={styles.middleDivider} aria-hidden="true" />
 
       {/* Scrollable Middle Container: Projects & Chats */}
       <div className={styles.middleScrollArea}>
-
-
         {/* Collapsible Projects Section (ChatGPT Style) */}
-        {!isCollapsed && (
-          <div className={styles.sectionBlock}>
+        <div className={styles.sectionBlock}>
             <div className={styles.sectionHeaderRow}>
               <button
                 type="button"
@@ -739,11 +744,9 @@ export function Sidebar({ onItemClick, isMobile = false }) {
               </div>
             )}
           </div>
-        )}
 
         {/* Collapsible Chats Section (ChatGPT Style: New chat edit icon + 3-dots with 'Organize chats') */}
-        {!isCollapsed && (
-          <div className={styles.sectionBlock}>
+        <div className={styles.sectionBlock}>
             <div className={styles.sectionHeaderRow}>
               <button
                 type="button"
@@ -989,83 +992,73 @@ export function Sidebar({ onItemClick, isMobile = false }) {
               </div>
             )}
           </div>
-        )}
       </div>
 
-      {/* User Profile Footer Card (with Settings icon on the right side) */}
+      {/* Footer Section: Settings and User profile */}
       <div className={styles.footerSection}>
-        {!isCollapsed ? (
-          <div className={styles.footerRow}>
-            <div className={styles.userCardContainer}>
-              <Dropdown
-                trigger={
-                  <div
-                    className={styles.userCard}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="User account menu"
-                  >
-                    <Avatar name={user?.email || 'User'} size="sm" />
-                    <div className={styles.userInfo}>
-                      <span className={styles.userName}>{userDisplayName}</span>
-                      <span className={styles.userPlan}>{userPlan}</span>
-                    </div>
-                    <div
-                      className={styles.creditChip}
-                      title={`⚡ Daily Quota: ${quotaRemaining.toLocaleString()} / ${quotaLimit.toLocaleString()} calls left`}
-                    >
-                      <Zap size={11} className={styles.creditIcon} />
-                      <span>{quotaRemaining.toLocaleString()}</span>
-                    </div>
-                  </div>
-                }
-                items={userMenuItems}
-                align="top-left"
-              />
-            </div>
-
-            {/* Direct Settings button on the right side of the bottom user profile */}
-            <IconButton
-              icon={<Settings size={16} />}
-              label="Settings"
-              variant="ghost"
-              size="sm"
+        {/* Settings row */}
+        <div className={styles.footerItemRow}>
+          <Tooltip content="Settings" side="right" portal delay={60}>
+            <button
+              type="button"
+              className={cn(
+                styles.footerNavBtn,
+                location.pathname === ROUTES.SETTINGS && styles.active,
+              )}
               onClick={() => {
                 onItemClick?.();
                 navigate(ROUTES.SETTINGS);
               }}
-              className={styles.footerSettingsBtn}
-            />
-          </div>
-        ) : (
-          <div className={styles.collapsedFooter}>
+              aria-label="Settings"
+              data-tip="Settings"
+            >
+              <span className={styles.iconCell}>
+                <Settings size={17} />
+              </span>
+              <span className={styles.labelCell}>Settings</span>
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* User Card */}
+        <div className={styles.footerItemRow}>
+          <Tooltip
+            content={`${userDisplayName} (${userPlan})`}
+            side="right"
+            portal
+            delay={60}
+          >
             <Dropdown
               trigger={
                 <div
-                  className={styles.collapsedUserAvatar}
+                  className={styles.userCard}
                   role="button"
                   tabIndex={0}
-                  title={`${userDisplayName} (${userPlan}) - ${quotaRemaining.toLocaleString()} calls left`}
+                  aria-label="User account menu"
+                  data-tip={userDisplayName}
                 >
-                  <Avatar name={user?.email || 'User'} size="sm" />
+                  <span className={styles.iconCell}>
+                    <Avatar name={user?.email || 'User'} size="sm" />
+                  </span>
+                  <div className={styles.userInfo}>
+                    <span className={styles.userName}>{userDisplayName}</span>
+                    <span className={styles.userPlan}>{userPlan}</span>
+                  </div>
+                  <div
+                    className={styles.creditChip}
+                    title={`⚡ Daily Quota: ${quotaRemaining.toLocaleString()} / ${quotaLimit.toLocaleString()} calls left`}
+                  >
+                    <Zap size={11} className={styles.creditIcon} />
+                    <span>{quotaRemaining.toLocaleString()}</span>
+                  </div>
                 </div>
               }
               items={userMenuItems}
-              align="flyout"
+              align={isMobile ? 'left' : 'flyout'}
+              className={styles.userDropdownWrapper}
             />
-            <IconButton
-              icon={<Settings size={16} />}
-              label="Settings"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                onItemClick?.();
-                navigate(ROUTES.SETTINGS);
-              }}
-              className={styles.collapsedSettingsBtn}
-            />
-          </div>
-        )}
+          </Tooltip>
+        </div>
       </div>
 
       <ConfirmDialog

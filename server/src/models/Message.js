@@ -51,6 +51,14 @@ const messageSchema = new mongoose.Schema(
         },
       ],
     },
+    memoriesUpdated: [
+      {
+        id: { type: String },
+        fact: { type: String },
+        category: { type: String },
+        action: { type: String },
+      },
+    ],
     attachments: [
       {
         name: { type: String, default: '' },

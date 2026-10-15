@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Menu, Sun, Moon, Search } from 'lucide-react';
+import { Menu, Sun, Moon, Search, PanelLeftOpen } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTheme } from '@/hooks/useTheme';
 import { IconButton } from '@/components/ui/IconButton';
@@ -13,6 +13,8 @@ export function Topbar() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
   const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
+  const isSidebarCollapsed = useUiStore((state) => state.isSidebarCollapsed);
+  const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed);
   const user = useAuthStore((state) => state.user);
   const credits = user?.wallet?.creditsRemaining ?? 100;
 
@@ -30,6 +32,15 @@ export function Topbar() {
             onClick={() => setDrawerOpen(true)}
           />
         </div>
+        {isSidebarCollapsed && (
+          <div className={styles.desktopToggle}>
+            <IconButton
+              icon={<PanelLeftOpen size={18} />}
+              label="Expand sidebar (Ctrl+B)"
+              onClick={toggleSidebarCollapsed}
+            />
+          </div>
+        )}
         <button
           type="button"
           onClick={openCommandPalette}

@@ -1,518 +1,543 @@
 import { create } from 'zustand';
+import {
+  parse,
+  serialize,
+  createEmptyModel,
+  generateId,
+  exportToSQL,
+  exportToPrisma,
+} from '@/features/schemaDesigner/erLang';
 import { schemaApi } from '@/lib/api/schema.api.js';
 import { libraryApi } from '@/lib/api/library.api.js';
-import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
-import { generateAllCodeOutputs, parseCodeToEntities } from '@/features/schemaDesigner/schemaSync';
+
+const MAX_HISTORY = 30;
 
 export const useSchemaStore = create((set, get) => ({
+  // Core ER Model (Single Source of Truth)
+  model: createEmptyModel(),
+
+  // Serialized ER Code
+  code: '',
+
+  // Code editor diagnostics
+  parseErrors: [],
+
+  // Undo / Redo history stacks
+  history: {
+    past: [],
+    future: [],
+  },
+
+  // Selection & UI State
+  title: 'Untitled Schema',
   prompt: '',
-  activeDialect: 'mongoose',
-  currentSchema: null,
-  manualLinks: [],
-  telemetry: null,
-  isLoading: false,
-  error: null,
-  isReviewModalOpen: false,
-  isTelemetryDrawerOpen: false,
+  selectedEntityId: null,
+  selectedRelationId: null,
+  viewMode: 'split', // 'split' | 'erd' | 'code'
   selectedModel: 'flash',
-  isSimulation: false,
-  entityPositions: {},
+  isLoading: false,
+  isReviewModalOpen: false,
 
+  // Suggest -> Review -> Confirm preview model
+  aiPreview: null, // { model, code, summary } when awaiting confirmation
+
+  // Backward compatibility getters for existing canvas references
+  get currentSchema() {
+    const { model } = get();
+    return {
+      title: get().title,
+      entities: model.entities || [],
+    };
+  },
+
+  get entityPositions() {
+    return get().model.layout || {};
+  },
+
+  setTitle: (title) => set({ title }),
   setPrompt: (prompt) => set({ prompt }),
-  setActiveDialect: (dialect) => set({ activeDialect: dialect }),
-  setSelectedModel: (model) => set({ selectedModel: model }),
-  setIsSimulation: (isSimulation) => set({ isSimulation }),
+  setViewMode: (viewMode) => set({ viewMode }),
+  setSelectedEntityId: (id) => set({ selectedEntityId: id }),
+  setSelectedRelationId: (id) => set({ selectedRelationId: id }),
+  setSelectedModel: (selectedModel) => set({ selectedModel }),
   setReviewModalOpen: (isOpen) => set({ isReviewModalOpen: isOpen }),
-  setTelemetryDrawerOpen: (isOpen) => set({ isTelemetryDrawerOpen: isOpen }),
-  setEntityPositions: (positions) =>
-    set((state) => ({
-      entityPositions: { ...state.entityPositions, ...positions },
-    })),
 
-  // Extract all existing relationships (schema-defined + manual)
-  getRelationships: () => {
-    const { currentSchema, manualLinks } = get();
-    if (!currentSchema?.entities?.length) return [];
-    const list = [];
+  // Push current model state to undo history
+  _pushHistory: () => {
+    const { model, history } = get();
+    const snapshot = JSON.parse(JSON.stringify(model));
+    const nextPast = [...history.past, snapshot].slice(-MAX_HISTORY);
+    set({
+      history: {
+        past: nextPast,
+        future: [],
+      },
+    });
+  },
 
-    currentSchema.entities.forEach((entity) => {
-      (entity.fields || []).forEach((field) => {
-        if (field.isForeignKey || field.references || field.name.toLowerCase().endsWith('id')) {
-          let targetName = '';
-          let targetField = 'id';
+  // Set code directly (from editor typing) -> parses and updates model if valid
+  setCode: (newCode) => {
+    const { model: currentModel } = get();
+    const { model: parsedModel, errors } = parse(newCode, currentModel);
 
-          if (field.references) {
-            const parts = field.references.split('.');
-            targetName = parts[0];
-            if (parts[1]) targetField = parts[1];
-          } else if (field.name.toLowerCase().endsWith('id')) {
-            const rawPrefix = field.name.replace(/_?id$/i, '');
-            const match = currentSchema.entities.find(
-              (e) => e.name.toLowerCase() === rawPrefix.toLowerCase()
-            );
-            if (match) targetName = match.name;
-          }
+    set({ code: newCode });
 
-          if (targetName && targetName !== entity.name) {
-            list.push({
-              id: `${entity.name}.${field.name}->${targetName}.${targetField}`,
-              source: entity.name,
-              sourceField: field.name,
-              target: targetName,
-              targetField,
-              cardinality: '1 : N',
-            });
-          }
-        }
+    if (errors.length === 0) {
+      // Valid code: sync canvas model and clear errors
+      set({
+        model: parsedModel,
+        parseErrors: [],
       });
-    });
-
-    manualLinks.forEach((ml) => {
-      if (!list.some((l) => l.source === ml.source && l.sourceField === ml.sourceField && l.target === ml.target && l.targetField === ml.targetField)) {
-        list.push(ml);
-      }
-    });
-
-    return list;
+    } else {
+      // Keep last valid diagram and surface parse errors
+      set({ parseErrors: errors });
+    }
   },
 
-  // Manual or direct code output change
-  updateCodeOutput: (dialect, newCode) =>
-    set((state) => {
-      if (!state.currentSchema) return state;
-      return {
-        currentSchema: {
-          ...state.currentSchema,
-          codeOutputs: {
-            ...state.currentSchema.codeOutputs,
-            [dialect]: newCode,
-          },
-        },
-      };
-    }),
-
-  // Regenerate all code dialects and Mermaid diagram based on current entities and links
-  rebuildCodeFromDiagram: (entities, updatedLinks) => {
-    const links = updatedLinks !== undefined ? updatedLinks : get().getRelationships();
-    const codes = generateAllCodeOutputs(entities, links);
-
-    set((state) => ({
-      currentSchema: state.currentSchema
-        ? {
-            ...state.currentSchema,
-            entities,
-            mermaidErDiagram: codes.mermaidErDiagram,
-            codeOutputs: {
-              ...state.currentSchema.codeOutputs,
-              ...codes,
-            },
-          }
-        : {
-            title: 'Custom Data Model',
-            summary: 'Created in NexAI Data Modeling Studio',
-            entities,
-            mermaidErDiagram: codes.mermaidErDiagram,
-            codeOutputs: codes,
-          },
-    }));
+  // Helper to commit canvas mutations -> updates model, pushes history, serializes to code
+  _commitModelChange: (nextModel) => {
+    get()._pushHistory();
+    const newCode = serialize(nextModel);
+    set({
+      model: nextModel,
+      code: newCode,
+      parseErrors: [],
+    });
   },
 
-  // Add new entity card to canvas
-  addEntity: (entityName, position) => {
-    const { currentSchema, entityPositions } = get();
-    const name = (entityName || '').trim() || `Entity_${(currentSchema?.entities?.length || 0) + 1}`;
-    const sanitizedName = name.replace(/[^a-zA-Z0-9_]/g, '');
+  /* ==========================================================================
+     CANVAS CRUD ACTIONS (Write to Model -> Serializes to Code)
+     ========================================================================== */
+
+  // Add entity
+  addEntity: (name, color, pos) => {
+    const { model } = get();
+    const entityCount = model.entities.length;
+    const entityName = (name || `entity_${entityCount + 1}`)
+      .trim()
+      .replace(/[^a-zA-Z0-9_]/g, '');
+
+    const entityId = generateId('ent');
+    const col = entityCount % 3;
+    const row = Math.floor(entityCount / 3);
+    const defaultPos = pos || { x: 50 + col * 320, y: 50 + row * 280 };
 
     const newEntity = {
-      name: sanitizedName,
-      description: `${sanitizedName} domain entity`,
+      id: entityId,
+      name: entityName,
+      color: color || undefined,
       fields: [
-        { name: 'id', type: 'UUID', isPrimary: true, isRequired: true, isUnique: true },
-        { name: 'name', type: 'VARCHAR(255)', isPrimary: false, isRequired: true },
-        { name: 'createdAt', type: 'TIMESTAMP', isPrimary: false, isRequired: true },
+        {
+          id: generateId('fld'),
+          name: 'id',
+          type: 'uuid',
+          pk: true,
+          unique: true,
+          nullable: false,
+        },
+        {
+          id: generateId('fld'),
+          name: 'name',
+          type: 'string',
+          pk: false,
+          unique: false,
+          nullable: false,
+        },
       ],
     };
 
-    const count = currentSchema?.entities?.length || 0;
-    const col = count % 3;
-    const row = Math.floor(count / 3);
-    const defaultPos = { x: 40 + col * 340, y: 40 + row * 300 };
-    const newPositions = {
-      ...entityPositions,
-      [sanitizedName]: position || defaultPos,
+    const nextModel = {
+      ...model,
+      entities: [...model.entities, newEntity],
+      layout: {
+        ...model.layout,
+        [entityId]: defaultPos,
+      },
     };
 
-    const updatedEntities = [...(currentSchema?.entities || []), newEntity];
-    set({ entityPositions: newPositions });
-    get().rebuildCodeFromDiagram(updatedEntities);
-    toast.success(`Added entity "${sanitizedName}"`);
-  },
-
-  // Delete entity card
-  deleteEntity: (entityName) => {
-    const { currentSchema, manualLinks } = get();
-    if (!currentSchema) return;
-
-    const updatedEntities = currentSchema.entities.filter((e) => e.name !== entityName);
-    const updatedLinks = manualLinks.filter(
-      (l) => l.source !== entityName && l.target !== entityName
-    );
-
-    set({ manualLinks: updatedLinks });
-    get().rebuildCodeFromDiagram(updatedEntities, updatedLinks);
-    toast.info(`Deleted entity "${entityName}"`);
+    get()._commitModelChange(nextModel);
+    set({ selectedEntityId: entityId });
+    toast.success(`Added table "${entityName}"`);
   },
 
   // Rename entity
-  renameEntity: (oldName, newName) => {
-    const { currentSchema, entityPositions, manualLinks } = get();
-    if (!currentSchema || !newName || oldName === newName) return;
-    const sanitized = newName.trim().replace(/[^a-zA-Z0-9_]/g, '');
+  renameEntity: (entityId, newName) => {
+    const { model } = get();
+    const sanitized = (newName || '').trim().replace(/[^a-zA-Z0-9_]/g, '');
+    if (!sanitized) return;
 
-    const updatedEntities = currentSchema.entities.map((e) => {
-      if (e.name === oldName) {
-        return { ...e, name: sanitized };
-      }
-      return e;
-    });
-
-    const newPositions = { ...entityPositions };
-    if (newPositions[oldName]) {
-      newPositions[sanitized] = newPositions[oldName];
-      delete newPositions[oldName];
-    }
-
-    const updatedLinks = manualLinks.map((l) => ({
-      ...l,
-      source: l.source === oldName ? sanitized : l.source,
-      target: l.target === oldName ? sanitized : l.target,
-    }));
-
-    set({ entityPositions: newPositions, manualLinks: updatedLinks });
-    get().rebuildCodeFromDiagram(updatedEntities, updatedLinks);
-  },
-
-  // Add field to entity
-  addField: (entityName, fieldData) => {
-    const { currentSchema } = get();
-    if (!currentSchema) return;
-
-    const newField = fieldData || {
-      name: `field_${Date.now().toString().slice(-4)}`,
-      type: 'VARCHAR(255)',
-      isPrimary: false,
-      isRequired: false,
-      isUnique: false,
-    };
-
-    const updatedEntities = currentSchema.entities.map((e) => {
-      if (e.name === entityName) {
-        return {
-          ...e,
-          fields: [...(e.fields || []), newField],
-        };
-      }
-      return e;
-    });
-
-    get().rebuildCodeFromDiagram(updatedEntities);
-  },
-
-  // Update specific field in entity
-  updateField: (entityName, fieldIndex, updatedField) => {
-    const { currentSchema } = get();
-    if (!currentSchema) return;
-
-    const updatedEntities = currentSchema.entities.map((e) => {
-      if (e.name === entityName) {
-        const nextFields = [...(e.fields || [])];
-        nextFields[fieldIndex] = { ...nextFields[fieldIndex], ...updatedField };
-        return { ...e, fields: nextFields };
-      }
-      return e;
-    });
-
-    get().rebuildCodeFromDiagram(updatedEntities);
-  },
-
-  // Delete field from entity
-  deleteField: (entityName, fieldIndex) => {
-    const { currentSchema, manualLinks } = get();
-    if (!currentSchema) return;
-
-    let removedFieldName = '';
-    const updatedEntities = currentSchema.entities.map((e) => {
-      if (e.name === entityName) {
-        removedFieldName = e.fields?.[fieldIndex]?.name || '';
-        const nextFields = (e.fields || []).filter((_, idx) => idx !== fieldIndex);
-        return { ...e, fields: nextFields };
-      }
-      return e;
-    });
-
-    const updatedLinks = manualLinks.filter(
-      (l) =>
-        !(l.source === entityName && l.sourceField === removedFieldName) &&
-        !(l.target === entityName && l.targetField === removedFieldName)
+    const nextEntities = model.entities.map((e) =>
+      e.id === entityId || e.name === entityId ? { ...e, name: sanitized } : e
     );
 
-    set({ manualLinks: updatedLinks });
-    get().rebuildCodeFromDiagram(updatedEntities, updatedLinks);
+    get()._commitModelChange({ ...model, entities: nextEntities });
   },
 
-  // Add field-to-field connection
-  addConnection: (connection) => {
-    const { manualLinks, currentSchema } = get();
-    // Validate connection
-    const exists = manualLinks.some(
-      (l) =>
-        l.source === connection.source &&
-        l.sourceField === connection.sourceField &&
-        l.target === connection.target &&
-        l.targetField === connection.targetField
+  // Update entity color
+  updateEntityColor: (entityId, color) => {
+    const { model } = get();
+    const nextEntities = model.entities.map((e) =>
+      e.id === entityId ? { ...e, color: color || undefined } : e
+    );
+    get()._commitModelChange({ ...model, entities: nextEntities });
+  },
+
+  // Delete entity (and cascade delete its relations)
+  deleteEntity: (entityId) => {
+    const { model } = get();
+    const entity = model.entities.find((e) => e.id === entityId || e.name === entityId);
+    if (!entity) return;
+
+    const targetId = entity.id;
+    const nextEntities = model.entities.filter((e) => e.id !== targetId);
+    const nextRelations = (model.relations || []).filter(
+      (r) => r.from.entityId !== targetId && r.to.entityId !== targetId
+    );
+    const nextLayout = { ...model.layout };
+    delete nextLayout[targetId];
+
+    get()._commitModelChange({
+      entities: nextEntities,
+      relations: nextRelations,
+      layout: nextLayout,
+    });
+
+    if (get().selectedEntityId === targetId) {
+      set({ selectedEntityId: null });
+    }
+    toast.info(`Deleted table "${entity.name}"`);
+  },
+
+  // Add field
+  addField: (entityId, fieldData) => {
+    const { model } = get();
+    const entity = model.entities.find((e) => e.id === entityId || e.name === entityId);
+    if (!entity) return;
+
+    const newField = {
+      id: generateId('fld'),
+      name: fieldData?.name || `col_${(entity.fields || []).length + 1}`,
+      type: fieldData?.type || 'string',
+      pk: Boolean(fieldData?.pk),
+      unique: Boolean(fieldData?.unique),
+      nullable: Boolean(fieldData?.nullable),
+    };
+
+    const nextEntities = model.entities.map((e) =>
+      e.id === entity.id ? { ...e, fields: [...(e.fields || []), newField] } : e
+    );
+
+    get()._commitModelChange({ ...model, entities: nextEntities });
+  },
+
+  // Update field
+  updateField: (entityId, fieldId, updatedData) => {
+    const { model } = get();
+    const entity = model.entities.find((e) => e.id === entityId || e.name === entityId);
+    if (!entity) return;
+
+    const nextFields = (entity.fields || []).map((f) =>
+      f.id === fieldId || f.name === fieldId ? { ...f, ...updatedData } : f
+    );
+
+    const nextEntities = model.entities.map((e) =>
+      e.id === entity.id ? { ...e, fields: nextFields } : e
+    );
+
+    get()._commitModelChange({ ...model, entities: nextEntities });
+  },
+
+  // Delete field (and any relations using this field)
+  deleteField: (entityId, fieldId) => {
+    const { model } = get();
+    const entity = model.entities.find((e) => e.id === entityId || e.name === entityId);
+    if (!entity) return;
+
+    const field = (entity.fields || []).find((f) => f.id === fieldId || f.name === fieldId);
+    if (!field) return;
+
+    const actualFieldId = field.id;
+    const nextFields = (entity.fields || []).filter((f) => f.id !== actualFieldId);
+
+    const nextRelations = (model.relations || []).filter(
+      (r) =>
+        !(r.from.entityId === entity.id && r.from.fieldId === actualFieldId) &&
+        !(r.to.entityId === entity.id && r.to.fieldId === actualFieldId)
+    );
+
+    const nextEntities = model.entities.map((e) =>
+      e.id === entity.id ? { ...e, fields: nextFields } : e
+    );
+
+    get()._commitModelChange({
+      ...model,
+      entities: nextEntities,
+      relations: nextRelations,
+    });
+  },
+
+  // Reorder fields
+  reorderFields: (entityId, startIndex, endIndex) => {
+    const { model } = get();
+    const entity = model.entities.find((e) => e.id === entityId || e.name === entityId);
+    if (!entity) return;
+
+    const nextFields = [...(entity.fields || [])];
+    const [moved] = nextFields.splice(startIndex, 1);
+    nextFields.splice(endIndex, 0, moved);
+
+    const nextEntities = model.entities.map((e) =>
+      e.id === entity.id ? { ...e, fields: nextFields } : e
+    );
+
+    get()._commitModelChange({ ...model, entities: nextEntities });
+  },
+
+  // Add Relation: from field port to to field port
+  addRelation: (fromEntityId, fromFieldId, toEntityId, toFieldId, type = 'many-to-one') => {
+    const { model } = get();
+
+    // Check if relation already exists
+    const exists = (model.relations || []).some(
+      (r) =>
+        r.from.entityId === fromEntityId &&
+        r.from.fieldId === fromFieldId &&
+        r.to.entityId === toEntityId &&
+        r.to.fieldId === toFieldId
     );
 
     if (exists) return;
 
-    const updatedLinks = [...manualLinks, connection];
-    set({ manualLinks: updatedLinks });
+    const newRelation = {
+      id: generateId('rel'),
+      from: { entityId: fromEntityId, fieldId: fromFieldId },
+      to: { entityId: toEntityId, fieldId: toFieldId },
+      type,
+    };
 
-    // Mark field as foreignKey reference in entity if target field is PK or ID
-    let updatedEntities = currentSchema?.entities || [];
-    updatedEntities = updatedEntities.map((ent) => {
-      if (ent.name === connection.source) {
-        return {
-          ...ent,
-          fields: (ent.fields || []).map((fld) => {
-            if (fld.name === connection.sourceField) {
-              return {
-                ...fld,
-                isForeignKey: true,
-                references: `${connection.target}.${connection.targetField}`,
-              };
-            }
-            return fld;
-          }),
-        };
-      }
-      return ent;
-    });
+    const nextRelations = [...(model.relations || []), newRelation];
+    get()._commitModelChange({ ...model, relations: nextRelations });
 
-    get().rebuildCodeFromDiagram(updatedEntities, updatedLinks);
-    toast.success(`Connected ${connection.source}.${connection.sourceField} → ${connection.target}.${connection.targetField}`);
+    // Toast feedback
+    const fromEnt = model.entities.find((e) => e.id === fromEntityId);
+    const toEnt = model.entities.find((e) => e.id === toEntityId);
+    toast.success(`Connected ${fromEnt?.name || 'A'} → ${toEnt?.name || 'B'}`);
   },
 
-  // Toggle cardinality of relationship
-  toggleCardinality: (connectionId) => {
-    const { manualLinks, currentSchema } = get();
-    const updatedLinks = manualLinks.map((l) => {
-      if (l.id === connectionId) {
-        const nextCard = l.cardinality === '1 : N' ? '1 : 1' : l.cardinality === '1 : 1' ? 'N : M' : '1 : N';
-        return { ...l, cardinality: nextCard };
-      }
-      return l;
-    });
-
-    set({ manualLinks: updatedLinks });
-    get().rebuildCodeFromDiagram(currentSchema?.entities || [], updatedLinks);
+  // Update relation type (e.g. toggle between many-to-one, one-to-one, one-to-many, many-to-many)
+  updateRelationType: (relationId, newType) => {
+    const { model } = get();
+    const nextRelations = (model.relations || []).map((r) =>
+      r.id === relationId ? { ...r, type: newType } : r
+    );
+    get()._commitModelChange({ ...model, relations: nextRelations });
   },
 
-  // Delete relationship
-  deleteConnection: (connectionId) => {
-    const { manualLinks, currentSchema } = get();
-    const updatedLinks = manualLinks.filter((l) => l.id !== connectionId);
-    set({ manualLinks: updatedLinks });
-    get().rebuildCodeFromDiagram(currentSchema?.entities || [], updatedLinks);
-    toast.info('Connection removed');
-  },
-
-  // Parse modified code back into diagram entities and relationships
-  syncCodeToDiagram: (code, dialect) => {
-    const parsed = parseCodeToEntities(code, dialect);
-    if (!parsed || !parsed.entities?.length) {
-      return false;
+  // Delete relation
+  deleteRelation: (relationId) => {
+    const { model } = get();
+    const nextRelations = (model.relations || []).filter((r) => r.id !== relationId);
+    get()._commitModelChange({ ...model, relations: nextRelations });
+    if (get().selectedRelationId === relationId) {
+      set({ selectedRelationId: null });
     }
+    toast.info('Relation removed');
+  },
 
-    const { entityPositions } = get();
-    const newPositions = { ...entityPositions };
-
-    parsed.entities.forEach((entity, index) => {
-      if (!newPositions[entity.name]) {
-        const col = index % 3;
-        const row = Math.floor(index / 3);
-        newPositions[entity.name] = { x: 40 + col * 320, y: 40 + row * 280 };
-      }
-    });
-
-    const parsedLinks = parsed.relationships || [];
+  // Update layout positions (does NOT serialize to code)
+  updateLayout: (positions) => {
+    const { model } = get();
     set({
-      manualLinks: parsedLinks,
-      entityPositions: newPositions,
+      model: {
+        ...model,
+        layout: {
+          ...model.layout,
+          ...positions,
+        },
+      },
     });
-
-    get().rebuildCodeFromDiagram(parsed.entities, parsedLinks);
-    return true;
   },
 
-  generateSchema: async (customPrompt) => {
-    const promptToUse = customPrompt || get().prompt;
-    if (!promptToUse || !promptToUse.trim()) {
-      toast.error('Please enter a description or domain requirements');
-      return;
-    }
+  // Set entity positions for backward compatibility
+  setEntityPositions: (positions) => {
+    get().updateLayout(positions);
+  },
 
-    set({ isLoading: true, error: null });
+  // Undo / Redo
+  undo: () => {
+    const { history, model } = get();
+    if (!history.past.length) return;
+
+    const previous = history.past[history.past.length - 1];
+    const nextPast = history.past.slice(0, -1);
+    const currentSnapshot = JSON.parse(JSON.stringify(model));
+
+    set({
+      model: previous,
+      code: serialize(previous),
+      parseErrors: [],
+      history: {
+        past: nextPast,
+        future: [currentSnapshot, ...history.future],
+      },
+    });
+  },
+
+  redo: () => {
+    const { history, model } = get();
+    if (!history.future.length) return;
+
+    const next = history.future[0];
+    const nextFuture = history.future.slice(1);
+    const currentSnapshot = JSON.parse(JSON.stringify(model));
+
+    set({
+      model: next,
+      code: serialize(next),
+      parseErrors: [],
+      history: {
+        past: [...history.past, currentSnapshot],
+        future: nextFuture,
+      },
+    });
+  },
+
+  /* ==========================================================================
+     AI GENERATE & REFINE (Suggest -> Review -> Confirm)
+     ========================================================================== */
+
+  // Request AI generation / refinement
+  generateSchema: async (promptText) => {
+    if (!promptText || !promptText.trim()) return;
+
+    set({ isLoading: true });
 
     try {
-      const { selectedModel, isSimulation, currentSchema } = get();
-      const existingContext = currentSchema
-        ? `Previous Entities: ${currentSchema.entities.map((e) => e.name).join(', ')}`
-        : '';
+      const { code: currentCode, selectedModel } = get();
 
       const response = await schemaApi.generateSchema({
-        prompt: promptToUse.trim(),
-        dialects: ['mongoose', 'sql', 'prisma', 'typescript'],
-        existingSchema: existingContext,
+        prompt: promptText.trim(),
+        currentCode,
         model: selectedModel,
-        isSimulation,
       });
 
       const payload = response?.data || response || {};
-      const schema = payload.schema || payload.data?.schema || null;
-      const telemetry = payload.telemetry || payload.data?.telemetry || null;
+      const aiCode = payload.code || payload.schema?.code || '';
+      const summary = payload.summary || 'Generated ER model update';
 
-      // Extract existing relationships from the generated schema into manualLinks
-      const links = [];
-      (schema?.entities || []).forEach((entity) => {
-        (entity.fields || []).forEach((field) => {
-          if (field.references) {
-            const [tgtName, tgtField = 'id'] = field.references.split('.');
-            links.push({
-              id: `${entity.name}.${field.name}->${tgtName}.${tgtField}`,
-              source: entity.name,
-              sourceField: field.name,
-              target: tgtName,
-              targetField: tgtField,
-              cardinality: '1 : N',
-            });
-          }
+      // Parse the returned AI code
+      const { model: previewModel, errors } = parse(aiCode);
+
+      if (errors.length === 0 && previewModel.entities.length > 0) {
+        // Set AI Preview for Suggest -> Review -> Confirm
+        set({
+          aiPreview: {
+            model: previewModel,
+            code: aiCode,
+            summary,
+          },
+          isLoading: false,
         });
-      });
-
-      set({
-        currentSchema: schema,
-        manualLinks: links,
-        telemetry,
-        isLoading: false,
-        error: null,
-      });
-
-      // Synchronize credit balance in authStore if telemetry updated
-      if (telemetry?.creditsRemaining !== undefined) {
-        useAuthStore.setState((state) => ({
-          user: state.user
-            ? {
-                ...state.user,
-                wallet: {
-                  ...state.user.wallet,
-                  creditsRemaining: telemetry.creditsRemaining,
-                },
-              }
-            : null,
-        }));
+      } else {
+        // Fallback: apply directly if parse succeeds
+        get().setCode(aiCode);
+        set({ isLoading: false });
       }
 
-      toast.success(
-        `Generated schema with ${schema?.entities?.length || 0} entities (${telemetry?.creditsDeducted || 0} credits)`,
-      );
+      toast.success('AI generated ER diagram preview!');
     } catch (err) {
-      const status = err.response?.status;
       const errorMsg =
         err.response?.data?.error?.message ||
         err.message ||
-        'Failed to generate database schema';
-
-      set({ isLoading: false, error: errorMsg });
-
-      if (status === 402) {
-        toast.error('Insufficient credits. Please recharge your wallet to continue.');
-      } else {
-        toast.error(errorMsg);
-      }
+        'Failed to generate ER diagram';
+      set({ isLoading: false });
+      toast.error(errorMsg);
     }
   },
 
+  // Confirm AI Suggestion
+  confirmAiPreview: () => {
+    const { aiPreview } = get();
+    if (!aiPreview) return;
+
+    get()._commitModelChange(aiPreview.model);
+    set({ aiPreview: null });
+    toast.success('Accepted AI diagram changes!');
+  },
+
+  // Discard AI Suggestion
+  discardAiPreview: () => {
+    set({ aiPreview: null });
+    toast.info('Discarded AI preview');
+  },
+
+  /* ==========================================================================
+     EXPORTS & LIBRARY PERSISTENCE
+     ========================================================================== */
+
+  exportSQL: () => exportToSQL(get().model),
+  exportPrisma: () => exportToPrisma(get().model),
+
   saveToLibrary: async ({ title, summary, tags }) => {
-    const { currentSchema } = get();
-    if (!currentSchema) {
-      toast.error('No generated schema to save');
+    const { model, code } = get();
+    if (!model.entities.length) {
+      toast.error('No entities to save');
       return false;
     }
 
     try {
-      const markdownContent = [
-        `# ${title || currentSchema.title}`,
+      const sqlCode = exportToSQL(model);
+      const prismaCode = exportToPrisma(model);
+
+      const content = [
+        `# ${title || get().title}`,
         '',
-        `> ${summary || currentSchema.summary}`,
+        `> ${summary || 'ER Diagram architecture'}`,
         '',
-        '## Visual Entity Relationship Diagram',
-        '```mermaid',
-        currentSchema.mermaidErDiagram,
+        '## ER Diagram Definition',
+        '```er',
+        code,
         '```',
         '',
-        '## Mongoose Schemas (MongoDB)',
-        '```javascript',
-        currentSchema.codeOutputs?.mongoose || '',
-        '```',
-        '',
-        '## PostgreSQL DDL & Constraints',
+        '## Generated PostgreSQL DDL',
         '```sql',
-        currentSchema.codeOutputs?.sql || '',
+        sqlCode,
         '```',
         '',
-        '## Prisma Schema',
+        '## Generated Prisma Schema',
         '```prisma',
-        currentSchema.codeOutputs?.prisma || '',
-        '```',
-        '',
-        '## TypeScript Interfaces',
-        '```typescript',
-        currentSchema.codeOutputs?.typescript || '',
+        prismaCode,
         '```',
       ].join('\n');
 
-      const payload = {
+      await libraryApi.createItem({
         type: 'note',
-        title: title || currentSchema.title,
-        summary: summary || currentSchema.summary,
-        tags: tags && tags.length > 0 ? tags : ['schema', 'data-model', 'database'],
-        content: markdownContent,
-      };
+        title: title || get().title,
+        summary: summary || 'ER Diagram architecture model',
+        tags: tags || ['er-diagram', 'database', 'schema'],
+        content,
+      });
 
-      await libraryApi.createItem(payload);
-      toast.success('Schema saved to your Consolidated Library!');
-      set({ isReviewModalOpen: false });
+      toast.success('Saved ER diagram to Library!');
       return true;
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.error?.message ||
-        err.message ||
-        'Failed to save schema to Library';
-      toast.error(errorMsg);
+      toast.error(err.response?.data?.error?.message || 'Failed to save to Library');
       return false;
     }
   },
 
-  reset: () =>
+  // Reset to blank
+  reset: () => {
     set({
-      prompt: '',
-      currentSchema: null,
-      manualLinks: [],
-      telemetry: null,
-      isLoading: false,
-      error: null,
-      isReviewModalOpen: false,
-      isTelemetryDrawerOpen: false,
-    }),
+      model: createEmptyModel(),
+      code: '',
+      parseErrors: [],
+      history: { past: [], future: [] },
+      selectedEntityId: null,
+      selectedRelationId: null,
+      aiPreview: null,
+      title: 'Untitled Schema',
+    });
+  },
 }));

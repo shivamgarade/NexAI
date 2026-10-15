@@ -44,7 +44,7 @@ const scorecardSchema = new mongoose.Schema(
     },
     rating: {
       type: String,
-      enum: ['Strong Hire', 'Hire', 'Needs Improvement', 'Unprepared'],
+      enum: ['Strong Hire', 'Hire', 'Needs Improvement', 'Unprepared', 'Incomplete'],
       required: true,
     },
     categories: {
@@ -97,7 +97,7 @@ const interviewSessionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['in_progress', 'completed'],
+      enum: ['in_progress', 'completed', 'incomplete'],
       default: 'in_progress',
       index: true,
     },
