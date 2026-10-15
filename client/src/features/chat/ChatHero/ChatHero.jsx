@@ -168,13 +168,17 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     toggleListening();
   };
 
-  // Adjust textarea height dynamically with smooth auto-grow up to 220px
+  // Adjust textarea height dynamically with smooth auto-grow up to 200px
   useEffect(() => {
     if (textareaRef.current) {
+      if (!input) {
+        textareaRef.current.style.height = '24px';
+        return;
+      }
       textareaRef.current.style.height = 'auto';
       const scrollH = textareaRef.current.scrollHeight;
-      const minH = 52;
-      const maxH = 220;
+      const minH = 24;
+      const maxH = 200;
       textareaRef.current.style.height = `${Math.min(Math.max(scrollH, minH), maxH)}px`;
     }
   }, [input]);
@@ -224,7 +228,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     baseTextRef.current = "";
     setAttachedContext(null);
     if (textareaRef.current) {
-      textareaRef.current.style.height = "52px";
+      textareaRef.current.style.height = "24px";
     }
 
     // Check for Data Modeling / ER Diagram intent
@@ -234,7 +238,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
       baseTextRef.current = "";
       setAttachedContext(null);
       if (textareaRef.current) {
-        textareaRef.current.style.height = "52px";
+        textareaRef.current.style.height = "24px";
       }
       toast.info("Opening ER Diagram studio...");
       useSchemaStore.getState().setPrompt(schemaMatch.cleanPrompt);

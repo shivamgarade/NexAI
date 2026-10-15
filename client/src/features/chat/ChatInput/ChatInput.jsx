@@ -165,9 +165,13 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   // Adjust height of textarea dynamically
   useEffect(() => {
     if (textareaRef.current) {
+      if (!input) {
+        textareaRef.current.style.height = '24px';
+        return;
+      }
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const newHeight = Math.min(Math.max(scrollHeight, 28), 220);
+      const newHeight = Math.min(Math.max(scrollHeight, 24), 220);
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [input]);
@@ -214,7 +218,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     baseTextRef.current = '';
     setAttachedContext(null);
     if (textareaRef.current) {
-      textareaRef.current.style.height = '28px';
+      textareaRef.current.style.height = '24px';
     }
 
     // Check for Data Modeling / ER Diagram intent
