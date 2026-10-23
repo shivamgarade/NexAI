@@ -18,10 +18,6 @@ import {
   Volume2,
   VolumeX,
   Loader2,
-  HelpCircle,
-  Code2,
-  Mail,
-  Server,
   MessageSquareDashed,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -49,28 +45,6 @@ import { cn } from '@/lib/utils/cn';
 import logoImg from '@/assets/logo.png';
 import styles from './MessageThread.module.scss';
 
-const PROMPT_SUGGESTIONS = [
-  {
-    icon: HelpCircle,
-    title: 'Explain a Concept',
-    description: 'Explain quantum computing in simple, intuitive terms.',
-  },
-  {
-    icon: Code2,
-    title: 'Code Assistance',
-    description: 'Write a Python script to parse and transform a CSV dataset.',
-  },
-  {
-    icon: Mail,
-    title: 'Professional Writing',
-    description: 'Draft a polite follow-up email after a job interview.',
-  },
-  {
-    icon: Server,
-    title: 'System Architecture',
-    description: 'Design a scalable caching strategy for an API using Redis.',
-  },
-];
 
 function formatTime(timestamp) {
   if (!timestamp) return '';
@@ -695,20 +669,21 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
                   key={messageId}
                   className={cn(styles.messageRow, isUser ? styles.userRow : styles.assistantRow)}
                 >
-                  <div className={styles.avatarWrapper}>
-                    {isUser ? (
-                      <Avatar name={user?.email || 'User'} size="sm" />
-                    ) : isCurrentlyStreaming && !message.content ? (
-                      <ThinkingIndicator variant="dots" size="sm" />
-                    ) : (
-                      <div className={styles.aiAvatar}>
-                        <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
-                      </div>
-                    )}
-                  </div>
-
                   <div className={styles.messageContentWrapper}>
                     <div className={styles.metaHeader}>
+                      {!isUser ? (
+                        isCurrentlyStreaming && !message.content ? (
+                          <ThinkingIndicator variant="dots" size="sm" />
+                        ) : (
+                          <div className={styles.aiAvatar}>
+                            <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
+                          </div>
+                        )
+                      ) : (
+                        <span className={styles.userIconWrapper}>
+                          <Avatar name={user?.email || 'User'} size="xs" />
+                        </span>
+                      )}
                       <span className={styles.senderName}>{isUser ? 'You' : 'NexAI'}</span>
                       {timeString && <span className={styles.timestamp}>{timeString}</span>}
                       {message.tokensUsed ? (

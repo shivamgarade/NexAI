@@ -6,6 +6,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Spinner } from '@/components/ui/Spinner';
 import { CommandPalette } from '@/features/command-palette';
 import { SaveItemModal } from '@/features/library';
+import { PWAInstallBanner } from '@/components/common/PWAInstallBanner';
 import { useUiStore } from '@/store/uiStore';
 import { useWalletStore } from '@/store/walletStore';
 import { useAuthStore } from '@/store/authStore';
@@ -79,12 +80,20 @@ export function AppLayout() {
       </div>
 
       {/* Mobile Drawer Sidebar */}
-      <Drawer open={isDrawerOpen} onClose={() => setDrawerOpen(false)} title="NexAI" side="left">
+      <Drawer
+        open={isDrawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="NexAI"
+        side="left"
+        hideHeader
+        className={styles.mobileNavDrawer}
+      >
         <Sidebar onItemClick={() => setDrawerOpen(false)} isMobile />
       </Drawer>
 
       <div className={styles.mainWrapper}>
         <Topbar />
+        <PWAInstallBanner />
         <main
           className={cn(
             styles.content,

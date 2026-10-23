@@ -7,6 +7,10 @@
   background-color: var(--color-bg-surface);
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .header {
@@ -68,10 +72,21 @@
 .treeBody {
   padding: 12px 16px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.6;
   background-color: color-mix(in srgb, var(--color-bg-surface) 95%, black);
+  @include custom-scrollbar;
+
+  @include down(sm) {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
 }
 
 .treeRow {
@@ -80,6 +95,8 @@
   white-space: pre;
   gap: 4px;
   padding: 1px 0;
+  width: max-content;
+  min-width: 100%;
 
   &:hover {
     background-color: color-mix(in srgb, var(--color-bg-hover) 40%, transparent);
@@ -136,4 +153,12 @@
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  @include down(sm) {
+    font-size: 10.5px;
+    padding: 1px 5px;
+    margin-left: var(--space-2);
+  }
 }

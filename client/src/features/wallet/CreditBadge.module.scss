@@ -95,4 +95,26 @@
   opacity: 0.85;
   font-weight: var(--weight-normal);
   margin-left: 2px;
+
+  @media (max-width: 480px) {
+    display: none;
+  }
 }
+
+@media (max-width: 640px) {
+  .badge {
+    padding: 3px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .quotaPill {
+    display: none;
+  }
+
+  .unit {
+    display: none;
+  }
+}
+
+

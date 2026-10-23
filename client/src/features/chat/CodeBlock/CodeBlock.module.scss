@@ -7,6 +7,10 @@
   background-color: var(--color-bg-surface);
   position: relative;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .header {
@@ -48,6 +52,7 @@
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
+  @include touch-target;
   transition: all var(--duration-fast) var(--ease-standard);
 
   &:hover {
@@ -68,6 +73,11 @@
   margin: 0;
   padding: 4px 16px 14px 16px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.65;
@@ -165,4 +175,19 @@
   font-size: var(--text-xs);
   color: var(--color-danger);
   background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+@include down(sm) {
+  .container {
+    border-radius: var(--radius-md);
+  }
+
+  .header {
+    padding: 8px 12px 2px 12px;
+  }
+
+  .pre {
+    padding: 4px 12px 12px 12px;
+    font-size: 12.5px;
+  }
 }

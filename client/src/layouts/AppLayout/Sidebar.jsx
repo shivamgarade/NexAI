@@ -574,7 +574,16 @@ export function Sidebar({ onItemClick, isMobile = false }) {
                 }}
                 className={styles.headerSearchBtn}
               />
-              {!isMobile && (
+              {isMobile ? (
+                <IconButton
+                  icon={<X size={18} />}
+                  label="Close navigation drawer"
+                  size="sm"
+                  variant="ghost"
+                  onClick={onItemClick}
+                  className={styles.headerToggleBtn}
+                />
+              ) : (
                 <IconButton
                   icon={<PanelLeftClose size={18} />}
                   label="Collapse sidebar (Ctrl+B)"
