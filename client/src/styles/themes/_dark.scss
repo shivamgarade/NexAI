@@ -1,22 +1,24 @@
 :root,
 [data-theme='dark'] {
-  --color-bg-app: var(--gray-950);
-  --color-bg-surface: var(--gray-900);
-  --color-bg-elevated: var(--gray-850);
-  --color-bg-hover: var(--gray-800);
-  --color-border: var(--gray-700);
-  --color-text-primary: var(--gray-50);
-  --color-text-secondary: var(--gray-400);
-  --color-text-muted: var(--gray-500);
-  --color-accent: var(--green-500);
-  --color-accent-hover: var(--green-400);
-  --color-accent-contrast: var(--gray-0);
-  --color-success: var(--green-500);
-  --color-warning: var(--amber-500);
-  --color-danger: var(--red-500);
-  --color-info: var(--blue-500);
-  --color-focus-ring: color-mix(in srgb, var(--green-500) 55%, transparent);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 6px 20px rgb(0 0 0 / 0.45);
-  --shadow-lg: 0 16px 48px rgb(0 0 0 / 0.55);
+  --color-bg-app: var(--night-900);
+  --color-bg-surface: var(--night-850);
+  --color-bg-elevated: var(--night-800);
+  --color-bg-hover: var(--night-750);
+  --color-border: var(--night-700);
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-accent: var(--cobalt-500);
+  --color-accent-hover: var(--cobalt-400);
+  --color-accent-contrast: #ffffff;
+  --color-accent-secondary: var(--orchid-500);
+  --color-accent-gradient: linear-gradient(135deg, var(--cobalt-500) 0%, var(--orchid-500) 55%, var(--cyan-400) 100%);
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: var(--cobalt-400);
+  --color-focus-ring: color-mix(in srgb, var(--cobalt-500) 50%, transparent);
+  --shadow-sm: 0 1px 3px rgb(3 4 10 / 0.55);
+  --shadow-md: 0 6px 20px rgb(3 4 10 / 0.65);
+  --shadow-lg: 0 18px 48px rgb(3 4 10 / 0.8);
 }

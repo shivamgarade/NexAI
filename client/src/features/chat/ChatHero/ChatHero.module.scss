@@ -12,11 +12,13 @@
   height: 100%;
   overflow-y: auto;
   padding: var(--space-6) var(--space-4);
-  background: radial-gradient(
-    circle at 50% 30%,
-    color-mix(in srgb, var(--color-accent) 6%, transparent) 0%,
-    transparent 65%
-  );
+  background:
+    radial-gradient(
+      ellipse 70% 45% at 50% 24%,
+      color-mix(in srgb, var(--color-accent) 14%, transparent) 0%,
+      color-mix(in srgb, var(--color-accent-secondary, #a855f7) 7%, transparent) 45%,
+      transparent 72%
+    );
   @include custom-scrollbar;
 }
 
@@ -90,7 +92,8 @@
       width: 52px;
       height: 52px;
       object-fit: contain;
-      filter: drop-shadow(0 4px 18px color-mix(in srgb, var(--color-accent) 55%, transparent));
+      filter: drop-shadow(0 4px 20px color-mix(in srgb, var(--color-accent) 65%, transparent))
+              drop-shadow(0 0 32px color-mix(in srgb, var(--color-accent-secondary, #a855f7) 40%, transparent));
       transition: transform var(--duration-fast) var(--ease-standard);
 
       &:hover {
