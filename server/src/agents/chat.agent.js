@@ -188,27 +188,35 @@ export async function* streamChatReply({
 
   const geminiTools = buildGeminiToolsConfig(combinedTools);
   const thinkingConfig = buildThinkingConfig({ thinkingLevel, model });
-  const config = {
-    ...(thinkingConfig ? { thinkingConfig } : {}),
-    ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
-  };
 
   const MAX_TOOL_ITERATIONS = 4;
   let iteration = 0;
   let currentContents = [...contents];
   let toolsAllowed = true;
   let hasEmittedText = false;
+  const accumulatedSearchResults = [];
 
   while (iteration <= MAX_TOOL_ITERATIONS) {
     iteration++;
     let pendingFunctionCalls = [];
     let modelTurnParts = [];
 
-    // Force model synthesis of all collected findings without tools once limit is reached
-    const iterationConfig =
-      toolsAllowed && iteration <= MAX_TOOL_ITERATIONS
-        ? config
-        : { ...(thinkingConfig ? { thinkingConfig } : {}) };
+    const isFinalSynthesisTurn = !toolsAllowed || iteration >= MAX_TOOL_ITERATIONS;
+
+    // Force model synthesis of all collected findings using mode: 'NONE' on final turn
+    const iterationConfig = {
+      ...(thinkingConfig ? { thinkingConfig } : {}),
+      ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
+      ...(isFinalSynthesisTurn && geminiTools.length > 0
+        ? {
+            toolConfig: {
+              functionCallingConfig: {
+                mode: 'NONE',
+              },
+            },
+          }
+        : {}),
+    };
 
     const stream = streamContent({
       contents: currentContents,
@@ -219,7 +227,13 @@ export async function* streamChatReply({
 
     for await (const chunk of stream) {
       if (chunk.candidateParts && chunk.candidateParts.length > 0) {
-        modelTurnParts.push(...chunk.candidateParts);
+        for (const part of chunk.candidateParts) {
+          if (part.functionCall) {
+            modelTurnParts.push(part);
+          } else if (part.text && part.text.trim()) {
+            modelTurnParts.push(part);
+          }
+        }
       }
 
       if (chunk.groundingMetadata) {
@@ -253,16 +267,6 @@ export async function* streamChatReply({
       break;
     }
 
-    // If tools were disabled or max iterations reached, stop tool execution and force final synthesis
-    if (!toolsAllowed || iteration >= MAX_TOOL_ITERATIONS) {
-      toolsAllowed = false;
-      currentContents.push({
-        role: 'user',
-        parts: [{ text: 'Please synthesize all your findings from the searches above and answer my question directly.' }],
-      });
-      continue;
-    }
-
     // Execute requested tool functions
     const toolResponseParts = [];
     for (const call of pendingFunctionCalls) {
@@ -289,6 +293,10 @@ export async function* streamChatReply({
         result = await executeAgentTool(call.name, call.args, context);
       } catch (toolErr) {
         result = { error: toolErr.message || 'Tool execution failed' };
+      }
+
+      if (isSearch && Array.isArray(result?.results)) {
+        accumulatedSearchResults.push(...result.results);
       }
 
       const completedTitle = isSearch
@@ -322,23 +330,36 @@ export async function* streamChatReply({
       toolResponseParts.push({
         functionResponse: {
           name: call.name,
-          response: result,
+          ...(call.id ? { id: call.id } : {}),
+          response: {
+            ...result,
+            ...(iteration >= MAX_TOOL_ITERATIONS - 1
+              ? { note: 'Tool step limit reached. Provide your final answer to the user now using all collected evidence. If data is not yet available or unreleased, explain that clearly.' }
+              : {}),
+          },
         },
       });
     }
 
-    // Retain exact model turn parts (including thoughtSignature) while stripping raw thought stream fragments
-    const cleanedModelParts = modelTurnParts.filter((p) => !p.thought);
+    // Retain exact model turn parts with thoughtSignature and id
     currentContents.push({
       role: 'model',
-      parts: cleanedModelParts.length > 0 ? cleanedModelParts : pendingFunctionCalls.map((c) => ({ functionCall: c })),
+      parts: modelTurnParts.length > 0
+        ? modelTurnParts
+        : pendingFunctionCalls.map((c) => ({
+            functionCall: {
+              name: c.name,
+              args: c.args,
+              ...(c.id ? { id: c.id } : {}),
+            },
+          })),
     });
     currentContents.push({
       role: 'user',
       parts: toolResponseParts,
     });
 
-    // If this was iteration 4, disallow further tools so iteration 5 is guaranteed text synthesis
+    // If approaching max iterations, disallow further tool calls so next turn synthesizes
     if (iteration >= MAX_TOOL_ITERATIONS - 1) {
       toolsAllowed = false;
     }
@@ -346,9 +367,38 @@ export async function* streamChatReply({
 
   // Safety fallback if no text was emitted
   if (!hasEmittedText) {
-    yield {
-      text: 'I completed the research steps above and gathered the relevant findings.',
-    };
+    if (accumulatedSearchResults.length > 0) {
+      try {
+        const lastUserPrompt = messages[messages.length - 1]?.content || 'the user request';
+        const fallbackRes = await generateContent({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `Based on the following research results, formulate a helpful and clear answer to: "${lastUserPrompt}". If the subject is not released, unavailable, or future-dated, clearly state that based on the evidence.\n\nFindings:\n${accumulatedSearchResults.slice(0, 8).map((r) => `- ${r.title}: ${r.snippet}`).join('\n')}`,
+                },
+              ],
+            },
+          ],
+          model,
+          systemInstruction: CHAT_SYSTEM_PROMPT,
+        });
+
+        if (fallbackRes.text && fallbackRes.text.trim()) {
+          yield { text: fallbackRes.text.trim() };
+          hasEmittedText = true;
+        }
+      } catch (fallbackErr) {
+        logger.warn({ error: fallbackErr.message }, 'Direct synthesis fallback warning');
+      }
+    }
+
+    if (!hasEmittedText) {
+      yield {
+        text: 'I completed the research steps above, but was unable to find definitive records for this request. Please check if the subject has a different name, release year, or official title.',
+      };
+    }
   }
 }
 
