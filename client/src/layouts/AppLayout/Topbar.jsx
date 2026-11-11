@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Menu, Sun, Moon, MessageSquareDashed, MessageSquare, Pencil, Check } from 'lucide-react';
+import { Menu, Sun, Moon, MessageSquareDashed, Check } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
 import { useTheme } from '@/hooks/useTheme';
 import { useChatStore } from '@/store/chatStore';
@@ -175,12 +175,12 @@ export function Topbar() {
           />
         </div>
 
-        {/* Floating Capsule for Active Chat Title on the same level */}
+        {/* In-place Editable Chat Title */}
         {chatTitle && (
           <div
             className={cn(
-              styles.chatTitleCapsule,
-              isTemporaryChat && styles.temporaryCapsule,
+              styles.chatTitleWrap,
+              isTemporaryChat && styles.temporaryTitle,
               !isTemporaryChat && currentChat && styles.isEditable,
               isEditing && styles.isEditing
             )}
@@ -195,17 +195,11 @@ export function Topbar() {
             } : undefined}
             title={!isTemporaryChat && currentChat && !isEditing ? 'Click to rename chat' : undefined}
           >
-            {isTemporaryChat ? (
-              <MessageSquareDashed size={13} className={styles.capsuleIcon} />
-            ) : (
-              <MessageSquare size={13} className={styles.capsuleIcon} />
-            )}
-
             {isEditing ? (
               <input
                 ref={inputRef}
                 type="text"
-                className={styles.capsuleInput}
+                className={styles.titleInput}
                 value={titleInput}
                 onChange={handleTitleChange}
                 onBlur={handleBlur}
@@ -214,21 +208,17 @@ export function Topbar() {
                 aria-label="Edit chat title"
               />
             ) : (
-              <span className={styles.capsuleTitle} title={chatTitle}>
+              <span className={styles.titleText} title={chatTitle}>
                 {chatTitle}
               </span>
             )}
 
             {justSaved && (
-              <Check size={12} className={styles.saveIndicator} title="Saved" />
-            )}
-
-            {!isEditing && !isTemporaryChat && currentChat && !justSaved && (
-              <Pencil size={11} className={styles.editHintIcon} aria-hidden="true" />
+              <Check size={13} className={styles.saveIndicator} title="Saved" aria-label="Saved" />
             )}
 
             {isTemporaryChat && (
-              <span className={styles.tempCapsuleBadge}>Ephemeral</span>
+              <span className={styles.tempBadge}>Ephemeral</span>
             )}
           </div>
         )}
