@@ -475,7 +475,7 @@ export default function SettingsPage() {
                         Free Quota Mode (Quota-Free vs Credit-Strict)
                       </span>
                       <span className={styles.settingDesc}>
-                        Bypass per-message credit limits and utilize Google Gemini's 1,500 daily free tier requests. Toggle off to enforce strict credit deduction and payment recharge prompts.
+                        Bypass per-message credit limits and utilize Google Gemini&apos;s 1,500 daily free tier requests. Toggle off to enforce strict credit deduction and payment recharge prompts.
                       </span>
                     </div>
                     <Switch
