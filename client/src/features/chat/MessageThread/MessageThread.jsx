@@ -340,11 +340,7 @@ const MessageItem = React.memo(function MessageItem({
                 />
               )}
 
-              {isCurrentlyStreaming && !message.content && !message.thoughts ? (
-                <div className={styles.aiMarkdown}>
-                  <span className={styles.blinkingCursor} aria-hidden="true" />
-                </div>
-              ) : hasError ? (
+              {hasError ? (
                 <div className={styles.errorCard}>
                   <div className={styles.errorContent}>
                     <AlertCircle size={16} className={styles.errorIcon} />
@@ -361,7 +357,7 @@ const MessageItem = React.memo(function MessageItem({
                     Retry
                   </Button>
                 </div>
-              ) : (
+              ) : message.content ? (
                 <div className={styles.aiMarkdown}>
                   <MarkdownRenderer
                     content={message.content}
@@ -373,7 +369,7 @@ const MessageItem = React.memo(function MessageItem({
                     <span className={styles.blinkingCursor} aria-hidden="true" />
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
           )}
         </div>
