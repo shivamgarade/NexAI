@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
   ArrowUp,
@@ -119,8 +119,13 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   };
 
   // Web Speech API Voice Dictation Hook with Real-Time Streaming & Hands-Free Auto-Send
+  const handleVoiceErrorRef = useRef(null);
+
   const { isSupported: isVoiceSupported, isListening, startListening, stopListening, toggleListening } = useSpeechRecognition({
     continuous: true,
+    onError: (errCode) => {
+      handleVoiceErrorRef.current?.(errCode);
+    },
     onInterim: (interim) => {
       const base = baseTextRef.current;
       const currentVal = interim ? (base ? `${base} ${interim}` : interim) : base;
@@ -176,6 +181,29 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     },
   });
 
+  const handleVoiceError = useCallback((errCode) => {
+    // Disarm voice mode immediately to prevent any retry loop
+    if (useChatStore.getState().isVoiceMode) {
+      useChatStore.getState().setVoiceMode(false);
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    stopListening();
+
+    if (errCode === 'not-allowed') {
+      toast.error('Microphone access denied. Please allow microphone permissions in your browser.');
+    } else if (errCode === 'network') {
+      toast.error('Speech recognition network error. Please check your internet connection or browser settings.');
+    } else if (errCode === 'audio-capture') {
+      toast.error('No microphone detected. Please connect an audio input device.');
+    } else if (errCode !== 'no-speech' && errCode !== 'aborted') {
+      toast.error(`Voice error: ${errCode}`);
+    }
+  }, [stopListening]);
+  handleVoiceErrorRef.current = handleVoiceError;
+
   // Hands-Free Conversational Loop: Automatically re-arm microphone when AI completes speaking
   useEffect(() => {
     let armTimer;
@@ -206,6 +234,26 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
       if (armTimer) clearTimeout(armTimer);
     };
   }, [isVoiceMode, isStreaming, isAiSpeaking, isListening, startListening, stopListening]);
+
+  const handleToggleVoiceMode = () => {
+    if (isAiSpeaking) {
+      cancelAiSpeech();
+      return;
+    }
+    if (isVoiceMode) {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      stopListening();
+      cancelAiSpeech();
+      toggleVoiceMode();
+    } else {
+      baseTextRef.current = '';
+      toggleVoiceMode();
+      startListening();
+    }
+  };
 
   const handleToggleListening = () => {
     if (isAiSpeaking) {
@@ -616,22 +664,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
                 isVoiceMode && styles.voiceModeActive,
                 isAiSpeaking && styles.aiSpeaking
               )}
-              onClick={() => {
-                if (isAiSpeaking) {
-                  cancelAiSpeech();
-                } else if (isVoiceMode) {
-                  if (silenceTimerRef.current) {
-                    clearTimeout(silenceTimerRef.current);
-                    silenceTimerRef.current = null;
-                  }
-                  stopListening();
-                  cancelAiSpeech();
-                  toggleVoiceMode();
-                } else {
-                  toggleVoiceMode();
-                  baseTextRef.current = '';
-                }
-              }}
+              onClick={handleToggleVoiceMode}
               title={
                 isAiSpeaking
                   ? 'NexAI is speaking (Click to interrupt)'
