@@ -8,16 +8,15 @@ import {
   Check,
   Download,
   Bookmark,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   AlertCircle,
   Eye,
+  Maximize2,
 } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { useLibraryStore } from '@/store/libraryStore';
 import { toast } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
+import { DiagramLightbox } from './DiagramLightbox';
 import styles from './MermaidBlock.module.scss';
 
 let mermaidInitialized = false;
@@ -71,48 +70,29 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(() => !svgCache.has(cacheKey) && Boolean(cleanChart));
   const [viewMode, setViewMode] = useState('diagram');
-  const [zoom, setZoom] = useState(1);
-  const [canvasHeight, setCanvasHeight] = useState(null);
-  const [isDraggingHeight, setIsDraggingHeight] = useState(false);
   const [copiedSvg, setCopiedSvg] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const containerRef = useRef(null);
   const renderCountRef = useRef(0);
-  const dragStartYRef = useRef(0);
-  const dragStartHeightRef = useRef(0);
 
-  const MIN_CANVAS_HEIGHT = 180;
-  const MAX_CANVAS_HEIGHT = 1100;
-
-  const handleResetHeight = () => {
-    setCanvasHeight(null);
-  };
-
-  const handleResizeStart = (e) => {
-    e.preventDefault();
-    dragStartYRef.current = e.clientY;
-    dragStartHeightRef.current = containerRef.current?.clientHeight || 320;
-    setIsDraggingHeight(true);
-
-    const handleMouseMove = (moveEvent) => {
-      const deltaY = moveEvent.clientY - dragStartYRef.current;
-      const nextHeight = Math.max(
-        MIN_CANVAS_HEIGHT,
-        Math.min(MAX_CANVAS_HEIGHT, Math.round(dragStartHeightRef.current + deltaY)),
-      );
-      setCanvasHeight(nextHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingHeight(false);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  };
+  // Extract human-friendly title from top diagram comments (e.g. %% Title)
+  const cleanTitle = useMemo(() => {
+    const lines = cleanChart.split('\n');
+    const firstComment = lines.find((l) => l.trim().startsWith('%%')) || '';
+    if (firstComment) {
+      return firstComment.replace(/^%%\s*/, '').trim().slice(0, 50);
+    }
+    // Infer title from first diagram directive (e.g. gantt, classDiagram, etc.)
+    const firstDirective = lines[0]?.trim() || '';
+    if (firstDirective.startsWith('gantt')) return 'Gantt Timeline Chart';
+    if (firstDirective.startsWith('classDiagram')) return 'Class Relationship Diagram';
+    if (firstDirective.startsWith('sequenceDiagram')) return 'Sequence Interaction Flow';
+    if (firstDirective.startsWith('stateDiagram')) return 'State Transition Diagram';
+    if (firstDirective.startsWith('erDiagram')) return 'Entity-Relationship Model';
+    return 'Architecture Diagram';
+  }, [cleanChart]);
 
   // Re-initialize mermaid whenever active theme toggles
   useEffect(() => {
@@ -184,19 +164,8 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
     };
   }, [cleanChart, cacheKey, isStreaming, isDark]);
 
-  const handleZoomIn = () => {
-    setZoom((z) => Math.min(2.5, +(z + 0.2).toFixed(1)));
-  };
-
-  const handleZoomOut = () => {
-    setZoom((z) => Math.max(0.5, +(z - 0.2).toFixed(1)));
-  };
-
-  const handleResetZoom = () => {
-    setZoom(1);
-  };
-
-  const handleCopySvg = async () => {
+  const handleCopySvg = async (e) => {
+    e?.stopPropagation();
     if (!svgContent) return;
     try {
       await navigator.clipboard.writeText(svgContent);
@@ -208,7 +177,8 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
     }
   };
 
-  const handleCopyCode = async () => {
+  const handleCopyCode = async (e) => {
+    e?.stopPropagation();
     if (!chart) return;
     try {
       await navigator.clipboard.writeText(chart);
@@ -220,7 +190,8 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
     }
   };
 
-  const handleDownloadSvg = () => {
+  const handleDownloadSvg = (e) => {
+    e?.stopPropagation();
     if (!svgContent) return;
     try {
       const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
@@ -238,13 +209,8 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
     }
   };
 
-  const handleSaveToLibrary = () => {
-    const lines = chart.trim().split('\n');
-    const firstComment = lines.find((l) => l.trim().startsWith('%%')) || '';
-    const cleanTitle = firstComment
-      ? firstComment.replace(/^%%\s*/, '').trim()
-      : 'Architecture Diagram';
-
+  const handleSaveToLibrary = (e) => {
+    e?.stopPropagation();
     useLibraryStore.getState().openAddModal({
       type: 'note',
       title: cleanTitle.slice(0, 50),
@@ -290,39 +256,17 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
         <div className={styles.headerRight}>
           {viewMode === 'diagram' && svgContent && (
             <>
-              {/* Compact Zoom Controls with Click-to-Reset Label */}
-              <div className={styles.zoomControls} title="Zoom diagram">
-                <button
-                  type="button"
-                  className={styles.iconBtn}
-                  onClick={handleZoomOut}
-                  aria-label="Zoom out"
-                  title="Zoom out"
-                  disabled={zoom <= 0.5}
-                >
-                  <ZoomOut size={12} />
-                </button>
-                <button
-                  type="button"
-                  className={cn(styles.zoomLabelBtn, zoom !== 1 && styles.hasCustomZoom)}
-                  onClick={handleResetZoom}
-                  aria-label="Reset zoom to 100%"
-                  title={zoom !== 1 ? 'Click to reset zoom to 100%' : 'Zoom level'}
-                >
-                  <span>{Math.round(zoom * 100)}%</span>
-                  {zoom !== 1 && <RotateCcw size={10} className={styles.resetIndicator} />}
-                </button>
-                <button
-                  type="button"
-                  className={styles.iconBtn}
-                  onClick={handleZoomIn}
-                  aria-label="Zoom in"
-                  title="Zoom in"
-                  disabled={zoom >= 2.5}
-                >
-                  <ZoomIn size={12} />
-                </button>
-              </div>
+              {/* Expand to Fullscreen Interactive View Button */}
+              <button
+                type="button"
+                className={styles.expandBtn}
+                onClick={() => setIsLightboxOpen(true)}
+                title="Open interactive view (Pan & Zoom)"
+                aria-label="Open interactive view"
+              >
+                <Maximize2 size={13} />
+                <span>Expand</span>
+              </button>
 
               <span className={styles.divider} aria-hidden="true" />
 
@@ -403,64 +347,61 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
 
       {/* Canvas or Code View */}
       {viewMode === 'diagram' ? (
-        <>
-          <div
-            className={cn(
-              styles.canvasWrapper,
-              (zoom > 1 || canvasHeight !== null) && styles.isZoomed,
-              isDraggingHeight && styles.isResizing,
-            )}
-            ref={containerRef}
-            style={{
-              height: canvasHeight ? `${canvasHeight}px` : undefined,
-              minHeight: canvasHeight ? `${canvasHeight}px` : undefined,
-              maxHeight: canvasHeight ? `${canvasHeight}px` : undefined,
-            }}
-          >
-            {isLoading && !svgContent ? (
-              <div className={styles.loadingPlaceholder}>
-                <div className={styles.spinner} />
-                <span>
-                  {isStreaming
-                    ? 'Generating architecture diagram...'
-                    : 'Compiling visual model...'}
-                </span>
-              </div>
-            ) : svgContent ? (
+        <div
+          className={cn(styles.canvasWrapper, svgContent && styles.isClickable)}
+          ref={containerRef}
+          onClick={svgContent ? () => setIsLightboxOpen(true) : undefined}
+          role={svgContent ? 'button' : undefined}
+          tabIndex={svgContent ? 0 : undefined}
+          aria-label={svgContent ? 'Click to open interactive diagram (Pan & Zoom)' : undefined}
+          onKeyDown={svgContent ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsLightboxOpen(true);
+            }
+          } : undefined}
+          title={svgContent ? 'Click to open interactive diagram (Pan & Zoom)' : undefined}
+        >
+          {isLoading && !svgContent ? (
+            <div className={styles.loadingPlaceholder}>
+              <div className={styles.spinner} />
+              <span>
+                {isStreaming
+                  ? 'Generating architecture diagram...'
+                  : 'Compiling visual model...'}
+              </span>
+            </div>
+          ) : svgContent ? (
+            <>
               <div
                 className={styles.diagramCanvas}
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: zoom > 1 ? 'top left' : 'center center',
-                }}
                 dangerouslySetInnerHTML={{ __html: svgContent }}
               />
-            ) : (
-              <pre className={styles.codeView}>
-                <code>{chart}</code>
-              </pre>
-            )}
-          </div>
-
-          {/* Draggable bottom height resize handle */}
-          {svgContent && (
-            <div
-              className={cn(styles.resizeHandle, isDraggingHeight && styles.isDragging)}
-              onMouseDown={handleResizeStart}
-              onDoubleClick={handleResetHeight}
-              title="Drag to resize height (Double-click to reset)"
-              role="separator"
-              aria-orientation="horizontal"
-            >
-              <div className={styles.resizeGrip} />
-            </div>
+              <div className={styles.hoverPrompt} aria-hidden="true">
+                <Maximize2 size={12} />
+                <span>Click to expand & interact</span>
+              </div>
+            </>
+          ) : (
+            <pre className={styles.codeView}>
+              <code>{chart}</code>
+            </pre>
           )}
-        </>
+        </div>
       ) : (
         <pre className={styles.codeView}>
           <code>{chart}</code>
         </pre>
       )}
+
+      {/* Interactive Lightbox Popup with Hand Pan & Wheel Zoom */}
+      <DiagramLightbox
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        svgContent={svgContent}
+        title={cleanTitle}
+        rawChart={chart}
+      />
     </div>
   );
 });
