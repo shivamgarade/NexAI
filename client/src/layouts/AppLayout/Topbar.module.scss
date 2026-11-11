@@ -61,6 +61,60 @@
     border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
     background-color: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-surface));
   }
+
+  &.isEditable {
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-standard);
+
+    &:hover:not(.isEditing) {
+      border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
+      background-color: color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-surface));
+
+      .editHintIcon {
+        opacity: 0.7;
+      }
+    }
+  }
+
+  &.isEditing {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent), 0 1px 4px rgba(0, 0, 0, 0.08);
+    cursor: text;
+  }
+}
+
+.capsuleInput {
+  flex: 1;
+  min-width: 60px;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  padding: 0;
+  margin: 0;
+  outline: none;
+
+  &::selection {
+    background-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+}
+
+.editHintIcon {
+  color: var(--color-text-tertiary);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+  margin-left: 1px;
+}
+
+.saveIndicator {
+  color: var(--color-accent);
+  opacity: 0.9;
+  flex-shrink: 0;
+  animation: fadeInCapsule var(--duration-fast) var(--ease-standard);
 }
 
 .tempCapsuleBadge {
