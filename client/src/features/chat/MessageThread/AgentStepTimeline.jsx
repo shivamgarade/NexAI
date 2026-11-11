@@ -77,21 +77,39 @@ export function AgentStepTimeline({
     return groundingMetadata?.sources || [];
   }, [groundingMetadata]);
 
-  const hasContent = (steps && steps.length > 0) || sources.length > 0;
+  // Deduplicate steps by id (or title) so running + completed pairs merge cleanly
+  const deduplicatedSteps = useMemo(() => {
+    const map = new Map();
+    for (const s of steps || []) {
+      const key = s.id || s.title;
+      if (key) {
+        const existing = map.get(key);
+        if (existing) {
+          map.set(key, { ...existing, ...s });
+        } else {
+          map.set(key, s);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [steps]);
+
+  const hasContent = deduplicatedSteps.length > 0 || sources.length > 0;
 
   if (!hasContent) {
     return null;
   }
 
-  const isRunning = isStreaming && steps.some((s) => s.status === 'running');
+  const isRunning = isStreaming && deduplicatedSteps.some((s) => s.status === 'running');
 
   // Header summary matching clean Gemini-style title
   const headerSummary = isRunning
     ? 'Agent executing actions...'
-    : `Agent completed ${steps.length} ${steps.length === 1 ? 'action' : 'actions'}${sources.length > 0 ? ` with ${sources.length} sources` : ''}`;
+    : `Agent completed ${deduplicatedSteps.length} ${deduplicatedSteps.length === 1 ? 'action' : 'actions'}${sources.length > 0 ? ` with ${sources.length} sources` : ''}`;
 
   const renderNodeIcon = (step) => {
-    if (step.status === 'running') {
+    // Only spin if the assistant is actively streaming AND the step is still running
+    if (step.status === 'running' && isStreaming) {
       return <Loader2 size={13} className={cn(styles.nodeIcon, styles.spin)} />;
     }
     const tool = step.tool;
@@ -136,9 +154,9 @@ export function AgentStepTimeline({
       {isExpanded && (
         <div className={styles.timelineBody} role="region" aria-label="Agent execution steps">
           <div className={styles.timelineList}>
-            {steps.map((step, idx) => {
+            {deduplicatedSteps.map((step, idx) => {
               const stepId = step.id || `step-${idx}`;
-              const isLast = idx === steps.length - 1;
+              const isLast = idx === deduplicatedSteps.length - 1;
               return (
                 <div key={stepId} className={styles.timelineItem}>
                   <div className={styles.iconColumn}>

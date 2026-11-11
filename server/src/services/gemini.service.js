@@ -219,6 +219,12 @@ export async function* streamContent({
       }
     }
   } catch (error) {
+    // Non-fatal stream termination: @google/genai SDK stream reader sometimes throws
+    // 'Incomplete JSON segment at the end' if trailing network buffers split JSON fragments on close.
+    if (error.message?.includes('Incomplete JSON segment')) {
+      logger.warn({ error: error.message }, 'Tolerating non-fatal trailing Incomplete JSON segment from Gemini stream reader');
+      return;
+    }
     logger.error({ error: error.message }, 'Gemini stream iteration error');
     throw parseGeminiError(error);
   }
