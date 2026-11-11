@@ -122,21 +122,13 @@ describe('ChatHero Component and Context Awareness', () => {
       expect(heading.textContent).toContain('Elena');
     });
 
-    it('renders starter prompt suggestion chips and triggers callback when clicked', () => {
+    it('renders a clean input card without static starter prompt chips', () => {
       const handleSendPrompt = vi.fn();
       render(<ChatHero onSendPrompt={handleSendPrompt} />);
 
-      expect(screen.getByText('Explain a Concept')).toBeInTheDocument();
-      expect(screen.getByText('Code Assistance')).toBeInTheDocument();
-      expect(screen.getByText('Professional Writing')).toBeInTheDocument();
-      expect(screen.getByText('System Architecture')).toBeInTheDocument();
-
-      const conceptChip = screen.getByRole('button', { name: /explain a concept/i });
-      fireEvent.click(conceptChip);
-
-      expect(handleSendPrompt).toHaveBeenCalledWith(
-        'Explain quantum computing in simple, intuitive terms.',
-      );
+      expect(screen.queryByText('Explain a Concept')).not.toBeInTheDocument();
+      expect(screen.queryByText('Code Assistance')).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/ask nexai anything/i)).toBeInTheDocument();
     });
 
     it('submits text input on form submission', () => {

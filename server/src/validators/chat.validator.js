@@ -7,6 +7,7 @@ export const createChatSchema = z.object({
     .regex(/^[0-9a-fA-F]{24}$/, 'Invalid project ID format')
     .nullable()
     .optional(),
+  isTemporary: z.boolean().optional(),
 });
 
 export const updateChatSchema = z

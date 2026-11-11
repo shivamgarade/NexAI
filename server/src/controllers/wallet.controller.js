@@ -123,3 +123,23 @@ export const getTransactions = asyncHandler(async (req, res) => {
     },
   });
 });
+
+/**
+ * PATCH /api/wallet/mode
+ * Updates the active billing enforcement mode (quota_free vs credit_strict).
+ * Accessible to all authenticated users for seamless academic and viva demonstration.
+ */
+export const updateGovernanceMode = asyncHandler(async (req, res) => {
+  const { billingEnforcementMode } = req.body;
+  const config = await systemConfigService.updateConfig({
+    billingEnforcementMode,
+    updatedBy: req.user._id,
+  });
+  const governance = await systemConfigService.getPublicGovernanceStatus();
+  res.status(200).json({
+    data: {
+      billingEnforcementMode: config.billingEnforcementMode,
+      governance,
+    },
+  });
+});

@@ -1,0 +1,73 @@
+import React, { useId } from 'react';
+import PropTypes from 'prop-types';
+
+/**
+ * NexAI Geometric Monogram Vector Logo
+ * Vectorized from brand emblem and dynamically bound to global theme variables:
+ *  - --color-logo-primary
+ *  - --color-logo-accent
+ *  - --color-logo-glow
+ */
+export function NexAiLogo({
+  size = 24,
+  className = '',
+  style = {},
+  color,
+  glow = false,
+  ariaLabel = 'NexAI Logo',
+  ...rest
+}) {
+  const reactId = useId();
+  const gradId = `nexai-grad-${reactId.replace(/:/g, '')}`;
+
+  const fillSource = color || `url(#${gradId})`;
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        flexShrink: 0,
+        filter: glow ? 'drop-shadow(0 0 8px var(--color-logo-glow))' : undefined,
+        ...style,
+      }}
+      role="img"
+      aria-label={ariaLabel}
+      {...rest}
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="var(--color-logo-primary, #10e7b2)" />
+          <stop offset="100%" stopColor="var(--color-logo-accent, #00f0ff)" />
+        </linearGradient>
+      </defs>
+
+      {/* Top-Left interlocking geometric ribbon */}
+      <path
+        d="M166.8,36.3L158.0,33.7L149.1,32.1L133.5,32.1L119.0,34.7L104.4,40.4L85.7,52.9L44.6,83.1L37.3,91.4L31.1,101.3L28.0,108.0L23.8,124.7L23.3,143.4L23.8,166.8L23.3,203.7L23.8,216.2L23.3,437.8L23.8,439.3L27.4,442.4L30.6,442.4L33.2,441.4L44.6,432.6L47.7,431.0L55.5,424.8L109.6,386.3L116.4,380.0L121.6,371.2L123.6,362.9L123.1,161.1L124.7,156.4L127.3,151.7L129.9,149.1L136.6,145.5L139.2,145.0L147.0,145.5L150.2,146.5L154.3,149.1L210.5,195.4L215.2,198.5L219.9,203.2L224.5,206.3L256.3,232.3L263.0,238.6L265.1,239.6L288.0,258.3L303.6,271.9L308.3,275.0L312.4,279.1L317.1,282.3L343.6,304.1L345.7,305.1L350.4,305.1L353.5,303.6L356.1,298.9L356.1,197.0L354.0,188.7L348.8,177.7L345.7,173.6L339.5,167.3L302.5,138.7L275.0,116.4L270.8,113.8L191.3,49.8L181.4,43.0Z"
+        fill={fillSource}
+      />
+
+      {/* Bottom-Right interlocking geometric ribbon */}
+      <path
+        d="M482.5,68.5L477.3,68.0L473.6,69.6L398.8,116.9L389.9,125.7L384.7,135.1L382.6,141.3L381.6,148.1L382.1,352.0L381.6,354.6L378.5,359.8L375.9,362.4L372.8,363.9L363.9,364.4L360.3,362.9L267.7,291.6L252.6,280.7L236.5,267.7L219.9,255.7L190.7,232.9L187.1,230.8L173.6,219.9L168.9,218.3L163.7,219.3L159.5,222.5L156.9,227.1L156.4,229.2L155.9,266.1L156.4,272.4L155.9,278.1L156.4,311.4L158.5,320.2L163.7,330.6L169.9,338.4L213.6,373.3L256.8,409.2L296.3,443.0L314.5,459.6L319.7,463.8L329.6,470.0L341.6,475.2L353.5,478.3L369.6,479.4L384.7,477.3L399.8,472.1L407.1,467.9L462.2,430.5L470.5,422.7L476.2,415.4L483.5,401.9L486.6,391.5L488.2,379.5L487.2,163.2L487.7,148.6L487.2,74.2L485.6,71.1Z"
+        fill={fillSource}
+      />
+    </svg>
+  );
+}
+
+NexAiLogo.propTypes = {
+  size: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  className: PropTypes.string,
+  style: PropTypes.object,
+  color: PropTypes.string,
+  glow: PropTypes.bool,
+  ariaLabel: PropTypes.string,
+};

@@ -47,8 +47,8 @@ router.get('/:id/messages', validate({ params: chatIdParamSchema }), getMessages
 router.post(
   '/:id/messages',
   aiLimiter,
-  creditCheck,
   validate({ params: chatIdParamSchema, body: sendMessageSchema }),
+  creditCheck,
   sendMessage,
 );
 

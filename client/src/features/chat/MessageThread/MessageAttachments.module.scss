@@ -8,29 +8,35 @@
   width: 100%;
 }
 
-/* 1. Image Attachment */
+/* 1. Image Attachment - Compact Thumbnail matching input composer */
 .imageCard {
   position: relative;
-  display: inline-block;
-  max-width: min(100%, 340px);
-  border-radius: var(--radius-lg);
+  display: inline-flex;
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   background-color: var(--color-bg-surface);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
+  flex-shrink: 0;
   transition:
     transform var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard);
 
   &:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--color-accent) 15%, transparent);
+    transform: scale(1.05);
+    border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 25%, transparent);
 
     .imageHoverOverlay {
       opacity: 1;
+
+      .expandIcon {
+        transform: scale(1.1);
+      }
     }
   }
 
@@ -42,8 +48,7 @@
 .imagePreview {
   display: block;
   width: 100%;
-  max-height: 260px;
-  min-height: 120px;
+  height: 100%;
   object-fit: cover;
   background-color: var(--color-bg-app);
 }
@@ -51,36 +56,34 @@
 .imageHoverOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.75) 0%,
-    rgba(0, 0, 0, 0.2) 50%,
-    transparent 100%
-  );
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   opacity: 0;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: var(--space-3);
+  align-items: center;
+  justify-content: center;
   transition: opacity var(--duration-fast) var(--ease-standard);
   pointer-events: none;
+  border-radius: inherit;
+
+  .expandIcon {
+    color: #ffffff;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+    transition: transform var(--duration-fast) var(--ease-standard);
+  }
 }
 
-.imageMeta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: var(--gray-0);
-  min-width: 0;
-}
-
-.imageName {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .imageSize {

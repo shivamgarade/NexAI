@@ -31,3 +31,9 @@ export const getTransactionsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
+
+export const updateGovernanceModeSchema = z.object({
+  billingEnforcementMode: z.enum(['quota_free', 'credit_strict'], {
+    required_error: 'billingEnforcementMode must be either quota_free or credit_strict',
+  }),
+});

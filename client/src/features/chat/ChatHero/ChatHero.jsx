@@ -13,6 +13,8 @@ import {
   MessageSquareDashed,
   Zap,
   X,
+  AudioLines,
+  Volume2,
 } from 'lucide-react';
 import { AttachContextPopover } from '../ChatInput/AttachContextPopover';
 import { AttachedContextPreview } from '../ChatInput/AttachedContextPreview';
@@ -26,7 +28,7 @@ import { libraryApi } from '@/lib/api/library.api';
 import { toast } from '@/store/uiStore';
 import { getGreetingContext } from './greetingHelper';
 import { cn } from '@/lib/utils/cn';
-import logoImg from '@/assets/logo.png';
+import { NexAiLogo } from '@/components/ui/NexAiLogo';
 import styles from './ChatHero.module.scss';
 
 
@@ -65,6 +67,10 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     isTemporaryChat,
     startTemporaryChat,
     clearTemporaryChat,
+    isVoiceMode,
+    isAiSpeaking,
+    toggleVoiceMode,
+    cancelAiSpeech,
   } = useChatStore();
 
   const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
@@ -81,7 +87,7 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const modelPillLabel = `${modelShortName} ${effortName}`;
 
   const [input, setInput] = useState('');
-  const [attachedContext, setAttachedContext] = useState(null);
+  const [attachedContexts, setAttachedContexts] = useState([]);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const { activeSkill, setActiveSkill, clearActiveSkill } = useSkillStore();
@@ -90,6 +96,9 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   const fileInputRef = useRef(null);
 
   const baseTextRef = useRef('');
+  const latestInputRef = useRef('');
+  const silenceTimerRef = useRef(null);
+  const handleSubmitRef = useRef(null);
 
   const insertCompiledPrompt = (compiledText) => {
     setInput((prev) => {
@@ -107,6 +116,10 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
   };
 
   const handleSelectSkill = (skill) => {
+    if (input.startsWith('/') || input.startsWith('@')) {
+      setInput('');
+      baseTextRef.current = '';
+    }
     if (skill.variables && skill.variables.length > 0) {
       setSelectedSkillForVariables(skill);
     } else {
@@ -138,18 +151,33 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
     }
   }, [initialPrompt, onClearInitialPrompt]);
 
-  // Web Speech API Voice Dictation Hook with Real-Time Streaming
-  const { isSupported: isVoiceSupported, isListening, stopListening, toggleListening } = useSpeechRecognition({
+  // Web Speech API Voice Dictation Hook with Real-Time Streaming & Hands-Free Auto-Send
+  const { isSupported: isVoiceSupported, isListening, startListening, stopListening, toggleListening } = useSpeechRecognition({
     continuous: true,
     onInterim: (interim) => {
       const base = baseTextRef.current;
-      if (interim) {
-        setInput(base ? `${base} ${interim}` : interim);
-      } else {
-        setInput(base);
-      }
+      const currentVal = interim ? (base ? `${base} ${interim}` : interim) : base;
+      setInput(currentVal);
+      latestInputRef.current = currentVal;
       if (textareaRef.current) {
         textareaRef.current.focus();
+      }
+
+      // Hands-Free Conversational Turn: Reset silence pause countdown on interim speech
+      if (useChatStore.getState().isVoiceMode) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        silenceTimerRef.current = setTimeout(() => {
+          const state = useChatStore.getState();
+          if (state.isVoiceMode && !state.isStreaming && !state.isAiSpeaking) {
+            const textToSubmit = latestInputRef.current?.trim();
+            if (textToSubmit && textToSubmit.length >= 2) {
+              stopListening();
+              handleSubmitRef.current?.();
+            }
+          }
+        }, 1400);
       }
     },
     onResult: (transcription) => {
@@ -157,25 +185,90 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
       const updated = base ? `${base} ${transcription}` : transcription;
       baseTextRef.current = updated;
       setInput(updated);
+      latestInputRef.current = updated;
       if (textareaRef.current) {
         textareaRef.current.focus();
+      }
+
+      // Hands-Free Conversational Turn: Reset silence pause countdown on final utterance chunk
+      if (useChatStore.getState().isVoiceMode) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        silenceTimerRef.current = setTimeout(() => {
+          const state = useChatStore.getState();
+          if (state.isVoiceMode && !state.isStreaming && !state.isAiSpeaking) {
+            const textToSubmit = latestInputRef.current?.trim();
+            if (textToSubmit && textToSubmit.length >= 2) {
+              stopListening();
+              handleSubmitRef.current?.();
+            }
+          }
+        }, 1400);
       }
     },
   });
 
+  // Hands-Free Conversational Loop: Automatically re-arm microphone when AI completes speaking
+  useEffect(() => {
+    let armTimer;
+    if (isVoiceMode) {
+      if (!isStreaming && !isAiSpeaking && !isListening) {
+        armTimer = setTimeout(() => {
+          const state = useChatStore.getState();
+          if (state.isVoiceMode && !state.isStreaming && !state.isAiSpeaking) {
+            baseTextRef.current = '';
+            startListening();
+          }
+        }, 350);
+      } else if ((isStreaming || isAiSpeaking) && isListening) {
+        // Mute mic while AI is replying or speaking aloud to avoid acoustic feedback
+        stopListening();
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+      }
+    } else {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    }
+    return () => {
+      if (armTimer) clearTimeout(armTimer);
+    };
+  }, [isVoiceMode, isStreaming, isAiSpeaking, isListening, startListening, stopListening]);
+
   const handleToggleListening = () => {
+    if (isAiSpeaking) {
+      cancelAiSpeech();
+    }
+    if (isVoiceMode) {
+      if (isListening) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+        stopListening();
+      } else {
+        baseTextRef.current = input;
+        startListening();
+      }
+      return;
+    }
     if (!isListening) {
       baseTextRef.current = input;
     }
     toggleListening();
   };
 
-  // Adjust textarea height dynamically with smooth auto-grow up to 220px
+  // Adjust textarea height dynamically with smooth auto-grow up to 220px (compact 26px initial line)
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollH = textareaRef.current.scrollHeight;
-      const minH = 52;
+      const minH = 26;
       const maxH = 220;
       textareaRef.current.style.height = `${Math.min(Math.max(scrollH, minH), maxH)}px`;
     }
@@ -183,50 +276,55 @@ export function ChatHero({ onSendPrompt, initialPrompt, onClearInitialPrompt }) 
 
   const handleSubmit = (e) => {
     e?.preventDefault();
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     if (isListening) {
       stopListening();
     }
     const trimmed = input.trim();
-    if ((!trimmed && !attachedContext) || isStreaming) {
+    if ((!trimmed && attachedContexts.length === 0) || isStreaming) {
       return;
     }
 
     let finalPrompt = trimmed;
     const attachments = [];
+    let contextPrefix = '';
 
-    if (attachedContext) {
-      if (attachedContext.data) {
+    for (const ctx of attachedContexts) {
+      if (ctx.data) {
         attachments.push({
-          name: attachedContext.name,
-          mimeType: attachedContext.mimeType,
-          data: attachedContext.data,
-          size: attachedContext.size,
-          type: attachedContext.type,
+          name: ctx.name,
+          mimeType: ctx.mimeType,
+          data: ctx.data,
+          size: ctx.size,
+          type: ctx.type,
         });
-        if (!finalPrompt) {
-          finalPrompt = `[Analyzed ${attachedContext.type || "file"}: ${attachedContext.name}]`;
-        }
       } else {
-        const prefix = `[Attached Context: ${attachedContext.name} (${attachedContext.type || "file"})]
-${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
-
-`;
-        finalPrompt = `${prefix}${trimmed}`;
+        contextPrefix += `[Attached Context: ${ctx.name} (${ctx.type || 'file'})]\n${ctx.content ? ctx.content.slice(0, 4000) : ''}\n\n`;
         attachments.push({
-          name: attachedContext.name,
-          mimeType: attachedContext.mimeType || "text/plain",
-          size: attachedContext.size || 0,
-          type: attachedContext.type || "file",
-          content: attachedContext.content,
+          name: ctx.name,
+          mimeType: ctx.mimeType || 'text/plain',
+          size: ctx.size || 0,
+          type: ctx.type || 'file',
+          content: ctx.content,
         });
       }
     }
 
-    setInput("");
-    baseTextRef.current = "";
-    setAttachedContext(null);
+    if (contextPrefix) {
+      finalPrompt = `${contextPrefix}${trimmed}`;
+    } else if (!trimmed && attachments.length > 0) {
+      finalPrompt = `[Attached ${attachments.length} file(s): ${attachments.map((a) => a.name).join(', ')}]`;
+    }
+
+    setInput('');
+    baseTextRef.current = '';
+    latestInputRef.current = '';
+    setAttachedContexts([]);
     if (textareaRef.current) {
-      textareaRef.current.style.height = "52px";
+      textareaRef.current.style.height = '26px';
     }
 
     if (onSendPrompt) {
@@ -238,13 +336,42 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     }
   };
 
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  });
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
+      if (isPickerOpen) {
+        return;
+      }
       e.preventDefault();
       handleSubmit();
-    } else if ((e.key === '/' || e.key === '@') && (!input || input.trim() === '')) {
-      e.preventDefault();
+    } else if (e.key === 'Backspace') {
+      if (input === '/' || input === '@' || (input.startsWith('/') && input.length <= 1) || (input.startsWith('@') && input.length <= 1)) {
+        setIsPickerOpen(false);
+      }
+    } else if (e.key === 'Escape') {
+      setIsPickerOpen(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInput(val);
+    baseTextRef.current = val;
+    latestInputRef.current = val;
+
+    if (val.startsWith('/') || val.startsWith('@')) {
       setIsPickerOpen(true);
+    } else if (isPickerOpen && !val.includes('/') && !val.includes('@')) {
+      setIsPickerOpen(false);
+    }
+  };
+
+  const handleInputClick = () => {
+    if (isPickerOpen) {
+      setIsPickerOpen(false);
     }
   };
 
@@ -280,27 +407,34 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
             ? 'pdf'
             : 'file';
 
-    setAttachedContext({
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const uploadingItem = {
+      id: tempId,
       name: file.name,
       type,
       mimeType: file.type || (isText ? 'text/plain' : 'application/octet-stream'),
       size: file.size,
       isUploading: true,
       progress: 45,
-    });
+    };
+
+    setAttachedContexts((prev) => [...prev, uploadingItem]);
 
     if (isText) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target.result || '';
-        setAttachedContext({
-          name: file.name,
-          type: 'file',
-          mimeType: file.type || 'text/plain',
-          content,
-          size: file.size,
-          isUploading: false,
-        });
+        setAttachedContexts((prev) =>
+          prev.map((item) =>
+            item.id === tempId
+              ? {
+                  ...item,
+                  content,
+                  isUploading: false,
+                }
+              : item
+          )
+        );
 
         // Persist note to user library in background
         libraryApi
@@ -317,18 +451,22 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target.result || '';
-        setAttachedContext({
-          name: file.name,
-          type,
-          mimeType:
-            file.type ||
-            (file.name.toLowerCase().endsWith('.pdf')
-              ? 'application/pdf'
-              : 'application/octet-stream'),
-          data: dataUrl,
-          size: file.size,
-          isUploading: false,
-        });
+        setAttachedContexts((prev) =>
+          prev.map((item) =>
+            item.id === tempId
+              ? {
+                  ...item,
+                  data: dataUrl,
+                  mimeType:
+                    file.type ||
+                    (file.name.toLowerCase().endsWith('.pdf')
+                      ? 'application/pdf'
+                      : 'application/octet-stream'),
+                  isUploading: false,
+                }
+              : item
+          )
+        );
 
         // Persist media/file to user library in background
         libraryApi
@@ -352,10 +490,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processAndAttachFile(file);
-    }
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => processAndAttachFile(file));
   };
 
   const handleDragEnter = (e) => {
@@ -388,10 +524,8 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     setIsDraggingOver(false);
     dragCounterRef.current = 0;
 
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      processAndAttachFile(files[0]);
-    }
+    const files = Array.from(e.dataTransfer.files || []);
+    files.forEach((file) => processAndAttachFile(file));
   };
 
   const handleSelectChip = (promptText) => {
@@ -406,7 +540,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
     }
   };
 
-  const hasContent = Boolean(input.trim() || attachedContext);
+  const hasContent = Boolean(input.trim() || attachedContexts.length > 0);
 
   return (
     <div className={styles.heroContainer} data-testid="chat-hero">
@@ -414,65 +548,50 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
         {/* Context-Aware Gemini-inspired Hero Headline */}
         <div className={styles.greetingHeader}>
           <div className={styles.sparkleIcon}>
-            <img src={logoImg} alt="NexAI Logo" className={styles.heroLogoImg} />
+            <NexAiLogo size={42} glow className={styles.heroLogoSvg} />
           </div>
           <h1 className={styles.heroHeadline}>{greeting.headline}</h1>
           <p className={styles.heroSubtitle}>{greeting.subtitle}</p>
-
-          <div className={styles.tempModeBar}>
-            {isTemporaryChat ? (
-              <div className={styles.tempActiveBanner}>
-                <MessageSquareDashed size={14} className={styles.tempActiveIcon} />
-                <span>Temporary Chat active (not saved to history)</span>
-                <button
-                  type="button"
-                  className={styles.exitTempPillBtn}
-                  onClick={clearTemporaryChat}
-                  title="Switch back to regular chat"
-                >
-                  Exit
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className={styles.tempToggleBtn}
-                onClick={startTemporaryChat}
-                title="Start a temporary chat that will not be saved"
-              >
-                <MessageSquareDashed size={14} />
-                <span>Temporary chat</span>
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Modern Responsive Prompt Composer Card (Claude-inspired spacious layout) */}
-        <div
-          className={cn(
-            styles.composerCard,
-            isDraggingOver && styles.composerCardDragging,
-            isTemporaryChat && styles.composerCardTemporary
+        <div className={styles.composerWrapper}>
+          {isPickerOpen && (
+            <SkillPickerModal
+              open={isPickerOpen}
+              inline
+              query={input.startsWith('/') || input.startsWith('@') ? input.slice(1) : ''}
+              onClose={() => setIsPickerOpen(false)}
+              onSelectSkill={handleSelectSkill}
+            />
           )}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
-          {isDraggingOver && (
-            <div className={styles.composerDragOverlay}>
-              <div className={styles.composerDragContent}>
-                <Upload size={22} className={styles.composerDragIcon} />
-                <span>Drop files here to attach</span>
+          <div
+            className={cn(
+              styles.composerCard,
+              isDraggingOver && styles.composerCardDragging,
+              isTemporaryChat && styles.composerCardTemporary
+            )}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            {isDraggingOver && (
+              <div className={styles.composerDragOverlay}>
+                <div className={styles.composerDragContent}>
+                  <Upload size={22} className={styles.composerDragIcon} />
+                  <span>Drop files here to attach</span>
+                </div>
               </div>
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className={styles.composerForm}>
+            )}
+            <form onSubmit={handleSubmit} className={styles.composerForm}>
             {/* Attached media & context preview */}
-            {attachedContext && (
+            {attachedContexts.length > 0 && (
               <AttachedContextPreview
-                context={attachedContext}
-                onRemove={() => setAttachedContext(null)}
+                contexts={attachedContexts}
+                onRemove={(idx) =>
+                  setAttachedContexts((prev) => prev.filter((_, i) => i !== idx))
+                }
               />
             )}
 
@@ -503,6 +622,7 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
+              multiple
               style={{ display: 'none' }}
               aria-label="Attach file"
               accept="image/*,audio/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.js,.ts,.jsx,.tsx,.py,.html,.css,.yaml,.yml,.sql"
@@ -512,12 +632,10 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
             <div className={styles.inputArea}>
               <textarea
                 ref={textareaRef}
-                rows={2}
+                rows={1}
                 value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  baseTextRef.current = e.target.value;
-                }}
+                onChange={handleInputChange}
+                onClick={handleInputClick}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   activeSkill
@@ -550,20 +668,11 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     open={isAttachModalOpen}
                     onClose={() => setIsAttachModalOpen(false)}
                     anchorRef={attachButtonRef}
-                    onSelect={(item) => setAttachedContext(item)}
+                    onSelect={(item) => setAttachedContexts((prev) => [...prev, item])}
                     onUploadLocal={() => fileInputRef.current?.click()}
+                    onOpenSkills={() => setIsPickerOpen(true)}
                   />
                 </div>
-
-                <button
-                  type="button"
-                  className={cn(styles.attachBtn, activeSkill && styles.attachBtnActive)}
-                  onClick={() => setIsPickerOpen(true)}
-                  title={activeSkill ? `Active Skill: ${activeSkill.title} (Click to change)` : 'Choose Agent Skill (/)'}
-                  aria-label="Choose Agent Skill"
-                >
-                  <Zap size={17} />
-                </button>
               </div>
 
               <div className={styles.bottomRightActions}>
@@ -587,6 +696,46 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
                     anchorRef={modelButtonRef}
                   />
                 </div>
+
+                {/* Real-time Voice Conversation Toggle (ChatGPT / Claude / Gemini style) */}
+                <button
+                  type="button"
+                  className={cn(
+                    styles.voiceModeBtn,
+                    isVoiceMode && styles.voiceModeActive,
+                    isAiSpeaking && styles.aiSpeaking
+                  )}
+                  onClick={() => {
+                    if (isAiSpeaking) {
+                      cancelAiSpeech();
+                    } else if (isVoiceMode) {
+                      if (silenceTimerRef.current) {
+                        clearTimeout(silenceTimerRef.current);
+                        silenceTimerRef.current = null;
+                      }
+                      stopListening();
+                      cancelAiSpeech();
+                      toggleVoiceMode();
+                    } else {
+                      toggleVoiceMode();
+                      baseTextRef.current = '';
+                    }
+                  }}
+                  title={
+                    isAiSpeaking
+                      ? 'NexAI is speaking (Click to interrupt)'
+                      : isVoiceMode
+                        ? 'Hands-free Voice Conversation Active (Click to turn off)'
+                        : 'Turn on Hands-Free Voice Conversation Mode'
+                  }
+                  aria-label="Toggle voice conversation mode"
+                >
+                  {isAiSpeaking ? (
+                    <Volume2 size={17} className={styles.pulsingVoiceIcon} />
+                  ) : (
+                    <AudioLines size={17} />
+                  )}
+                </button>
 
                 <button
                   type="button"
@@ -625,39 +774,28 @@ ${attachedContext.content ? attachedContext.content.slice(0, 4000) : ""}
             </div>
           </form>
         </div>
-
-        {/* Minimalist Gemini Quick Prompts (hidden in temporary chat for a clean focused layout) */}
-        {!isTemporaryChat && (
-          <div className={styles.quickPromptsList} aria-label="Suggested starter prompts">
-            {STARTER_PROMPTS.map((item, index) => (
-              <button
-                key={index}
-                type="button"
-                className={styles.quickPromptRow}
-                onClick={() => handleSelectChip(item.prompt)}
-                aria-label={item.title}
-              >
-                <span className={styles.promptIcon}>{item.icon}</span>
-                <span className={styles.promptText}>{item.prompt}</span>
-                <span className={styles.promptCategory}>{item.title}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Clean Centered Disclaimer below quick prompts, outside the input card */}
-        <p className={styles.disclaimerText}>
-          NexAI is an AI workspace and can make mistakes. Please double-check responses.
-        </p>
       </div>
 
+        {/* Clean Centered Disclaimer & Voice Mode Indicator outside the input card */}
+        <div className={styles.disclaimerWrapper}>
+          <p className={styles.disclaimerText}>
+            NexAI is an AI workspace and can make mistakes. Please double-check responses.
+          </p>
+          {isVoiceMode && (
+            <span className={cn(styles.voiceStatusPill, isAiSpeaking && styles.speakingPill)}>
+              <span className={styles.voicePulseDot} />
+              {isAiSpeaking
+                ? 'NexAI Speaking (Edge Neural)...'
+                : isStreaming
+                  ? 'NexAI is replying...'
+                  : isListening
+                    ? 'Listening... (auto-send on pause)'
+                    : 'Voice Conversation Ready'}
+            </span>
+          )}
+        </div>
+      </div>
 
-      {/* Skill Selector Modal */}
-      <SkillPickerModal
-        open={isPickerOpen}
-        onClose={() => setIsPickerOpen(false)}
-        onSelectSkill={handleSelectSkill}
-      />
 
       {/* Variable Fill Modal for Skill */}
       {selectedSkillForVariables && (

@@ -13,6 +13,11 @@ export const useUiStore = create((set, get) => ({
   isDrawerOpen: false,
   isSidebarCollapsed: initialSidebarCollapsed,
   toasts: [],
+  isSettingsModalOpen: false,
+  settingsModalTab: 'general',
+
+  openSettingsModal: (tab = 'general') => set({ isSettingsModalOpen: true, settingsModalTab: tab }),
+  closeSettingsModal: () => set({ isSettingsModalOpen: false }),
 
   setSidebarCollapsed: (isSidebarCollapsed) => {
     if (typeof window !== 'undefined') {

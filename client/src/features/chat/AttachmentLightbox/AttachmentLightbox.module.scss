@@ -1,0 +1,177 @@
+@use '@/styles/abstracts' as *;
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  background-color: rgba(3, 4, 8, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: fadeInBackdrop var(--duration-fast) var(--ease-standard);
+}
+
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mediaContainer {
+  position: relative;
+  max-width: 90vw;
+  max-height: 88vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  animation: zoomMediaIn var(--duration-fast) var(--ease-standard);
+}
+
+@keyframes zoomMediaIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Semi-transparent dark overlay elements sitting directly on the media */
+.metaOverlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  max-width: 320px;
+  pointer-events: none;
+}
+
+.metaName {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metaSize {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+}
+
+.actionsOverlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overlayBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.85);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: scale(1.06);
+  }
+
+  &.closeBtn:hover {
+    background-color: rgba(239, 68, 68, 0.85);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+}
+
+.previewImage {
+  display: block;
+  max-width: 86vw;
+  max-height: 84vh;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  user-select: none;
+}
+
+.pdfIframe {
+  width: 82vw;
+  height: 82vh;
+  border: none;
+  border-radius: var(--radius-lg);
+  background-color: #ffffff;
+}
+
+.fallbackDoc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  background-color: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  min-width: 320px;
+  max-width: 600px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.fallbackIcon {
+  color: var(--color-accent);
+  margin-bottom: var(--space-3);
+}
+
+.fallbackName {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.fallbackContent {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-app);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

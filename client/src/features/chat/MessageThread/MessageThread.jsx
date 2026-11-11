@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { ROUTES } from '@/constants/routes';
@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { ThinkingIndicator } from '@/components/ui/ThinkingIndicator';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { NexAiLogo } from '@/components/ui/NexAiLogo';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ThinkingDrawer } from '../ThinkingDrawer/ThinkingDrawer';
 import { InlineThinking } from './InlineThinking';
@@ -43,7 +44,6 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { toast } from '@/store/uiStore';
 
 import { cn } from '@/lib/utils/cn';
-import logoImg from '@/assets/logo.png';
 import styles from './MessageThread.module.scss';
 
 const PROMPT_SUGGESTIONS = [
@@ -247,6 +247,333 @@ async function playAudioBlob(blob, { onStart, onEnded, onError } = {}) {
   }
 }
 
+/**
+ * MessageItem - Memoized individual message row to prevent re-rendering entire thread on scroll
+ */
+const MessageItem = React.memo(function MessageItem({
+  message,
+  index,
+  isLast,
+  isCurrentlyStreaming,
+  userEmail,
+  isCopied,
+  isSpeaking,
+  isLoadingTts,
+  onCopy,
+  onEditPrompt,
+  onResendPrompt,
+  onRetryAssistant,
+  onSavePrompt,
+  onUsePrompt,
+  onSaveToLibrary,
+  onSelectSuggestion,
+  onOpenThinkingDrawer,
+  onToggleSpeak,
+}) {
+  const isUser = message.role === 'user';
+  const hasError = Boolean(message.error);
+  const messageId = message._id || `msg-${index}`;
+  const timeString = formatTime(message.createdAt);
+  const hasAttachments = Array.isArray(message.attachments) && message.attachments.length > 0;
+  const displayContent = isUser
+    ? getDisplayPrompt(message.content, message.attachments)
+    : message.content;
+
+  return (
+    <div
+      className={cn(styles.messageRow, isUser ? styles.userRow : styles.assistantRow)}
+    >
+      <div className={styles.avatarWrapper}>
+        {isUser ? (
+          <Avatar name={userEmail || 'User'} size="sm" />
+        ) : isCurrentlyStreaming && !message.content ? (
+          <ThinkingIndicator variant="dots" size="sm" />
+        ) : (
+          <div className={styles.aiAvatar}>
+            <NexAiLogo size={22} className={styles.avatarLogo} />
+          </div>
+        )}
+      </div>
+
+      <div className={styles.messageContentWrapper}>
+        <div className={styles.metaHeader}>
+          <span className={styles.senderName}>{isUser ? 'You' : 'NexAI'}</span>
+          {timeString && <span className={styles.timestamp}>{timeString}</span>}
+          {message.tokensUsed ? (
+            <Badge tone="neutral" className={styles.tokenBadge}>
+              ⚡ {message.tokensUsed} tokens
+            </Badge>
+          ) : null}
+        </div>
+
+        <div
+          className={cn(
+            styles.bubble,
+            isUser ? styles.userBubble : styles.assistantBubble,
+            hasError && styles.errorBubble,
+          )}
+        >
+          {isUser ? (
+            <div className={styles.userContentContainer}>
+              {hasAttachments && (
+                <MessageAttachments attachments={message.attachments} />
+              )}
+              {displayContent ? (
+                <div className={styles.userText}>{displayContent}</div>
+              ) : null}
+            </div>
+          ) : (
+            <div className={styles.aiContentContainer}>
+              {hasAttachments && (
+                <MessageAttachments attachments={message.attachments} />
+              )}
+              <AgentStepTimeline
+                steps={message.steps}
+                groundingMetadata={message.groundingMetadata}
+                isStreaming={isCurrentlyStreaming}
+              />
+              {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
+                <InlineThinking
+                  thoughts={message.thoughts}
+                  isThinking={Boolean(message.isThinking || (isCurrentlyStreaming && !message.content))}
+                  isStreaming={isCurrentlyStreaming}
+                />
+              )}
+
+              {isCurrentlyStreaming && !message.content && !message.thoughts ? (
+                <div className={styles.aiMarkdown}>
+                  <span className={styles.blinkingCursor} aria-hidden="true" />
+                </div>
+              ) : hasError ? (
+                <div className={styles.errorCard}>
+                  <div className={styles.errorContent}>
+                    <AlertCircle size={16} className={styles.errorIcon} />
+                    <span>{message.error}</span>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<RotateCcw size={13} />}
+                    onClick={() => onRetryAssistant(index)}
+                    disabled={isCurrentlyStreaming}
+                    className={styles.retryButton}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <div className={styles.aiMarkdown}>
+                  <MarkdownRenderer
+                    content={message.content}
+                    isStreaming={isCurrentlyStreaming}
+                    onSavePrompt={onSavePrompt}
+                    onUsePrompt={onUsePrompt}
+                  />
+                  {isCurrentlyStreaming && (
+                    <span className={styles.blinkingCursor} aria-hidden="true" />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Action Bar on hover */}
+        {!isCurrentlyStreaming && (
+          <div className={styles.actionToolbar}>
+            {isUser ? (
+              <>
+                <Tooltip content={isCopied ? 'Copied!' : 'Copy prompt'} side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onCopy(displayContent || message.content, messageId)}
+                    aria-label="Copy prompt"
+                  >
+                    {isCopied ? (
+                      <Check size={15} className={styles.copiedIcon} />
+                    ) : (
+                      <Copy size={15} />
+                    )}
+                  </button>
+                </Tooltip>
+                <Tooltip content="Edit prompt" side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onEditPrompt?.(displayContent || message.content)}
+                    aria-label="Edit prompt"
+                  >
+                    <Edit3 size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Resend prompt" side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onResendPrompt(displayContent || message.content, index)}
+                    aria-label="Resend prompt"
+                  >
+                    <RotateCcw size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Save to Prompt Vault" side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() =>
+                      onSavePrompt({
+                        title: 'Saved User Prompt',
+                        template: displayContent || message.content,
+                      })
+                    }
+                    aria-label="Save to Prompt Vault"
+                  >
+                    <BookmarkPlus size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Save to Library" side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onSaveToLibrary(displayContent || message.content, true)}
+                    aria-label="Save to Library"
+                  >
+                    <BookOpen size={15} />
+                  </button>
+                </Tooltip>
+              </>
+            ) : (
+              <>
+                <Tooltip content={isCopied ? 'Copied!' : 'Copy response'} side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onCopy(message.content, messageId)}
+                    aria-label="Copy response"
+                  >
+                    {isCopied ? (
+                      <Check size={15} className={styles.copiedIcon} />
+                    ) : (
+                      <Copy size={15} />
+                    )}
+                  </button>
+                </Tooltip>
+                <Tooltip content="Regenerate response" side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onRetryAssistant(index)}
+                    aria-label="Regenerate response"
+                  >
+                    <RotateCcw size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Save to Prompt Vault" side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() =>
+                      onSavePrompt({
+                        title: 'Saved AI Response',
+                        template: message.content,
+                      })
+                    }
+                    aria-label="Save to Prompt Vault"
+                  >
+                    <BookmarkPlus size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Save to Library" side="top">
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onSaveToLibrary(message.content, false)}
+                    aria-label="Save to Library"
+                  >
+                    <BookOpen size={15} />
+                  </button>
+                </Tooltip>
+                {Boolean(message.thoughts) && (
+                  <Tooltip content="Show AI Thinking & Reasoning" side="top">
+                    <button
+                      type="button"
+                      className={cn(styles.actionBtn, styles.thinkingActionBtn)}
+                      onClick={() => onOpenThinkingDrawer(message.thoughts || message._id)}
+                      aria-label="Show AI Thinking & Reasoning"
+                    >
+                      <Brain size={15} className={styles.brainIcon} />
+                    </button>
+                  </Tooltip>
+                )}
+                <Tooltip
+                  content={
+                    isLoadingTts
+                      ? 'Generating audio...'
+                      : isSpeaking
+                        ? 'Stop reading aloud'
+                        : 'Read aloud'
+                  }
+                  side="top"
+                >
+                  <button
+                    type="button"
+                    className={cn(
+                      styles.actionBtn,
+                      isSpeaking && styles.speakingBtn,
+                      isLoadingTts && styles.loadingBtn,
+                    )}
+                    onClick={() => onToggleSpeak(message.content, messageId)}
+                    aria-label={
+                      isLoadingTts
+                        ? 'Generating audio'
+                        : isSpeaking
+                          ? 'Stop reading aloud'
+                          : 'Read aloud'
+                    }
+                  >
+                    {isLoadingTts ? (
+                      <Loader2 size={15} className={styles.spinIcon} />
+                    ) : isSpeaking ? (
+                      <VolumeX size={15} />
+                    ) : (
+                      <Volume2 size={15} />
+                    )}
+                  </button>
+                </Tooltip>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Suggested follow-up prompt chips */}
+        {!isCurrentlyStreaming && isLast && !isUser && message.followUps && message.followUps.length > 0 && (
+          <div className={styles.followUpsRow}>
+            <div className={styles.followUpsLabel}>
+              <Sparkles size={13} className={styles.followUpSparkle} />
+              <span>Suggested next steps:</span>
+            </div>
+            <div className={styles.followUpsList}>
+              {message.followUps.map((chip, chipIdx) => (
+                <button
+                  key={chipIdx}
+                  type="button"
+                  className={styles.followUpChip}
+                  onClick={() => onSelectSuggestion?.(chip)}
+                  title={`Ask: "${chip}"`}
+                >
+                  <span>{chip}</span>
+                  <ArrowRight size={12} className={styles.chipArrow} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
 export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -256,6 +583,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     isStreaming,
     stopGeneration,
     resendPrompt,
+    regenerateResponse,
     selectChat,
     setActiveDrawerThought,
   } = useChatStore();
@@ -290,7 +618,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     };
   }, []);
 
-  const handleToggleSpeak = async (text, id) => {
+  const handleToggleSpeak = useCallback(async (text, id) => {
     // If clicking on active speaking or currently loading message, stop immediately
     if (speakingId === id || loadingTtsId === id) {
       ttsAbortRef.current?.abort();
@@ -399,9 +727,9 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
       activePlaybackRef.current = null;
       toast.error('Unable to play audio speech');
     }
-  };
+  }, [speakingId, loadingTtsId]);
 
-  const handleCopy = async (text, id) => {
+  const handleCopy = useCallback(async (text, id) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
@@ -410,33 +738,75 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
     } catch {
       toast.error('Failed to copy to clipboard');
     }
-  };
+  }, []);
 
-  const handleResendUserPrompt = (content) => {
-    if (isStreaming) return;
-    resendPrompt(content);
-  };
-
-  const handleRetryAssistant = (index) => {
-    if (isStreaming) return;
-    // Find closest preceding user message
-    const precedingUserMsg = messages
-      .slice(0, index)
-      .reverse()
-      .find((m) => m.role === 'user');
-
-    if (precedingUserMsg?.content) {
-      resendPrompt(precedingUserMsg.content);
+  const handleResendUserPrompt = useCallback((content, index) => {
+    if (useChatStore.getState().isStreaming) return;
+    const store = useChatStore.getState();
+    if (store.regenerateResponse) {
+      store.regenerateResponse(index);
+    } else {
+      resendPrompt(content, index);
     }
-  };
+  }, [resendPrompt]);
 
-  // Check scroll position to determine if auto-scroll should happen
+  const handleRetryAssistant = useCallback((index) => {
+    if (useChatStore.getState().isStreaming) return;
+    const store = useChatStore.getState();
+    if (store.regenerateResponse) {
+      store.regenerateResponse(index);
+    } else {
+      resendPrompt(null, index);
+    }
+  }, [resendPrompt]);
+
+  const handleSavePrompt = useCallback((promptData) => {
+    setSavePromptData(promptData);
+  }, []);
+
+  const handleUsePrompt = useCallback((template) => {
+    selectChat(null);
+    navigate(ROUTES.CHAT, { state: { prefill: template } });
+  }, [selectChat, navigate]);
+
+  const handleSaveToLibrary = useCallback((content, isUser) => {
+    const titleHint =
+      content
+        .split('\n')[0]
+        .replace(/^[#*-]+\s*/, '')
+        .slice(0, 45) || (isUser ? 'User Note' : 'AI Solution Note');
+    useLibraryStore.getState().openAddModal({
+      type: 'note',
+      title: titleHint,
+      content,
+      tags: isUser ? ['chat', 'note'] : ['chat', 'ai-solution'],
+    });
+  }, []);
+
+  const handleOpenThinkingDrawer = useCallback((thoughtsOrId) => {
+    setActiveDrawerThought(thoughtsOrId);
+  }, [setActiveDrawerThought]);
+
+  // Check scroll position to determine if auto-scroll should happen (throttled with RAF)
+  const rafIdRef = useRef(null);
   const handleScroll = useCallback(() => {
-    if (!containerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 120;
-    userScrolledUpRef.current = !isNearBottom;
-    setShowScrollBottom((prev) => (prev !== !isNearBottom ? !isNearBottom : prev));
+    if (rafIdRef.current) return;
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      if (!containerRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 120;
+      userScrolledUpRef.current = !isNearBottom;
+      setShowScrollBottom((prev) => (!isNearBottom !== prev ? !isNearBottom : prev));
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
   }, []);
 
   const scrollToBottom = useCallback((smooth = true) => {
@@ -490,7 +860,7 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
         ) : messages.length === 0 ? (
           <div className={styles.emptyWelcome}>
             <div className={styles.welcomeLogoWrapper}>
-              <img src={logoImg} alt="NexAI" className={styles.welcomeLogo} />
+              <NexAiLogo size={52} glow className={styles.welcomeLogoSvg} />
             </div>
             <h2 className={styles.welcomeTitle}>How can NexAI assist you today?</h2>
             <p className={styles.welcomeSubtitle}>
@@ -522,343 +892,32 @@ export function MessageThread({ onSelectSuggestion, onEditPrompt }) {
         ) : (
           <div className={styles.messageList}>
             {messages.map((message, index) => {
-              const isUser = message.role === 'user';
               const isLast = index === messages.length - 1;
-              const isCurrentlyStreaming = isLast && isStreaming && !isUser;
-              const hasError = Boolean(message.error);
+              const isCurrentlyStreaming = isLast && isStreaming && message.role !== 'user';
               const messageId = message._id || `msg-${index}`;
-              const isCopied = copiedId === messageId;
-              const timeString = formatTime(message.createdAt);
-              const hasAttachments = Array.isArray(message.attachments) && message.attachments.length > 0;
-              const displayContent = isUser
-                ? getDisplayPrompt(message.content, message.attachments)
-                : message.content;
 
               return (
-                <div
+                <MessageItem
                   key={messageId}
-                  className={cn(styles.messageRow, isUser ? styles.userRow : styles.assistantRow)}
-                >
-                  <div className={styles.avatarWrapper}>
-                    {isUser ? (
-                      <Avatar name={user?.email || 'User'} size="sm" />
-                    ) : isCurrentlyStreaming && !message.content ? (
-                      <ThinkingIndicator variant="dots" size="sm" />
-                    ) : (
-                      <div className={styles.aiAvatar}>
-                        <img src={logoImg} alt="NexAI" className={styles.avatarLogo} />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={styles.messageContentWrapper}>
-                    <div className={styles.metaHeader}>
-                      <span className={styles.senderName}>{isUser ? 'You' : 'NexAI'}</span>
-                      {timeString && <span className={styles.timestamp}>{timeString}</span>}
-                      {message.tokensUsed ? (
-                        <Badge tone="neutral" className={styles.tokenBadge}>
-                          ⚡ {message.tokensUsed} tokens
-                        </Badge>
-                      ) : null}
-                    </div>
-
-                    <div
-                      className={cn(
-                        styles.bubble,
-                        isUser ? styles.userBubble : styles.assistantBubble,
-                        hasError && styles.errorBubble,
-                      )}
-                    >
-                      {isUser ? (
-                        <div className={styles.userContentContainer}>
-                          {hasAttachments && (
-                            <MessageAttachments attachments={message.attachments} />
-                          )}
-                          {displayContent ? (
-                            <div className={styles.userText}>{displayContent}</div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className={styles.aiContentContainer}>
-                          {hasAttachments && (
-                            <MessageAttachments attachments={message.attachments} />
-                          )}
-                          <AgentStepTimeline
-                            steps={message.steps}
-                            groundingMetadata={message.groundingMetadata}
-                            isStreaming={isCurrentlyStreaming}
-                          />
-                          {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
-                            <InlineThinking
-                              thoughts={message.thoughts}
-                              isThinking={Boolean(message.isThinking || (isCurrentlyStreaming && !message.content))}
-                              isStreaming={isCurrentlyStreaming}
-                            />
-                          )}
-
-                          {isCurrentlyStreaming && !message.content && !message.thoughts ? (
-                            <div className={styles.aiMarkdown}>
-                              <span className={styles.blinkingCursor} aria-hidden="true" />
-                            </div>
-                          ) : hasError ? (
-                            <div className={styles.errorCard}>
-                              <div className={styles.errorContent}>
-                                <AlertCircle size={16} className={styles.errorIcon} />
-                                <span>{message.error}</span>
-                              </div>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                leftIcon={<RotateCcw size={13} />}
-                                onClick={() => handleRetryAssistant(index)}
-                                disabled={isStreaming}
-                                className={styles.retryButton}
-                              >
-                                Retry
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className={styles.aiMarkdown}>
-                              <MarkdownRenderer
-                                content={message.content}
-                                isStreaming={isCurrentlyStreaming}
-                                onSavePrompt={(promptData) => setSavePromptData(promptData)}
-                                onUsePrompt={(template) => {
-                                  selectChat(null);
-                                  navigate(ROUTES.CHAT, { state: { prefill: template } });
-                                }}
-                              />
-                              {isCurrentlyStreaming && (
-                                <span className={styles.blinkingCursor} aria-hidden="true" />
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Bar on hover */}
-                    {!isCurrentlyStreaming && (
-                      <div className={styles.actionToolbar}>
-                        {isUser ? (
-                          <>
-                            <Tooltip content={isCopied ? 'Copied!' : 'Copy prompt'} side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => handleCopy(displayContent || message.content, messageId)}
-                                aria-label="Copy prompt"
-                              >
-                                {isCopied ? (
-                                  <Check size={15} className={styles.copiedIcon} />
-                                ) : (
-                                  <Copy size={15} />
-                                )}
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="Edit prompt" side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => onEditPrompt?.(displayContent || message.content)}
-                                aria-label="Edit prompt"
-                              >
-                                <Edit3 size={15} />
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="Resend prompt" side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => handleResendUserPrompt(displayContent || message.content)}
-                                aria-label="Resend prompt"
-                                disabled={isStreaming}
-                              >
-                                <RotateCcw size={15} />
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="Save to Prompt Vault" side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() =>
-                                  setSavePromptData({
-                                    title: 'Saved User Prompt',
-                                    template: displayContent || message.content,
-                                  })
-                                }
-                                aria-label="Save to Prompt Vault"
-                              >
-                                <BookmarkPlus size={15} />
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="Save to Library" side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => {
-                                  const textToSave = displayContent || message.content;
-                                  const titleHint =
-                                    textToSave
-                                      .split('\n')[0]
-                                      .replace(/^[#*-]+\s*/, '')
-                                      .slice(0, 45) || 'User Note';
-                                  useLibraryStore.getState().openAddModal({
-                                    type: 'note',
-                                    title: titleHint,
-                                    content: textToSave,
-                                    tags: ['chat', 'note'],
-                                  });
-                                }}
-                                aria-label="Save to Library"
-                              >
-                                <BookOpen size={15} />
-                              </button>
-                            </Tooltip>
-                          </>
-                        ) : (
-                          <>
-                            <Tooltip content={isCopied ? 'Copied!' : 'Copy response'} side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => handleCopy(message.content, messageId)}
-                                aria-label="Copy response"
-                              >
-                                {isCopied ? (
-                                  <Check size={15} className={styles.copiedIcon} />
-                                ) : (
-                                  <Copy size={15} />
-                                )}
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="Regenerate response" side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => handleRetryAssistant(index)}
-                                aria-label="Regenerate response"
-                                disabled={isStreaming}
-                              >
-                                <RotateCcw size={15} />
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="Save to Prompt Vault" side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() =>
-                                  setSavePromptData({
-                                    title: 'Saved AI Response',
-                                    template: message.content,
-                                  })
-                                }
-                                aria-label="Save to Prompt Vault"
-                              >
-                                <BookmarkPlus size={15} />
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="Save to Library" side="top">
-                              <button
-                                type="button"
-                                className={styles.actionBtn}
-                                onClick={() => {
-                                  const titleHint =
-                                    message.content
-                                      .split('\n')[0]
-                                      .replace(/^[#*-]+\s*/, '')
-                                      .slice(0, 45) || 'AI Solution Note';
-                                  useLibraryStore.getState().openAddModal({
-                                    type: 'note',
-                                    title: titleHint,
-                                    content: message.content,
-                                    tags: ['chat', 'ai-solution'],
-                                  });
-                                }}
-                                aria-label="Save to Library"
-                              >
-                                <BookOpen size={15} />
-                              </button>
-                            </Tooltip>
-                            {Boolean(message.thoughts) && (
-                              <Tooltip content="Show AI Thinking & Reasoning" side="top">
-                                <button
-                                  type="button"
-                                  className={cn(styles.actionBtn, styles.thinkingActionBtn)}
-                                  onClick={() =>
-                                    setActiveDrawerThought(message.thoughts || message._id)
-                                  }
-                                  aria-label="Show AI Thinking & Reasoning"
-                                >
-                                  <Brain size={15} className={styles.brainIcon} />
-                                </button>
-                              </Tooltip>
-                            )}
-                            <Tooltip
-                              content={
-                                loadingTtsId === messageId
-                                  ? 'Generating audio...'
-                                  : speakingId === messageId
-                                    ? 'Stop reading aloud'
-                                    : 'Read aloud'
-                              }
-                              side="top"
-                            >
-                              <button
-                                type="button"
-                                className={cn(
-                                  styles.actionBtn,
-                                  speakingId === messageId && styles.speakingBtn,
-                                  loadingTtsId === messageId && styles.loadingBtn,
-                                )}
-                                onClick={() => handleToggleSpeak(message.content, messageId)}
-                                aria-label={
-                                  loadingTtsId === messageId
-                                    ? 'Generating audio'
-                                    : speakingId === messageId
-                                      ? 'Stop reading aloud'
-                                      : 'Read aloud'
-                                }
-                              >
-                                {loadingTtsId === messageId ? (
-                                  <Loader2 size={15} className={styles.spinIcon} />
-                                ) : speakingId === messageId ? (
-                                  <VolumeX size={15} />
-                                ) : (
-                                  <Volume2 size={15} />
-                                )}
-                              </button>
-                            </Tooltip>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Suggested follow-up prompt chips */}
-                    {!isCurrentlyStreaming && isLast && !isUser && message.followUps && message.followUps.length > 0 && (
-                      <div className={styles.followUpsRow}>
-                        <div className={styles.followUpsLabel}>
-                          <Sparkles size={13} className={styles.followUpSparkle} />
-                          <span>Suggested next steps:</span>
-                        </div>
-                        <div className={styles.followUpsList}>
-                          {message.followUps.map((chip, chipIdx) => (
-                            <button
-                              key={chipIdx}
-                              type="button"
-                              className={styles.followUpChip}
-                              onClick={() => onSelectSuggestion?.(chip)}
-                              title={`Ask: "${chip}"`}
-                            >
-                              <span>{chip}</span>
-                              <ArrowRight size={12} className={styles.chipArrow} />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  message={message}
+                  index={index}
+                  isLast={isLast}
+                  isCurrentlyStreaming={isCurrentlyStreaming}
+                  userEmail={user?.email}
+                  isCopied={copiedId === messageId}
+                  isSpeaking={speakingId === messageId}
+                  isLoadingTts={loadingTtsId === messageId}
+                  onCopy={handleCopy}
+                  onEditPrompt={onEditPrompt}
+                  onResendPrompt={handleResendUserPrompt}
+                  onRetryAssistant={handleRetryAssistant}
+                  onSavePrompt={handleSavePrompt}
+                  onUsePrompt={handleUsePrompt}
+                  onSaveToLibrary={handleSaveToLibrary}
+                  onSelectSuggestion={onSelectSuggestion}
+                  onOpenThinkingDrawer={handleOpenThinkingDrawer}
+                  onToggleSpeak={handleToggleSpeak}
+                />
               );
             })}
             <div ref={messagesEndRef} className={styles.scrollAnchor} />

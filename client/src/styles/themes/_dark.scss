@@ -13,6 +13,13 @@
   --color-accent-contrast: #ffffff;
   --color-accent-secondary: var(--orchid-500);
   --color-accent-gradient: linear-gradient(135deg, var(--cobalt-500) 0%, var(--orchid-500) 55%, var(--cyan-400) 100%);
+  
+  /* NexAI Brand Logo Tokens (Changing these variables updates the logo across all themes/screens) */
+  --color-logo-primary: #10e7b2;
+  --color-logo-accent: #00f0ff;
+  --color-logo-glow: rgba(16, 231, 178, 0.35);
+  --color-logo-gradient: linear-gradient(135deg, var(--color-logo-primary) 0%, var(--color-logo-accent) 100%);
+
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;

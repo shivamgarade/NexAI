@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Spinner } from '@/components/ui/Spinner';
-import logoImg from '@/assets/logo.png';
+import { NexAiLogo } from '@/components/ui/NexAiLogo';
 import styles from './AuthLayout.module.scss';
 
 export function AuthLayout() {
@@ -10,7 +10,7 @@ export function AuthLayout() {
       <div className={styles.card}>
         <div className={styles.brand}>
           <div className={styles.logo}>
-            <img src={logoImg} alt="NexAI Logo" className={styles.authLogoImg} />
+            <NexAiLogo size={48} glow />
           </div>
           <h1>NexAI</h1>
           <p>AI-Powered Personal &amp; Developer Workspace</p>

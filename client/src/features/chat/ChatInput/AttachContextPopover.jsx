@@ -16,6 +16,7 @@ import {
   FileCode,
   FileSpreadsheet,
   Paperclip,
+  Zap,
 } from 'lucide-react';
 import { libraryApi } from '@/lib/api/library.api';
 import { cn } from '@/lib/utils/cn';
@@ -73,7 +74,7 @@ const TABS = [
   { key: 'notes', label: 'Notes' },
 ];
 
-export function AttachContextPopover({ open, onClose, anchorRef, onSelect, onUploadLocal }) {
+export function AttachContextPopover({ open, onClose, anchorRef, onSelect, onUploadLocal, onOpenSkills }) {
   // Views: 'root' | 'library'
   const [currentView, setCurrentView] = useState('root');
   const [items, setItems] = useState([]);
@@ -230,6 +231,27 @@ export function AttachContextPopover({ open, onClose, anchorRef, onSelect, onUpl
                 <ChevronRight size={14} className={styles.chevronIcon} />
               </div>
             </button>
+
+            <div className={styles.divider} />
+
+            {/* Agent Skills Trigger */}
+            <button
+              type="button"
+              className={styles.navRow}
+              onClick={() => {
+                onClose();
+                onOpenSkills?.();
+              }}
+            >
+              <div className={styles.navRowLeft}>
+                <Zap size={15} className={styles.navIcon} />
+                <span className={styles.navLabel}>Agent Skills</span>
+              </div>
+              <div className={styles.navValueWrap}>
+                <span className={styles.navValue}>/</span>
+                <ChevronRight size={14} className={styles.chevronIcon} />
+              </div>
+            </button>
           </div>
         )}
 
@@ -245,16 +267,6 @@ export function AttachContextPopover({ open, onClose, anchorRef, onSelect, onUpl
               >
                 <ChevronLeft size={16} />
                 <span>Library</span>
-              </button>
-              <button
-                type="button"
-                className={styles.quickUploadLink}
-                onClick={() => {
-                  onClose();
-                  onUploadLocal?.();
-                }}
-              >
-                Upload file
               </button>
             </div>
 
@@ -374,4 +386,5 @@ AttachContextPopover.propTypes = {
   ]),
   onSelect: PropTypes.func.isRequired,
   onUploadLocal: PropTypes.func,
+  onOpenSkills: PropTypes.func,
 };

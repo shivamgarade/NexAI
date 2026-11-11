@@ -61,15 +61,12 @@ describe('Sidebar Component', () => {
     expect(screen.getByRole('link', { name: /skills/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /interview/i })).toBeInTheDocument();
 
-    // ChatGPT-style "... More" section
-    const moreBtn = screen.getByRole('button', { name: /toggle more navigation links/i });
-    expect(moreBtn).toBeInTheDocument();
-    // Expanding More reveals Wallet
-    fireEvent.click(moreBtn);
-    expect(screen.getByRole('menuitem', { name: /wallet/i })).toBeInTheDocument();
-
-    // Non-admin user should NOT see Admin link even under More
-    expect(screen.queryByRole('menuitem', { name: /admin/i })).not.toBeInTheDocument();
+    // Merged Settings & Profile card opens settings modal directly
+    const settingsBtn = screen.getByRole('button', { name: /settings and profile/i });
+    expect(settingsBtn).toBeInTheDocument();
+    fireEvent.click(settingsBtn);
+    expect(useUiStore.getState().isSettingsModalOpen).toBe(true);
+    expect(useUiStore.getState().settingsModalTab).toBe('profile');
 
     // Projects Section
     expect(screen.getByText('Projects')).toBeInTheDocument();
@@ -81,31 +78,23 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('React Architecture Review')).toBeInTheDocument();
     expect(screen.getByText('Python Web Scraping')).toBeInTheDocument();
 
-    // User profile and direct bottom Settings button on the right side
+    // User profile information rendered inside the merged Settings & Profile card
     expect(screen.getByText('developer')).toBeInTheDocument();
     expect(screen.getByText('Free Tier')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^settings$/i })).toBeInTheDocument();
   });
 
-  it('renders Admin link under More when user has admin role', () => {
-    useAuthStore.setState({
-      user: {
-        email: 'admin@nexai.local',
-        role: 'admin',
-        wallet: { creditsRemaining: 999, tier: 'pro_monthly' },
-      },
-      isAuthenticated: true,
-    });
-
+  it('opens settings modal directly when clicking settings button in collapsed footer', () => {
+    useUiStore.setState({ isSidebarCollapsed: true, isSettingsModalOpen: false });
     render(
       <MemoryRouter>
         <Sidebar />
       </MemoryRouter>,
     );
 
-    const moreBtn = screen.getByRole('button', { name: /toggle more navigation links/i });
-    fireEvent.click(moreBtn);
-    expect(screen.getByRole('menuitem', { name: /admin/i })).toBeInTheDocument();
+    const settingsBtn = screen.getByRole('button', { name: /settings & profile/i });
+    fireEvent.click(settingsBtn);
+    expect(useUiStore.getState().isSettingsModalOpen).toBe(true);
+    expect(useUiStore.getState().settingsModalTab).toBe('profile');
   });
 
   it('toggles collapsible state smoothly', () => {

@@ -38,4 +38,12 @@ export const walletApi = {
   getTransactions(params) {
     return apiClient.get('/wallet/transactions', { params });
   },
+
+  /**
+   * Update active billing enforcement mode (quota_free vs credit_strict)
+   * @param {string} billingEnforcementMode
+   */
+  updateGovernanceMode(billingEnforcementMode) {
+    return apiClient.patch('/wallet/mode', { billingEnforcementMode });
+  },
 };

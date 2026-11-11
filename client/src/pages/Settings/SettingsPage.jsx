@@ -7,6 +7,7 @@ import {
   User,
   ArrowRight,
   Cpu,
+  Zap,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -28,11 +29,27 @@ export default function SettingsPage() {
   const { isDark, toggleTheme } = useTheme();
   const { user, updateSettings } = useAuthStore();
   const { thinkingLevel, setThinkingLevel, isSimulation, toggleSimulation } = useChatStore();
-  const { governance, wallet, fetchWallet } = useWalletStore();
+  const { governance, wallet, fetchWallet, updateGovernanceMode } = useWalletStore();
 
   useEffect(() => {
     fetchWallet();
   }, [fetchWallet]);
+
+  const isQuotaFree = governance?.billingEnforcementMode !== 'credit_strict';
+
+  const handleToggleBillingMode = async () => {
+    const nextMode = isQuotaFree ? 'credit_strict' : 'quota_free';
+    const res = await updateGovernanceMode(nextMode);
+    if (res.success) {
+      toast.success(
+        nextMode === 'quota_free'
+          ? 'Quota-Free Mode activated (1,500 Daily Free Gemini Requests)'
+          : 'Credit-Strict Mode activated (Tokens deducted from balance)',
+      );
+    } else {
+      toast.error(res.error || 'Failed to update billing mode');
+    }
+  };
 
   const currentModel = user?.settings?.defaultModel || 'flash';
   const webSearchDefaultOn = user?.settings?.webSearchDefaultOn || false;
@@ -232,6 +249,31 @@ export default function SettingsPage() {
               <span className={styles.accountValue}>
                 Academic Free Tier (Google Gemini 1,500 RPD)
               </span>
+            </div>
+            <div className={styles.accountDetailRow}>
+              <span className={styles.accountLabel}>Billing Enforcement:</span>
+              <span className={styles.accountValue}>
+                <Badge tone={isQuotaFree ? 'accent' : 'neutral'}>
+                  {isQuotaFree ? 'Quota-Free Mode (1,500 RPD)' : 'Credit-Strict Mode (Metered)'}
+                </Badge>
+              </span>
+            </div>
+
+            <div className={styles.settingRow}>
+              <div className={styles.settingInfo}>
+                <span className={styles.settingLabel}>
+                  <Zap size={15} style={{ color: 'var(--color-accent)' }} />
+                  Free Quota Mode (Quota-Free vs Credit-Strict)
+                </span>
+                <span className={styles.settingDesc}>
+                  Bypass per-message credit limits and utilize Google Gemini's 1,500 daily free tier requests. Toggle off to enforce strict credit deduction and payment recharge prompts.
+                </span>
+              </div>
+              <Switch
+                checked={isQuotaFree}
+                onChange={handleToggleBillingMode}
+                aria-label="Toggle Free Quota Mode"
+              />
             </div>
 
             {/* Quota Telemetry Mini Grid */}

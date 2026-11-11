@@ -35,7 +35,7 @@ describe('MessageAttachments Component', () => {
 
     // Lightbox modal should be opened
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Download Image')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /download file/i })).toBeInTheDocument();
   });
 
   it('renders video attachment with HTML5 video player', () => {

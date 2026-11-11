@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import loadingAnimationSvg from '@/assets/loading-animation.svg';
-import logoImg from '@/assets/logo.png';
+import { NexAiLogo } from '@/components/ui/NexAiLogo';
 import { cn } from '@/lib/utils/cn';
 import styles from './ThinkingIndicator.module.scss';
 
@@ -40,7 +40,7 @@ export function ThinkingIndicator({
         aria-label={ariaLabel}
       >
         <div className={styles.energyRing} aria-hidden="true" />
-        <img src={logoImg} alt="NexAI" className={styles.logoImg} />
+        <NexAiLogo size={22} className={styles.logoImg} glow />
         <span className={styles.quantumParticle} aria-hidden="true" />
       </div>
     );

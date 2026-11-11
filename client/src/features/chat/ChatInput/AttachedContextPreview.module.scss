@@ -3,271 +3,134 @@
 .previewContainer {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   width: 100%;
   padding-bottom: var(--space-2);
 }
 
-.previewCard {
+.itemWrapper {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  background-color: var(--color-bg-surface);
+}
+
+/* Standalone image card: Pure image with circular top-right cancel */
+.standaloneImageCard {
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  margin-top: 4px;
+  margin-right: 4px;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    transform: scale(1.04);
+  }
+}
+
+.standaloneThumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 6px var(--space-3) 6px 8px;
-  max-width: 100%;
   box-shadow: var(--shadow-sm);
-  transition:
-    border-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+  display: block;
+}
+
+.fallbackThumbnail {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+
+.imageCancelBtn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-danger);
+    background-color: var(--color-bg-surface);
+    border-color: var(--color-danger);
+  }
+}
+
+/* Compact chip for Library items, documents, notes, code, and text files */
+.compactChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 8px 0 10px;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  max-width: 280px;
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 
   &:hover {
     border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
   }
 }
 
-.imageCard {
-  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
-  background-color: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-surface));
-}
-
-.imageThumbnailWrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background-color: var(--color-bg-elevated);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
-  flex-shrink: 0;
+.chipIcon {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.imageThumbnail {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.iconWrapper {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-elevated);
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.audioCard {
-  border-color: color-mix(in srgb, var(--violet-500) 30%, var(--color-border));
-  background-color: color-mix(in srgb, var(--violet-500) 6%, var(--color-bg-surface));
-}
-
-.audioIconWrapper {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-md);
-  background-color: color-mix(in srgb, var(--violet-500) 15%, transparent);
-  color: var(--violet-400);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  flex-shrink: 0;
-  padding: 0 4px;
-}
-
-.waveBar {
-  width: 2px;
-  height: 12px;
-  background-color: var(--violet-400);
-  border-radius: var(--radius-full);
-  animation: waveMotion 1.2s infinite ease-in-out alternate;
-
-  &:nth-child(2) {
-    height: 16px;
-    animation-delay: 0.2s;
-  }
-  &:nth-child(3) {
-    height: 8px;
-    animation-delay: 0.4s;
-  }
-}
-
-@keyframes waveMotion {
-  0% {
-    transform: scaleY(0.4);
-  }
-  100% {
-    transform: scaleY(1);
-  }
-}
-
-.pdfCard {
-  border-color: color-mix(in srgb, var(--red-500) 30%, var(--color-border));
-  background-color: color-mix(in srgb, var(--red-500) 6%, var(--color-bg-surface));
-}
-
-.pdfIconWrapper {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-md);
-  background-color: color-mix(in srgb, var(--red-500) 15%, transparent);
-  color: var(--red-500);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.libraryCard {
-  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
-  background-color: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-surface));
-  max-width: 480px;
-}
-
-.libraryIconWrapper {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-md);
-  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
   color: var(--color-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
 }
 
-.cardDetails {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  gap: 2px;
+.chipTitle {
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex: 1;
 }
 
-.topInfo {
+.chipRemoveBtn {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-.badgeLabel {
-  font-size: 10px;
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-accent);
-  background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  display: inline-flex;
-  align-items: center;
-  line-height: 1.4;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.audioBadge {
-  color: var(--violet-400);
-  background-color: color-mix(in srgb, var(--violet-500) 15%, transparent);
-}
-
-.pdfBadge {
-  color: var(--red-500);
-  background-color: color-mix(in srgb, var(--red-500) 15%, transparent);
-}
-
-.videoBadge {
-  color: var(--blue-500);
-  background-color: color-mix(in srgb, var(--blue-500) 15%, transparent);
-}
-
-.libraryBadge {
-  color: var(--color-accent);
-  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
-}
-
-.sizeLabel,
-.contextHint {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.fileName {
-  font-size: 13px;
-  font-weight: var(--weight-medium);
-  color: var(--color-text-primary);
-  max-width: 280px;
-  @include text-truncate;
-}
-
-.snippetText {
-  margin: 0;
-  font-size: 11.5px;
-  color: var(--color-text-secondary);
-  font-style: italic;
-  line-height: 1.35;
-  max-width: 320px;
-  @include text-truncate;
-}
-
-.removeBtn {
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
   background: transparent;
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  margin-left: var(--space-1);
+  padding: 0;
   flex-shrink: 0;
-  transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    color var(--duration-fast) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard);
 
   &:hover {
     color: var(--color-danger);
-    background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
-  }
-}
-
-.progressBar {
-  width: 100%;
-  height: 3px;
-  background-color: var(--color-bg-hover);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  margin-top: 4px;
-}
-
-.progressFill {
-  height: 100%;
-  background-color: var(--color-accent);
-  border-radius: var(--radius-full);
-  animation: indeterminateProgress 1.4s infinite ease-in-out;
-}
-
-@keyframes indeterminateProgress {
-  0% {
-    transform: translateX(-100%);
-    width: 30%;
-  }
-  50% {
-    transform: translateX(60%);
-    width: 50%;
-  }
-  100% {
-    transform: translateX(200%);
-    width: 30%;
   }
 }

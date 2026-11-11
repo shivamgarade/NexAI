@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { chatApi } from '@/lib/api/chat.api.js';
 import { streamChatMessage, sanitizeErrorMessage } from '@/lib/sse.js';
+import { speakText, cancelSpeech } from '@/lib/utils/speechSynthesis.js';
 import { useAuthStore } from './authStore.js';
 import { useWalletStore } from './walletStore.js';
 import { useSkillStore } from './skillStore.js';
@@ -96,6 +97,42 @@ export const useChatStore = create((set, get) => ({
   activeDrawerThought: null,
   isSimulation: false,
   isTemporaryChat: false,
+  isVoiceMode: false,
+  isAiSpeaking: false,
+
+  /**
+   * Toggle real-time voice-to-voice conversation mode
+   */
+  toggleVoiceMode: () => {
+    const next = !get().isVoiceMode;
+    if (!next) {
+      get().cancelAiSpeech();
+    }
+    set({ isVoiceMode: next });
+  },
+
+  setVoiceMode: (val) => {
+    const next = Boolean(val);
+    if (!next) {
+      get().cancelAiSpeech();
+    }
+    set({ isVoiceMode: next });
+  },
+
+  speakAiResponse: (text) => {
+    if (!get().isVoiceMode || !text) return;
+    get().cancelAiSpeech();
+    speakText(text, {
+      onStart: () => set({ isAiSpeaking: true }),
+      onEnd: () => set({ isAiSpeaking: false }),
+      onError: () => set({ isAiSpeaking: false }),
+    });
+  },
+
+  cancelAiSpeech: () => {
+    cancelSpeech();
+    set({ isAiSpeaking: false });
+  },
 
   /**
    * Set the AI model to use
@@ -125,7 +162,6 @@ export const useChatStore = create((set, get) => ({
       error: null,
       insufficientCredits: false,
     });
-    toast.info('🛡️ Temporary chat active — messages will not be saved.');
   },
 
   /**
@@ -607,6 +643,12 @@ export const useChatStore = create((set, get) => ({
           if (doneData.governance) {
             useWalletStore.getState().setGovernance(doneData.governance);
           }
+
+          // Real-time Voice Conversation: Readout assistant response if voice mode is on
+          const finalAssistantMsg = get().messages[get().messages.length - 1];
+          if (get().isVoiceMode && finalAssistantMsg && finalAssistantMsg.content) {
+            get().speakAiResponse(finalAssistantMsg.content);
+          }
         },
         onError: (err) => {
           const is402 = err.status === 402 || err.code === 'INSUFFICIENT_CREDITS';
@@ -666,6 +708,7 @@ export const useChatStore = create((set, get) => ({
    * Abort the active response generation
    */
   stopGeneration: () => {
+    get().cancelAiSpeech();
     const { abortController, isStreaming } = get();
     if (isStreaming && abortController) {
       abortController.abort();
@@ -685,18 +728,263 @@ export const useChatStore = create((set, get) => ({
   },
 
   /**
-   * Resend a prompt, cleaning up an errored assistant message if one is currently at the end
-   * @param {string} content
+   * Regenerate assistant response in-place without duplicating the user prompt.
+   * @param {number} [targetIndex] - Optional index of the user or assistant message being regenerated/retried
    */
-  resendPrompt: async (content) => {
-    set((state) => {
-      const msgs = [...state.messages];
-      if (msgs.length > 0 && msgs[msgs.length - 1].error) {
-        msgs.pop();
+  regenerateResponse: async (targetIndex) => {
+    if (get().isStreaming) return;
+
+    const msgs = [...get().messages];
+    if (msgs.length === 0) return;
+
+    let userMsg = null;
+    let assistantMsgIndex = -1;
+
+    if (typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex < msgs.length) {
+      const target = msgs[targetIndex];
+      if (target.role === 'assistant') {
+        assistantMsgIndex = targetIndex;
+        // Find the preceding user message
+        for (let i = targetIndex - 1; i >= 0; i--) {
+          if (msgs[i].role === 'user') {
+            userMsg = msgs[i];
+            break;
+          }
+        }
+      } else if (target.role === 'user') {
+        userMsg = target;
+        // Check if there is already an assistant message immediately following it
+        if (targetIndex + 1 < msgs.length && msgs[targetIndex + 1].role === 'assistant') {
+          assistantMsgIndex = targetIndex + 1;
+        }
       }
-      return { messages: msgs };
+    } else {
+      // Default: check the end of the conversation
+      const last = msgs[msgs.length - 1];
+      if (last.role === 'assistant') {
+        assistantMsgIndex = msgs.length - 1;
+        for (let i = msgs.length - 2; i >= 0; i--) {
+          if (msgs[i].role === 'user') {
+            userMsg = msgs[i];
+            break;
+          }
+        }
+      } else if (last.role === 'user') {
+        userMsg = last;
+      }
+    }
+
+    if (!userMsg) return;
+
+    const targetChatId = get().activeChatId;
+    if (!targetChatId) return;
+
+    const optimisticAssistantId = `temp-assistant-${Date.now()}`;
+    const activeSkill = useSkillStore.getState().activeSkill;
+    const skillId = activeSkill?._id || userMsg.skillId || null;
+    const enabledTools = activeSkill?.tools || [];
+
+    const blankAssistantMessage = {
+      _id: optimisticAssistantId,
+      chatId: targetChatId,
+      role: 'assistant',
+      content: '',
+      thoughts: '',
+      steps: [],
+      groundingMetadata: null,
+      skillId,
+      isThinking: get().thinkingLevel !== 'off',
+      isStreaming: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    let updatedMessages = [...msgs];
+    if (assistantMsgIndex >= 0) {
+      updatedMessages[assistantMsgIndex] = blankAssistantMessage;
+    } else {
+      const userIndex = msgs.indexOf(userMsg);
+      if (userIndex >= 0) {
+        updatedMessages = [
+          ...msgs.slice(0, userIndex + 1),
+          blankAssistantMessage,
+        ];
+      } else {
+        updatedMessages.push(blankAssistantMessage);
+      }
+    }
+
+    const abortController = new AbortController();
+
+    set({
+      messages: updatedMessages,
+      isStreaming: true,
+      isLoadingMessages: false,
+      abortController,
+      error: null,
     });
-    await get().sendMessage(content);
+
+    try {
+      const rawModel = get().selectedModel;
+      const modelConfig = AVAILABLE_MODELS.find((m) => m.id === rawModel);
+      const model = modelConfig?.backendModel || (['flash', 'pro'].includes(rawModel) ? rawModel : 'flash');
+      const thinkingLevel = get().thinkingLevel;
+      const isSimulation = get().isSimulation;
+
+      await streamChatMessage({
+        chatId: targetChatId,
+        content: userMsg.content,
+        model,
+        thinkingLevel,
+        attachments: userMsg.attachments || [],
+        isSimulation,
+        skillId,
+        enabledTools,
+        regenerate: true,
+        signal: abortController.signal,
+        onThought: (text) => {
+          set((state) => {
+            const next = [...state.messages];
+            const idx = next.findIndex((m) => m._id === optimisticAssistantId);
+            if (idx !== -1) {
+              next[idx] = {
+                ...next[idx],
+                thoughts: (next[idx].thoughts || '') + text,
+              };
+            }
+            return { messages: next };
+          });
+        },
+        onToken: (token) => {
+          set((state) => {
+            const next = [...state.messages];
+            const idx = next.findIndex((m) => m._id === optimisticAssistantId);
+            if (idx !== -1) {
+              next[idx] = {
+                ...next[idx],
+                content: (next[idx].content || '') + token,
+                isThinking: false,
+              };
+            }
+            return { messages: next };
+          });
+        },
+        onStep: (step) => {
+          set((state) => {
+            const next = [...state.messages];
+            const idx = next.findIndex((m) => m._id === optimisticAssistantId);
+            if (idx !== -1) {
+              const currentSteps = next[idx].steps || [];
+              const stepIdx = currentSteps.findIndex((s) => s.id === step.id);
+              let updatedSteps;
+              if (stepIdx !== -1) {
+                updatedSteps = [...currentSteps];
+                updatedSteps[stepIdx] = { ...updatedSteps[stepIdx], ...step };
+              } else {
+                updatedSteps = [...currentSteps, step];
+              }
+              next[idx] = { ...next[idx], steps: updatedSteps };
+            }
+            return { messages: next };
+          });
+        },
+        onGrounding: (groundingMetadata) => {
+          set((state) => {
+            const next = [...state.messages];
+            const idx = next.findIndex((m) => m._id === optimisticAssistantId);
+            if (idx !== -1) {
+              next[idx] = { ...next[idx], groundingMetadata };
+            }
+            return { messages: next };
+          });
+        },
+        onDone: (data) => {
+          set((state) => {
+            const next = [...state.messages];
+            const idx = next.findIndex((m) => m._id === optimisticAssistantId);
+            if (idx !== -1) {
+              next[idx] = {
+                ...next[idx],
+                _id: data.messageId || optimisticAssistantId,
+                tokensUsed: data.tokensUsed || 0,
+                skillId: data.skillId || next[idx].skillId,
+                steps: data.steps || next[idx].steps || [],
+                groundingMetadata: data.groundingMetadata || next[idx].groundingMetadata || null,
+                isThinking: false,
+                isStreaming: false,
+              };
+            }
+            return {
+              messages: next,
+              isStreaming: false,
+              abortController: null,
+            };
+          });
+
+          // Sync wallet credits
+          if (data.creditsRemaining !== undefined) {
+            useWalletStore.getState().setCreditsRemaining(data.creditsRemaining);
+          }
+
+          // Real-time Voice Conversation: Readout regenerated response if voice mode is on
+          const finalRegenMsg = get().messages[get().messages.length - 1];
+          if (get().isVoiceMode && finalRegenMsg && finalRegenMsg.content) {
+            get().speakAiResponse(finalRegenMsg.content);
+          }
+        },
+        onError: (err) => {
+          if (err.name === 'AbortError') return;
+          set((state) => {
+            const next = [...state.messages];
+            const idx = next.findIndex((m) => m._id === optimisticAssistantId);
+            if (idx !== -1) {
+              next[idx] = {
+                ...next[idx],
+                isStreaming: false,
+                isThinking: false,
+                error: true,
+                errorMessage: err.message || 'Failed to generate response',
+              };
+            }
+            return {
+              messages: next,
+              isStreaming: false,
+              abortController: null,
+              error: err.message,
+            };
+          });
+        },
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      set((state) => {
+        const next = [...state.messages];
+        const idx = next.findIndex((m) => m._id === optimisticAssistantId);
+        if (idx !== -1) {
+          next[idx] = {
+            ...next[idx],
+            isStreaming: false,
+            isThinking: false,
+            error: true,
+            errorMessage: err.message || 'Failed to generate response',
+          };
+        }
+        return {
+          messages: next,
+          isStreaming: false,
+          abortController: null,
+          error: err.message,
+        };
+      });
+    }
+  },
+
+  /**
+   * Resend a prompt, regenerating the response in place
+   * @param {string} content
+   * @param {number} [targetIndex]
+   */
+  resendPrompt: async (content, targetIndex) => {
+    return get().regenerateResponse(targetIndex);
   },
 
   /**

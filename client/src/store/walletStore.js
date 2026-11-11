@@ -83,6 +83,23 @@ export const useWalletStore = create((set, get) => ({
 
   setGovernance: (governance) => set({ governance }),
 
+  updateGovernanceMode: async (mode) => {
+    try {
+      const res = await walletApi.updateGovernanceMode(mode);
+      const payload = res.data?.data || res.data || {};
+      const newMode = payload.billingEnforcementMode || mode;
+      const updatedGov = payload.governance || {
+        ...get().governance,
+        billingEnforcementMode: newMode,
+      };
+      set({ governance: updatedGov });
+      return { success: true, mode: newMode };
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || 'Failed to update billing mode';
+      return { success: false, error: msg };
+    }
+  },
+
   fetchWallet: async () => {
     set({ isLoadingWallet: true, error: null });
     try {

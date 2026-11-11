@@ -15,6 +15,8 @@ import {
   CornerDownLeft,
   Upload,
   X,
+  AudioLines,
+  Volume2,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 import { SkillPickerModal, VariableFillModal } from '@/features/skills';
@@ -40,6 +42,10 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     thinkingLevel,
     setThinkingLevel,
     isTemporaryChat,
+    isVoiceMode,
+    isAiSpeaking,
+    toggleVoiceMode,
+    cancelAiSpeech,
   } = useChatStore();
 
   const [isModelPopoverOpen, setIsModelPopoverOpen] = useState(false);
@@ -55,7 +61,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   const modelPillLabel = `${modelShortName} ${effortName}`;
 
   const [input, setInput] = useState('');
-  const [attachedContext, setAttachedContext] = useState(null);
+  const [attachedContexts, setAttachedContexts] = useState([]);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [selectedPromptForVariables, setSelectedPromptForVariables] = useState(null);
@@ -63,9 +69,12 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   const fileInputRef = useRef(null);
   const attachButtonRef = useRef(null);
 
-  const hasContent = Boolean(input.trim() || attachedContext);
+  const hasContent = Boolean(input.trim() || attachedContexts.length > 0);
 
   const baseTextRef = useRef('');
+  const latestInputRef = useRef('');
+  const silenceTimerRef = useRef(null);
+  const handleSubmitRef = useRef(null);
 
   const insertCompiledPrompt = (compiledText) => {
     setInput((prev) => {
@@ -86,6 +95,10 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   const [selectedSkillForVariables, setSelectedSkillForVariables] = useState(null);
 
   const handleSelectSkill = (skill) => {
+    if (input.startsWith('/') || input.startsWith('@')) {
+      setInput('');
+      baseTextRef.current = '';
+    }
     if (skill.variables && skill.variables.length > 0) {
       setSelectedSkillForVariables(skill);
     } else {
@@ -105,18 +118,33 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     setSelectedSkillForVariables(null);
   };
 
-  // Web Speech API Voice Dictation Hook with Real-Time Streaming
-  const { isSupported: isVoiceSupported, isListening, stopListening, toggleListening } = useSpeechRecognition({
+  // Web Speech API Voice Dictation Hook with Real-Time Streaming & Hands-Free Auto-Send
+  const { isSupported: isVoiceSupported, isListening, startListening, stopListening, toggleListening } = useSpeechRecognition({
     continuous: true,
     onInterim: (interim) => {
       const base = baseTextRef.current;
-      if (interim) {
-        setInput(base ? `${base} ${interim}` : interim);
-      } else {
-        setInput(base);
-      }
+      const currentVal = interim ? (base ? `${base} ${interim}` : interim) : base;
+      setInput(currentVal);
+      latestInputRef.current = currentVal;
       if (textareaRef.current) {
         textareaRef.current.focus();
+      }
+
+      // Hands-Free Conversational Turn: Reset silence pause countdown on interim speech
+      if (useChatStore.getState().isVoiceMode) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        silenceTimerRef.current = setTimeout(() => {
+          const state = useChatStore.getState();
+          if (state.isVoiceMode && !state.isStreaming && !state.isAiSpeaking) {
+            const textToSubmit = latestInputRef.current?.trim();
+            if (textToSubmit && textToSubmit.length >= 2) {
+              stopListening();
+              handleSubmitRef.current?.();
+            }
+          }
+        }, 1400);
       }
     },
     onResult: (transcription) => {
@@ -124,13 +152,78 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
       const updated = base ? `${base} ${transcription}` : transcription;
       baseTextRef.current = updated;
       setInput(updated);
+      latestInputRef.current = updated;
       if (textareaRef.current) {
         textareaRef.current.focus();
+      }
+
+      // Hands-Free Conversational Turn: Reset silence pause countdown on final utterance chunk
+      if (useChatStore.getState().isVoiceMode) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        silenceTimerRef.current = setTimeout(() => {
+          const state = useChatStore.getState();
+          if (state.isVoiceMode && !state.isStreaming && !state.isAiSpeaking) {
+            const textToSubmit = latestInputRef.current?.trim();
+            if (textToSubmit && textToSubmit.length >= 2) {
+              stopListening();
+              handleSubmitRef.current?.();
+            }
+          }
+        }, 1400);
       }
     },
   });
 
+  // Hands-Free Conversational Loop: Automatically re-arm microphone when AI completes speaking
+  useEffect(() => {
+    let armTimer;
+    if (isVoiceMode) {
+      if (!isStreaming && !isAiSpeaking && !isListening) {
+        armTimer = setTimeout(() => {
+          const state = useChatStore.getState();
+          if (state.isVoiceMode && !state.isStreaming && !state.isAiSpeaking) {
+            baseTextRef.current = '';
+            startListening();
+          }
+        }, 350);
+      } else if ((isStreaming || isAiSpeaking) && isListening) {
+        // Mute mic while AI is replying or speaking aloud to avoid acoustic feedback
+        stopListening();
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+      }
+    } else {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    }
+    return () => {
+      if (armTimer) clearTimeout(armTimer);
+    };
+  }, [isVoiceMode, isStreaming, isAiSpeaking, isListening, startListening, stopListening]);
+
   const handleToggleListening = () => {
+    if (isAiSpeaking) {
+      cancelAiSpeech();
+    }
+    if (isVoiceMode) {
+      if (isListening) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+        stopListening();
+      } else {
+        baseTextRef.current = input;
+        startListening();
+      }
+      return;
+    }
     if (!isListening) {
       baseTextRef.current = input;
     }
@@ -154,65 +247,102 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const newHeight = Math.min(Math.max(scrollHeight, 28), 220);
+      const newHeight = Math.min(Math.max(scrollHeight, 24), 220);
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [input]);
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     if (isListening) {
       stopListening();
     }
     const trimmed = input.trim();
-    if ((!trimmed && !attachedContext) || isStreaming) {
+    if ((!trimmed && attachedContexts.length === 0) || isStreaming) {
       return;
     }
 
     let messageToSend = trimmed;
     const attachments = [];
+    let contextPrefix = '';
 
-    if (attachedContext) {
-      if (attachedContext.data) {
+    for (const ctx of attachedContexts) {
+      if (ctx.data) {
         attachments.push({
-          name: attachedContext.name,
-          mimeType: attachedContext.mimeType || 'application/octet-stream',
-          data: attachedContext.data,
-          size: attachedContext.size || 0,
-          type: attachedContext.type,
+          name: ctx.name,
+          mimeType: ctx.mimeType || 'application/octet-stream',
+          data: ctx.data,
+          size: ctx.size || 0,
+          type: ctx.type,
         });
-        if (!messageToSend) {
-          messageToSend = `[Analyzed ${attachedContext.type || 'file'}: ${attachedContext.name}]`;
-        }
       } else {
-        const contextPrefix = `[Attached Context: ${attachedContext.name} (${attachedContext.type || 'file'})]\n${attachedContext.content ? attachedContext.content.slice(0, 4000) : ''}\n[End of Context]\n\n`;
-        messageToSend = `${contextPrefix}${trimmed}`;
+        contextPrefix += `[Attached Context: ${ctx.name} (${ctx.type || 'file'})]\n${ctx.content ? ctx.content.slice(0, 4000) : ''}\n[End of Context]\n\n`;
         attachments.push({
-          name: attachedContext.name,
-          mimeType: attachedContext.mimeType || 'text/plain',
-          size: attachedContext.size || 0,
-          type: attachedContext.type || 'file',
-          content: attachedContext.content,
+          name: ctx.name,
+          mimeType: ctx.mimeType || 'text/plain',
+          size: ctx.size || 0,
+          type: ctx.type || 'file',
+          content: ctx.content,
         });
       }
     }
 
+    if (contextPrefix) {
+      messageToSend = `${contextPrefix}${trimmed}`;
+    } else if (!trimmed && attachments.length > 0) {
+      messageToSend = `[Attached ${attachments.length} file(s): ${attachments.map((a) => a.name).join(', ')}]`;
+    }
+
     setInput('');
     baseTextRef.current = '';
-    setAttachedContext(null);
+    latestInputRef.current = '';
+    setAttachedContexts([]);
     if (textareaRef.current) {
-      textareaRef.current.style.height = '28px';
+      textareaRef.current.style.height = '24px';
     }
     await sendMessage(messageToSend, attachments, { skill: activeSkill });
   };
 
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  });
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
+      if (isPickerOpen) {
+        return;
+      }
       e.preventDefault();
       handleSubmit();
-    } else if ((e.key === '/' || e.key === '@') && (!input || input.trim() === '')) {
-      e.preventDefault();
+    } else if (e.key === 'Backspace') {
+      if (input === '/' || input === '@' || (input.startsWith('/') && input.length <= 1) || (input.startsWith('@') && input.length <= 1)) {
+        setIsPickerOpen(false);
+      }
+    } else if (e.key === 'Escape') {
+      setIsPickerOpen(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInput(val);
+    baseTextRef.current = val;
+    latestInputRef.current = val;
+
+    if (val.startsWith('/') || val.startsWith('@')) {
       setIsPickerOpen(true);
+    } else if (isPickerOpen && !val.includes('/') && !val.includes('@')) {
+      setIsPickerOpen(false);
+    }
+  };
+
+  const handleInputClick = () => {
+    if (isPickerOpen) {
+      setIsPickerOpen(false);
     }
   };
 
@@ -248,27 +378,34 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
             ? 'pdf'
             : 'file';
 
-    setAttachedContext({
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const uploadingItem = {
+      id: tempId,
       name: file.name,
       type,
       mimeType: file.type || (isText ? 'text/plain' : 'application/octet-stream'),
       size: file.size,
       isUploading: true,
       progress: 45,
-    });
+    };
+
+    setAttachedContexts((prev) => [...prev, uploadingItem]);
 
     if (isText) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target.result || '';
-        setAttachedContext({
-          name: file.name,
-          type: 'file',
-          mimeType: file.type || 'text/plain',
-          content,
-          size: file.size,
-          isUploading: false,
-        });
+        setAttachedContexts((prev) =>
+          prev.map((item) =>
+            item.id === tempId
+              ? {
+                  ...item,
+                  content,
+                  isUploading: false,
+                }
+              : item
+          )
+        );
 
         // Persist note to user library in background
         libraryApi
@@ -285,18 +422,22 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target.result || '';
-        setAttachedContext({
-          name: file.name,
-          type,
-          mimeType:
-            file.type ||
-            (file.name.toLowerCase().endsWith('.pdf')
-              ? 'application/pdf'
-              : 'application/octet-stream'),
-          data: dataUrl,
-          size: file.size,
-          isUploading: false,
-        });
+        setAttachedContexts((prev) =>
+          prev.map((item) =>
+            item.id === tempId
+              ? {
+                  ...item,
+                  data: dataUrl,
+                  mimeType:
+                    file.type ||
+                    (file.name.toLowerCase().endsWith('.pdf')
+                      ? 'application/pdf'
+                      : 'application/octet-stream'),
+                  isUploading: false,
+                }
+              : item
+          )
+        );
 
         // Persist media/file to user library in background
         libraryApi
@@ -320,10 +461,8 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processAndAttachFile(file);
-    }
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => processAndAttachFile(file));
   };
 
   const handleDragEnter = (e) => {
@@ -356,14 +495,21 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     setIsDraggingOver(false);
     dragCounterRef.current = 0;
 
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      processAndAttachFile(files[0]);
-    }
+    const files = Array.from(e.dataTransfer.files || []);
+    files.forEach((file) => processAndAttachFile(file));
   };
 
   return (
     <div className={styles.inputContainer}>
+      {isPickerOpen && (
+        <SkillPickerModal
+          open={isPickerOpen}
+          inline
+          query={input.startsWith('/') || input.startsWith('@') ? input.slice(1) : ''}
+          onClose={() => setIsPickerOpen(false)}
+          onSelectSkill={handleSelectSkill}
+        />
+      )}
       <form
         className={cn(
           styles.composerForm,
@@ -385,10 +531,12 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           </div>
         )}
         {/* Attached context / media preview */}
-        {attachedContext && (
+        {attachedContexts.length > 0 && (
           <AttachedContextPreview
-            context={attachedContext}
-            onRemove={() => setAttachedContext(null)}
+            contexts={attachedContexts}
+            onRemove={(idx) =>
+              setAttachedContexts((prev) => prev.filter((_, i) => i !== idx))
+            }
           />
         )}
 
@@ -418,6 +566,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
+          multiple
           style={{ display: 'none' }}
           aria-label="Attach file"
           accept="image/*,audio/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.js,.ts,.jsx,.tsx,.py,.html,.css,.yaml,.yml,.sql"
@@ -440,29 +589,18 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
               open={isAttachModalOpen}
               onClose={() => setIsAttachModalOpen(false)}
               anchorRef={attachButtonRef}
-              onSelect={(item) => setAttachedContext(item)}
+              onSelect={(item) => setAttachedContexts((prev) => [...prev, item])}
               onUploadLocal={() => fileInputRef.current?.click()}
+              onOpenSkills={() => setIsPickerOpen(true)}
             />
           </div>
-
-          <button
-            type="button"
-            className={cn(styles.addBtn, activeSkill && styles.addBtnActive)}
-            onClick={() => setIsPickerOpen(true)}
-            title={activeSkill ? `Active Skill: ${activeSkill.title} (Click to change)` : 'Choose Agent Skill (/)'}
-            aria-label="Choose Agent Skill"
-          >
-            <Zap size={16} />
-          </button>
 
           <textarea
             ref={textareaRef}
             rows={1}
             value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              baseTextRef.current = e.target.value;
-            }}
+            onChange={handleInputChange}
+            onClick={handleInputClick}
             onKeyDown={handleKeyDown}
             placeholder={activeSkill ? `Ask ${activeSkill.title}...` : "Write a message... ('/' for skills)"}
             className={styles.textarea}
@@ -470,6 +608,46 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           />
 
           <div className={styles.inlineActions}>
+            {/* Real-time Voice Conversation Toggle (ChatGPT / Claude / Gemini style) */}
+            <button
+              type="button"
+              className={cn(
+                styles.voiceModeBtn,
+                isVoiceMode && styles.voiceModeActive,
+                isAiSpeaking && styles.aiSpeaking
+              )}
+              onClick={() => {
+                if (isAiSpeaking) {
+                  cancelAiSpeech();
+                } else if (isVoiceMode) {
+                  if (silenceTimerRef.current) {
+                    clearTimeout(silenceTimerRef.current);
+                    silenceTimerRef.current = null;
+                  }
+                  stopListening();
+                  cancelAiSpeech();
+                  toggleVoiceMode();
+                } else {
+                  toggleVoiceMode();
+                  baseTextRef.current = '';
+                }
+              }}
+              title={
+                isAiSpeaking
+                  ? 'NexAI is speaking (Click to interrupt)'
+                  : isVoiceMode
+                    ? 'Hands-free Voice Conversation Active (Click to turn off)'
+                    : 'Turn on Hands-Free Voice Conversation Mode'
+              }
+              aria-label="Toggle voice conversation mode"
+            >
+              {isAiSpeaking ? (
+                <Volume2 size={16} className={styles.pulsingVoiceIcon} />
+              ) : (
+                <AudioLines size={16} />
+              )}
+            </button>
+
             <button
               type="button"
               className={cn(styles.micBtn, isListening && styles.listeningMic)}
@@ -513,9 +691,23 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
 
       {/* Bottom Footer: Disclaimer on left, Model Selector on right */}
       <div className={styles.composerFooter}>
-        <span className={styles.disclaimerText}>
-          NexAI is an AI workspace and can make mistakes. Please double-check responses.
-        </span>
+        <div className={styles.disclaimerGroup}>
+          <span className={styles.disclaimerText}>
+            NexAI is an AI workspace and can make mistakes. Please double-check responses.
+          </span>
+          {isVoiceMode && (
+            <span className={cn(styles.voiceStatusPill, isAiSpeaking && styles.speakingPill)}>
+              <span className={styles.voicePulseDot} />
+              {isAiSpeaking
+                ? 'NexAI Speaking (Edge Neural)...'
+                : isStreaming
+                  ? 'NexAI is replying...'
+                  : isListening
+                    ? 'Listening... (auto-send on pause)'
+                    : 'Voice Conversation Ready'}
+            </span>
+          )}
+        </div>
 
         <div className={styles.popoverAnchorWrapper}>
           <button
@@ -538,13 +730,6 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           />
         </div>
       </div>
-
-      {/* Skill Selector Modal */}
-      <SkillPickerModal
-        open={isPickerOpen}
-        onClose={() => setIsPickerOpen(false)}
-        onSelectSkill={handleSelectSkill}
-      />
 
       {/* Variable Fill Modal for Skill */}
       {selectedSkillForVariables && (

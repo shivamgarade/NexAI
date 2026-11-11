@@ -99,34 +99,6 @@ export default function ChatPage() {
         />
       ) : (
         <div className={styles.activeWorkspace}>
-
-          {/* Active Conversation Header */}
-          <header className={styles.chatHeader}>
-            <div className={styles.headerLeft}>
-              <div className={styles.titleInfo}>
-                {isTemporaryChat ? (
-                  <MessageSquareDashed size={16} className={styles.tempTitleIcon} />
-                ) : (
-                  <MessageSquare size={16} className={styles.titleIcon} />
-                )}
-                <h1 className={styles.titleText}>{pageTitle}</h1>
-              </div>
-            </div>
-            {isTemporaryChat && (
-              <button
-                type="button"
-                className={styles.tempHeaderExitBtn}
-                onClick={async () => {
-                  await clearTemporaryChat();
-                  navigate(ROUTES.CHAT);
-                }}
-                title="Exit temporary chat and return to normal mode"
-              >
-                Exit Temporary Mode
-              </button>
-            )}
-          </header>
-
           {/* Ephemeral alert banner for active temporary chat thread */}
           {isTemporaryChat && (
             <div className={styles.temporaryChatBanner}>

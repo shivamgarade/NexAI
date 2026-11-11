@@ -413,11 +413,7 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
             ref={containerRef}
             style={{
               height: canvasHeight ? `${canvasHeight}px` : undefined,
-              minHeight: canvasHeight
-                ? `${canvasHeight}px`
-                : zoom > 1
-                  ? `${Math.max(280, Math.round(220 * zoom))}px`
-                  : undefined,
+              minHeight: canvasHeight ? `${canvasHeight}px` : undefined,
               maxHeight: canvasHeight ? `${canvasHeight}px` : undefined,
             }}
           >
@@ -433,7 +429,10 @@ export const MermaidBlock = React.memo(function MermaidBlock({ chart = '', isStr
             ) : svgContent ? (
               <div
                 className={styles.diagramCanvas}
-                style={{ transform: `scale(${zoom})` }}
+                style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: zoom > 1 ? 'top left' : 'center center',
+                }}
                 dangerouslySetInnerHTML={{ __html: svgContent }}
               />
             ) : (

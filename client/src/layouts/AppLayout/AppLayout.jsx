@@ -6,6 +6,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Spinner } from '@/components/ui/Spinner';
 import { CommandPalette } from '@/features/command-palette';
 import { SaveItemModal } from '@/features/library';
+import { SettingsModal } from '@/features/settings';
 import { useUiStore } from '@/store/uiStore';
 import { useWalletStore } from '@/store/walletStore';
 import { useAuthStore } from '@/store/authStore';
@@ -79,6 +80,7 @@ export function AppLayout() {
 
       <CommandPalette />
       <SaveItemModal />
+      <SettingsModal />
     </div>
   );
 }

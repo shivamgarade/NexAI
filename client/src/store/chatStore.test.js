@@ -215,4 +215,66 @@ describe('chatStore Zustand Store', () => {
     useChatStore.getState().setSelectedModel('pro');
     expect(useChatStore.getState().selectedModel).toBe('pro');
   });
+
+  it('regenerates assistant response in-place without duplicating the user message', async () => {
+    const existingMessages = [
+      { _id: 'u1', role: 'user', content: 'What is operating systems?' },
+      { _id: 'a1', role: 'assistant', content: 'Old explanation...', error: false },
+    ];
+
+    useChatStore.setState({
+      activeChatId: 'chat-1',
+      messages: existingMessages,
+    });
+
+    streamChatMessage.mockImplementationOnce(async ({ onToken, onDone }) => {
+      onToken('New regenerated response');
+      onDone({ messageId: 'a1-new', tokensUsed: 15, creditsRemaining: 85 });
+    });
+
+    // Call regenerateResponse targeting assistant message at index 1
+    await useChatStore.getState().regenerateResponse(1);
+
+    const msgs = useChatStore.getState().messages;
+    // Exactly 2 messages must remain: 1 user and 1 assistant
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0]).toEqual(existingMessages[0]); // User message not duplicated
+    expect(msgs[1].content).toBe('New regenerated response');
+    expect(msgs[1]._id).toBe('a1-new');
+
+    // Verify streamChatMessage was called with regenerate: true and the original user content
+    expect(streamChatMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 'chat-1',
+        content: 'What is operating systems?',
+        regenerate: true,
+      })
+    );
+  });
+
+  describe('Real-Time Voice Conversation Mode', () => {
+    it('toggles voice conversation mode on and off', () => {
+      expect(useChatStore.getState().isVoiceMode).toBe(false);
+
+      useChatStore.getState().toggleVoiceMode();
+      expect(useChatStore.getState().isVoiceMode).toBe(true);
+
+      useChatStore.getState().toggleVoiceMode();
+      expect(useChatStore.getState().isVoiceMode).toBe(false);
+    });
+
+    it('sets voice conversation mode explicitly', () => {
+      useChatStore.getState().setVoiceMode(true);
+      expect(useChatStore.getState().isVoiceMode).toBe(true);
+
+      useChatStore.getState().setVoiceMode(false);
+      expect(useChatStore.getState().isVoiceMode).toBe(false);
+    });
+
+    it('cancels speech and resets isAiSpeaking state', () => {
+      useChatStore.setState({ isAiSpeaking: true });
+      useChatStore.getState().cancelAiSpeech();
+      expect(useChatStore.getState().isAiSpeaking).toBe(false);
+    });
+  });
 });

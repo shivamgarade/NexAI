@@ -9,7 +9,7 @@ import {
   Download,
   Maximize2,
 } from 'lucide-react';
-import { Modal } from '@/components/ui/Modal';
+import { AttachmentLightbox } from '../AttachmentLightbox';
 import { cn } from '@/lib/utils/cn';
 import styles from './MessageAttachments.module.scss';
 
@@ -104,17 +104,10 @@ export function MessageAttachments({ attachments, className }) {
                   className={styles.imagePreview}
                   loading="lazy"
                 />
-                <div className={styles.imageHoverOverlay}>
-                  <div className={styles.imageMeta}>
-                    <span className={styles.imageName} title={att.name}>
-                      {att.name || 'Attached image'}
-                    </span>
-                    {att.size ? <span className={styles.imageSize}>{formatBytes(att.size)}</span> : null}
-                  </div>
-                  <span className={styles.expandBadge}>
-                    <Maximize2 size={12} />
-                    <span>Expand</span>
-                  </span>
+                <span className={styles.srOnly}>{att.name || 'Attached image'}</span>
+                {att.size ? <span className={styles.srOnly}>{formatBytes(att.size)}</span> : null}
+                <div className={styles.imageHoverOverlay} aria-hidden="true">
+                  <Maximize2 size={16} className={styles.expandIcon} />
                 </div>
               </div>
             );
@@ -256,36 +249,12 @@ export function MessageAttachments({ attachments, className }) {
         })}
       </div>
 
-      {/* Lightbox Preview Modal for Image Zoom */}
-      {activeLightbox && (
-        <Modal
-          open={Boolean(activeLightbox)}
-          onClose={() => setActiveLightbox(null)}
-          title={activeLightbox.name || 'Image Preview'}
-          className={styles.lightboxModal}
-        >
-          <div className={styles.lightboxBody}>
-            <img
-              src={activeLightbox.src}
-              alt={activeLightbox.name || 'Full preview'}
-              className={styles.lightboxImage}
-            />
-            <div className={styles.lightboxFooter}>
-              <span className={styles.genericMeta}>
-                {activeLightbox.size ? formatBytes(activeLightbox.size) : ''}
-              </span>
-              <a
-                href={activeLightbox.src}
-                download={activeLightbox.name || 'image'}
-                className={styles.lightboxDownloadBtn}
-              >
-                <Download size={14} />
-                <span>Download Image</span>
-              </a>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* Lightbox Preview Modal for Image / File Zoom without outer shell */}
+      <AttachmentLightbox
+        open={Boolean(activeLightbox)}
+        item={activeLightbox}
+        onClose={() => setActiveLightbox(null)}
+      />
     </>
   );
 }
