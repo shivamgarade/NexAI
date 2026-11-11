@@ -5,7 +5,7 @@ import { connectDB, disconnectDB } from '../src/config/db.js';
 import { User } from '../src/models/User.js';
 import { Skill } from '../src/models/Skill.js';
 import { ensureSystemSkills } from '../src/services/skill.service.js';
-import { buildGeminiToolsConfig, executeAgentTool } from '../src/services/tools.service.js';
+import { buildGeminiToolsConfig, executeAgentTool, isResultRelevant } from '../src/services/tools.service.js';
 import { generateAccessToken } from '../src/utils/token.js';
 
 describe('Skills API & Agentic Tools Integration Tests', () => {
@@ -204,6 +204,13 @@ describe('Skills API & Agentic Tools Integration Tests', () => {
       const result = await executeAgentTool('workspace_search', { query: 'test' }, { userId: user._id });
       expect(result.query).toBe('test');
       expect(Array.isArray(result.results)).toBe(true);
+    });
+
+    it('isResultRelevant correctly rejects bot-deflection filler pages and accepts keyword-matching pages', () => {
+      expect(isResultRelevant('Ramayana movie release', 'Khan Academy India', 'Free lessons')).toBe(false);
+      expect(isResultRelevant('Ramayana movie release', 'Log into Facebook', 'Sign in to share')).toBe(false);
+      expect(isResultRelevant('Ramayana movie release', 'ShipmentLink - Cargo Tracking', 'Container and booking tracking system')).toBe(false);
+      expect(isResultRelevant('Ramayana movie release', 'Ramayana: Part 1 - Wikipedia', 'Directed by Nitesh Tiwari, scheduled for 2026 release')).toBe(true);
     });
   });
 });

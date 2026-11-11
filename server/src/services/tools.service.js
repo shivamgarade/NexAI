@@ -6,7 +6,58 @@ import { Document } from '../models/Document.js';
 import { logger } from '../utils/logger.js';
 
 /**
- * Searches the web using Bing HTML results with DuckDuckGo and Wikipedia fallback.
+ * Evaluates whether a search result is genuinely relevant to the query keywords.
+ * Filters out bot-deflection filler pages (e.g. login pages, unrelated localized portals, tracking hubs).
+ *
+ * @param {string} query
+ * @param {string} title
+ * @param {string} snippet
+ * @returns {boolean}
+ */
+export function isResultRelevant(query, title = '', snippet = '') {
+  if (!title && !snippet) return false;
+
+  const textToSearch = `${title} ${snippet}`.toLowerCase();
+
+  // Known bot-deflection filler domains or pages returned by challenged search endpoints
+  const botDeflectionPatterns = [
+    'khan academy',
+    'log into facebook',
+    'facebook login',
+    'shipmentlink',
+    'cargo tracking',
+    'unsupported device models youtube',
+    'primetime channel subscription',
+  ];
+
+  if (botDeflectionPatterns.some((pattern) => textToSearch.includes(pattern))) {
+    return false;
+  }
+
+  const stopWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'of', 'for', 'with', 'by',
+    'to', 'is', 'it', 'was', 'are', 'be', 'what', 'who', 'how', 'when', 'where',
+    'did', 'does', 'from', 'about', 'some', 'give', 'tell', 'show',
+  ]);
+
+  const queryKeywords = query
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w));
+
+  if (queryKeywords.length === 0) {
+    return true;
+  }
+
+  // At least one significant query keyword must be present in the title or snippet
+  const matchingKeywords = queryKeywords.filter((word) => textToSearch.includes(word));
+  return matchingKeywords.length > 0;
+}
+
+/**
+ * Searches the web using DuckDuckGo HTML with Wikipedia and Bing fallbacks.
+ * Employs strict keyword relevance validation to eliminate dummy or bot-deflection URLs.
  * Works quota-free without external API tokens, extracting real titles, snippets, and decoded URLs.
  *
  * @param {string} query
@@ -18,17 +69,121 @@ export async function performWebSearch(query) {
     return { query, resultsCount: 0, results: [] };
   }
 
-  // 1. Primary Engine: Bing Web Search
+  // 1. Primary Engine: DuckDuckGo HTML
+  try {
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanQuery)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+    const response = await fetch(ddgUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const html = await response.text();
+      const $ = cheerio.load(html);
+      const results = [];
+
+      $('.result').each((_, el) => {
+        if (results.length >= 6) return;
+        const title = $(el).find('.result__title').text().trim();
+        const snippet = $(el).find('.result__snippet').text().trim();
+        const rawUrl = $(el).find('.result__url').text().trim();
+        const href = $(el).find('.result__title a').attr('href') || $(el).find('.result__url').attr('href');
+
+        let link = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
+        if (href && href.includes('uddg=')) {
+          try {
+            const match = href.match(/uddg=([^&]+)/);
+            if (match && match[1]) {
+              link = decodeURIComponent(match[1]);
+            }
+          } catch {
+            // retain link
+          }
+        }
+
+        if (title && (snippet || link) && isResultRelevant(cleanQuery, title, snippet)) {
+          results.push({
+            title,
+            snippet: snippet || title,
+            url: link,
+          });
+        }
+      });
+
+      if (results.length > 0) {
+        return {
+          query: cleanQuery,
+          resultsCount: results.length,
+          results,
+        };
+      }
+    }
+  } catch (ddgErr) {
+    logger.warn({ error: ddgErr.message, query: cleanQuery }, 'DuckDuckGo primary search failed, attempting fallbacks');
+  }
+
+  // 2. Secondary Engine: Wikipedia OpenSearch API (for entities, films, people, technology)
+  try {
+    const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(cleanQuery)}&limit=5&namespace=0&format=json`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(wikiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      const titles = data[1] || [];
+      const snippets = data[2] || [];
+      const urls = data[3] || [];
+      const results = [];
+
+      for (let i = 0; i < titles.length; i++) {
+        const title = titles[i];
+        const snippet = snippets[i] || title;
+        const link = urls[i] || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+
+        if (title && isResultRelevant(cleanQuery, title, snippet)) {
+          results.push({
+            title,
+            snippet,
+            url: link,
+          });
+        }
+      }
+
+      if (results.length > 0) {
+        return {
+          query: cleanQuery,
+          resultsCount: results.length,
+          results,
+        };
+      }
+    }
+  } catch (wikiErr) {
+    logger.warn({ error: wikiErr.message, query: cleanQuery }, 'Wikipedia fallback search failed');
+  }
+
+  // 3. Tertiary Engine: Bing Web Search with strict relevance gating
   try {
     const url = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}&setlang=en`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 NexAI/1.0',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
@@ -59,7 +214,7 @@ export async function performWebSearch(query) {
           }
         }
 
-        if (title && (snippet || finalUrl)) {
+        if (title && (snippet || finalUrl) && isResultRelevant(cleanQuery, title, snippet)) {
           results.push({
             title,
             snippet: snippet || title,
@@ -77,102 +232,7 @@ export async function performWebSearch(query) {
       }
     }
   } catch (bingErr) {
-    logger.warn({ error: bingErr.message, query: cleanQuery }, 'Primary web search provider fallback triggered');
-  }
-
-  // 2. Secondary Engine: DuckDuckGo HTML
-  try {
-    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanQuery)}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const response = await fetch(ddgUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const html = await response.text();
-      const $ = cheerio.load(html);
-      const results = [];
-
-      $('.result').each((_, el) => {
-        if (results.length >= 5) return;
-        const title = $(el).find('.result__title').text().trim();
-        const snippet = $(el).find('.result__snippet').text().trim();
-        const rawUrl = $(el).find('.result__url').text().trim();
-        const href = $(el).find('.result__url').attr('href') || $(el).find('.result__title a').attr('href');
-
-        let link = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`;
-        if (href && href.includes('uddg=')) {
-          try {
-            const match = href.match(/uddg=([^&]+)/);
-            if (match && match[1]) {
-              link = decodeURIComponent(match[1]);
-            }
-          } catch {
-            // keep link
-          }
-        }
-
-        if (title && snippet) {
-          results.push({
-            title,
-            snippet,
-            url: link,
-          });
-        }
-      });
-
-      if (results.length > 0) {
-        return {
-          query: cleanQuery,
-          resultsCount: results.length,
-          results,
-        };
-      }
-    }
-  } catch (ddgErr) {
-    logger.warn({ error: ddgErr.message, query: cleanQuery }, 'DuckDuckGo search fallback failed');
-  }
-
-  // 3. Tertiary Fallback: Wikipedia OpenSearch API (for tech/science/concept lookups)
-  try {
-    const wikiUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(cleanQuery)}&limit=4&namespace=0&format=json`;
-    const response = await fetch(wikiUrl);
-    if (response.ok) {
-      const data = await response.json();
-      const titles = data[1] || [];
-      const snippets = data[2] || [];
-      const urls = data[3] || [];
-      const results = [];
-
-      for (let i = 0; i < titles.length; i++) {
-        if (titles[i]) {
-          results.push({
-            title: titles[i],
-            snippet: snippets[i] || titles[i],
-            url: urls[i] || `https://en.wikipedia.org/wiki/${encodeURIComponent(titles[i])}`,
-          });
-        }
-      }
-
-      if (results.length > 0) {
-        return {
-          query: cleanQuery,
-          resultsCount: results.length,
-          results,
-        };
-      }
-    }
-  } catch {
-    // ignore
+    logger.warn({ error: bingErr.message, query: cleanQuery }, 'Bing search fallback failed');
   }
 
   return {
