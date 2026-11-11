@@ -195,7 +195,21 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
     if (errCode === 'not-allowed') {
       toast.error('Microphone access denied. Please allow microphone permissions in your browser.');
     } else if (errCode === 'network') {
-      toast.error('Speech recognition network error. Please check your internet connection or browser settings.');
+      const isBrave = typeof navigator !== 'undefined' && Boolean(navigator.brave);
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+      if (isBrave) {
+        toast.error(
+          'In Brave, speech recognition requires Google services. Please enable "Use Google services for speech recognition" in Settings > Privacy and Security.',
+          { duration: 6000 }
+        );
+      } else if (isOffline) {
+        toast.error('No internet connection. Speech recognition requires an active internet connection.');
+      } else {
+        toast.error(
+          'Speech recognition could not connect to cloud services (network error). Please check your internet, VPN, or ad blocker.'
+        );
+      }
     } else if (errCode === 'audio-capture') {
       toast.error('No microphone detected. Please connect an audio input device.');
     } else if (errCode !== 'no-speech' && errCode !== 'aborted') {

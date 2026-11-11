@@ -9,13 +9,14 @@ import {
  * Custom hook for Web Speech API speech-to-text dictation.
  * Safe in SSR / unsupported browser environments with automatic feature detection.
  * Handles continuous dictation, silence pauses without premature abort, smooth word capture,
- * and audio confirmation cues for start, stop, and text addition.
+ * transient network error auto-recovery, and audio confirmation cues for start, stop, and text addition.
  *
  * @param {Object} options
  * @param {Function} [options.onResult] - Callback fired with newly transcribed text chunks
+ * @param {Function} [options.onInterim] - Callback fired with real-time interim speech transcripts
  * @param {Function} [options.onError] - Callback fired when recognition errors
  * @param {boolean} [options.continuous=true] - Keep listening across pauses
- * @param {string} [options.lang='en-US'] - Language locale
+ * @param {string} [options.lang] - Language locale (defaults to navigator.language or 'en-US')
  * @param {boolean} [options.soundFeedback=true] - Whether to play auditory confirmation cues
  */
 export function useSpeechRecognition({
@@ -23,7 +24,7 @@ export function useSpeechRecognition({
   onInterim,
   onError,
   continuous = true,
-  lang = 'en-US',
+  lang = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) || 'en-US',
   soundFeedback = true,
 } = {}) {
   const [isListening, setIsListening] = useState(false);
@@ -33,6 +34,7 @@ export function useSpeechRecognition({
   const onInterimRef = useRef(onInterim);
   const onErrorRef = useRef(onError);
   const isUserActiveRef = useRef(false);
+  const isListeningRef = useRef(false);
   const pendingInterimRef = useRef('');
   const lastFinalIndexRef = useRef(-1);
   const lastCommittedTextRef = useRef('');
@@ -40,7 +42,12 @@ export function useSpeechRecognition({
 
   const errorCountRef = useRef(0);
   const lastErrorTimeRef = useRef(0);
+  const retryTimeoutRef = useRef(null);
   const spawnRecognitionRef = useRef(null);
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -62,6 +69,11 @@ export function useSpeechRecognition({
     const wasActive = isUserActiveRef.current || isListening;
     isUserActiveRef.current = false;
     pendingInterimRef.current = '';
+
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
 
     if (recognitionRef.current) {
       try {
@@ -94,6 +106,11 @@ export function useSpeechRecognition({
       recognitionRef.current = null;
     }
 
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+
     isUserActiveRef.current = true;
     pendingInterimRef.current = '';
     lastFinalIndexRef.current = -1;
@@ -101,23 +118,21 @@ export function useSpeechRecognition({
     lastCommittedTimeRef.current = 0;
     errorCountRef.current = 0;
 
-    // Pre-flight microphone permission check
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    // Non-blocking microphone permission pre-check via Permissions API
+    // Avoids calling getUserMedia() + track.stop() right before SpeechRecognition.start(),
+    // which causes audio hardware device lock race conditions on Windows.
+    if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (err) {
-        isUserActiveRef.current = false;
-        setIsListening(false);
-        const errType =
-          err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-            ? 'not-allowed'
-            : err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError'
-              ? 'audio-capture'
-              : 'not-allowed';
-        setError(errType);
-        onErrorRef.current?.(errType);
-        return;
+        const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+        if (permissionStatus.state === 'denied') {
+          isUserActiveRef.current = false;
+          setIsListening(false);
+          setError('not-allowed');
+          onErrorRef.current?.('not-allowed');
+          return;
+        }
+      } catch {
+        // Some browser engines do not support 'microphone' in permissions.query; proceed smoothly
       }
     }
 
@@ -136,10 +151,11 @@ export function useSpeechRecognition({
         recognition.lang = lang;
 
         recognition.onstart = () => {
+          const wasListening = isListeningRef.current;
           setIsListening(true);
           setError(null);
           errorCountRef.current = 0;
-          if (soundFeedback) {
+          if (soundFeedback && !wasListening) {
             playMicStartSound();
           }
         };
@@ -200,12 +216,33 @@ export function useSpeechRecognition({
           }
 
           const now = Date.now();
-          if (now - lastErrorTimeRef.current < 2500) {
+          if (now - lastErrorTimeRef.current < 3000) {
             errorCountRef.current += 1;
           } else {
             errorCountRef.current = 1;
           }
           lastErrorTimeRef.current = now;
+
+          // Transient network error recovery:
+          // Google's SpeechRecognition servers frequently reset WebSocket connections on session start or silence boundaries.
+          // If this is the first network error while the user is actively dictating, attempt a graceful retry.
+          if (event.error === 'network' && isUserActiveRef.current && errorCountRef.current === 1) {
+            if (recognitionRef.current) {
+              try {
+                recognitionRef.current.abort();
+              } catch {
+                // ignore
+              }
+              recognitionRef.current = null;
+            }
+            if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = setTimeout(() => {
+              if (isUserActiveRef.current) {
+                spawnRecognitionRef.current?.();
+              }
+            }, 500);
+            return;
+          }
 
           const errMsg = event.error || 'Speech recognition error';
           setError(errMsg);
@@ -225,7 +262,12 @@ export function useSpeechRecognition({
             try {
               lastFinalIndexRef.current = -1;
               pendingInterimRef.current = '';
-              spawnRecognitionRef.current?.();
+              if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+              retryTimeoutRef.current = setTimeout(() => {
+                if (isUserActiveRef.current) {
+                  spawnRecognitionRef.current?.();
+                }
+              }, 200);
               return;
             } catch {
               // If restart fails, fall back to inactive state
@@ -268,6 +310,9 @@ export function useSpeechRecognition({
   useEffect(() => {
     return () => {
       isUserActiveRef.current = false;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();

@@ -92,5 +92,34 @@ describe('useSpeechRecognition Hook', () => {
     expect(onErrorMock).toHaveBeenCalledWith('not-allowed');
     expect(result.current.isListening).toBe(false);
   });
+
+  it('attempts graceful recovery on transient network error without immediate termination', async () => {
+    vi.useFakeTimers();
+    const onErrorMock = vi.fn();
+    const { result } = renderHook(() =>
+      useSpeechRecognition({ onError: onErrorMock, soundFeedback: true })
+    );
+
+    await act(async () => {
+      await result.current.startListening();
+    });
+
+    // First network error - should not immediately kill session or notify onError
+    act(() => {
+      mockRecognition.onerror?.({ error: 'network' });
+    });
+
+    expect(onErrorMock).not.toHaveBeenCalled();
+
+    // Fast-forward retry backoff (500ms)
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    // Recognition should have re-spawned
+    expect(window.SpeechRecognition).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+  });
 });
 
