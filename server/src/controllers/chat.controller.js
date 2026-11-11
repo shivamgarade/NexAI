@@ -348,7 +348,12 @@ export async function sendMessage(req, res, next) {
       }
 
       if (chunk.step) {
-        recordedSteps.push(chunk.step);
+        const existingIdx = recordedSteps.findIndex((s) => s.id && s.id === chunk.step.id);
+        if (existingIdx >= 0) {
+          recordedSteps[existingIdx] = { ...recordedSteps[existingIdx], ...chunk.step };
+        } else {
+          recordedSteps.push(chunk.step);
+        }
         sendSse(res, 'step', chunk.step);
       }
 
@@ -385,15 +390,28 @@ export async function sendMessage(req, res, next) {
       tokensUsed = Math.max(1, Math.ceil(totalChars / 4));
     }
 
+    // Ensure all recorded steps are marked completed before finalizing
+    const finalizedSteps = recordedSteps.map((s) => ({
+      ...s,
+      status: 'completed',
+    }));
+
+    const safeContent =
+      (fullText && fullText.trim()) ||
+      (thoughts && thoughts.trim()) ||
+      (finalizedSteps.length > 0
+        ? 'I completed the research actions above, but no further details were found.'
+        : 'Response completed.');
+
     // Save assistant message with steps and grounding citations
     const assistantMessage = await Message.create({
       chatId: chat._id,
       role: 'assistant',
-      content: fullText,
+      content: safeContent,
       thoughts,
       tokensUsed,
       skillId: activeSkill ? activeSkill._id : null,
-      steps: recordedSteps,
+      steps: finalizedSteps,
       groundingMetadata: recordedGrounding,
     });
 
@@ -450,7 +468,7 @@ export async function sendMessage(req, res, next) {
       creditsRemaining: deduction.creditsRemaining,
       chatTitle: chat.title,
       thoughts,
-      steps: recordedSteps,
+      steps: finalizedSteps,
       groundingMetadata: recordedGrounding,
       skillId: activeSkill ? activeSkill._id.toString() : null,
       memoriesUpdated: liveMemoriesUpdated,

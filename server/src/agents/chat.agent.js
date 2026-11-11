@@ -193,20 +193,22 @@ export async function* streamChatReply({
     ...(geminiTools.length > 0 ? { tools: geminiTools } : {}),
   };
 
-  const MAX_TOOL_ITERATIONS = 5;
+  const MAX_TOOL_ITERATIONS = 4;
   let iteration = 0;
   let currentContents = [...contents];
+  let toolsAllowed = true;
+  let hasEmittedText = false;
 
-  while (iteration < MAX_TOOL_ITERATIONS) {
+  while (iteration <= MAX_TOOL_ITERATIONS) {
     iteration++;
     let pendingFunctionCalls = [];
     let modelTurnParts = [];
 
-    // On final iteration, omit tools to force model synthesis of all collected findings
+    // Force model synthesis of all collected findings without tools once limit is reached
     const iterationConfig =
-      iteration >= MAX_TOOL_ITERATIONS
-        ? { ...(thinkingConfig ? { thinkingConfig } : {}) }
-        : config;
+      toolsAllowed && iteration <= MAX_TOOL_ITERATIONS
+        ? config
+        : { ...(thinkingConfig ? { thinkingConfig } : {}) };
 
     const stream = streamContent({
       contents: currentContents,
@@ -233,6 +235,7 @@ export async function* streamChatReply({
       }
 
       if (chunk.text) {
+        hasEmittedText = true;
         yield { text: chunk.text };
       }
 
@@ -245,8 +248,19 @@ export async function* streamChatReply({
       }
     }
 
+    // If the model produced a direct text response without calling tools, we are done
     if (pendingFunctionCalls.length === 0) {
       break;
+    }
+
+    // If tools were disabled or max iterations reached, stop tool execution and force final synthesis
+    if (!toolsAllowed || iteration >= MAX_TOOL_ITERATIONS) {
+      toolsAllowed = false;
+      currentContents.push({
+        role: 'user',
+        parts: [{ text: 'Please synthesize all your findings from the searches above and answer my question directly.' }],
+      });
+      continue;
     }
 
     // Execute requested tool functions
@@ -270,7 +284,12 @@ export async function* streamChatReply({
         },
       };
 
-      const result = await executeAgentTool(call.name, call.args, context);
+      let result;
+      try {
+        result = await executeAgentTool(call.name, call.args, context);
+      } catch (toolErr) {
+        result = { error: toolErr.message || 'Tool execution failed' };
+      }
 
       const completedTitle = isSearch
         ? `Found ${result.resultsCount || (result.results ? result.results.length : 0)} search results for "${call.args?.query || ''}"`
@@ -308,15 +327,28 @@ export async function* streamChatReply({
       });
     }
 
-    // Retain exact model turn parts (including thoughtSignature) for Gemini protocol compliance
+    // Retain exact model turn parts (including thoughtSignature) while stripping raw thought stream fragments
+    const cleanedModelParts = modelTurnParts.filter((p) => !p.thought);
     currentContents.push({
       role: 'model',
-      parts: modelTurnParts.length > 0 ? modelTurnParts : pendingFunctionCalls.map((c) => ({ functionCall: c })),
+      parts: cleanedModelParts.length > 0 ? cleanedModelParts : pendingFunctionCalls.map((c) => ({ functionCall: c })),
     });
     currentContents.push({
       role: 'user',
       parts: toolResponseParts,
     });
+
+    // If this was iteration 4, disallow further tools so iteration 5 is guaranteed text synthesis
+    if (iteration >= MAX_TOOL_ITERATIONS - 1) {
+      toolsAllowed = false;
+    }
+  }
+
+  // Safety fallback if no text was emitted
+  if (!hasEmittedText) {
+    yield {
+      text: 'I completed the research steps above and gathered the relevant findings.',
+    };
   }
 }
 

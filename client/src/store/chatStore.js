@@ -631,13 +631,23 @@ export const useChatStore = create((set, get) => ({
             const msgs = [...state.messages];
             const lastMsg = msgs[msgs.length - 1];
             if (lastMsg && lastMsg.role === 'assistant') {
+              const rawSteps = doneData.steps || lastMsg.steps || [];
+              const stepMap = new Map();
+              for (const s of rawSteps) {
+                const key = s.id || s.title;
+                if (key) {
+                  stepMap.set(key, { ...stepMap.get(key), ...s, status: 'completed' });
+                }
+              }
+              const finalizedSteps = Array.from(stepMap.values());
+
               msgs[msgs.length - 1] = {
                 ...lastMsg,
                 _id: doneData.messageId || lastMsg._id,
                 thoughts: doneData.thoughts || lastMsg.thoughts || '',
                 tokensUsed: doneData.tokensUsed,
                 followUps: doneData.followUps || [],
-                steps: doneData.steps || lastMsg.steps || [],
+                steps: finalizedSteps,
                 groundingMetadata: doneData.groundingMetadata || lastMsg.groundingMetadata || null,
                 memoriesUpdated: doneData.memoriesUpdated || lastMsg.memoriesUpdated || [],
                 skillId: doneData.skillId || skillId,
@@ -937,12 +947,22 @@ export const useChatStore = create((set, get) => ({
             const next = [...state.messages];
             const idx = next.findIndex((m) => m._id === optimisticAssistantId);
             if (idx !== -1) {
+              const rawSteps = data.steps || next[idx].steps || [];
+              const stepMap = new Map();
+              for (const s of rawSteps) {
+                const key = s.id || s.title;
+                if (key) {
+                  stepMap.set(key, { ...stepMap.get(key), ...s, status: 'completed' });
+                }
+              }
+              const finalizedSteps = Array.from(stepMap.values());
+
               next[idx] = {
                 ...next[idx],
                 _id: data.messageId || optimisticAssistantId,
                 tokensUsed: data.tokensUsed || 0,
                 skillId: data.skillId || next[idx].skillId,
-                steps: data.steps || next[idx].steps || [],
+                steps: finalizedSteps,
                 groundingMetadata: data.groundingMetadata || next[idx].groundingMetadata || null,
                 isThinking: false,
                 isStreaming: false,
