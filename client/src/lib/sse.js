@@ -57,7 +57,7 @@ export function sanitizeErrorMessage(raw) {
  */
 export async function parseSseStream(
   readableStream,
-  { onThought, onToken, onStep, onGrounding, onDone, onError } = {},
+  { onThought, onToken, onStep, onGrounding, onMemoryUpdated, onDone, onError } = {},
 ) {
   const reader = readableStream.getReader();
   const decoder = new TextDecoder('utf-8');
@@ -90,6 +90,8 @@ export async function parseSseStream(
       onStep?.(parsed);
     } else if (currentEvent === 'grounding') {
       onGrounding?.(parsed);
+    } else if (currentEvent === 'memory_updated') {
+      onMemoryUpdated?.(parsed);
     } else if (currentEvent === 'done') {
       onDone?.(typeof parsed === 'object' && parsed !== null ? parsed : { raw: parsed });
     } else if (currentEvent === 'error') {
@@ -184,6 +186,7 @@ export async function streamChatMessage({
   onToken,
   onStep,
   onGrounding,
+  onMemoryUpdated,
   onDone,
   onError,
 }) {
@@ -268,7 +271,7 @@ export async function streamChatMessage({
     throw err;
   }
 
-  await parseSseStream(response.body, { onThought, onToken, onStep, onGrounding, onDone, onError });
+  await parseSseStream(response.body, { onThought, onToken, onStep, onGrounding, onMemoryUpdated, onDone, onError });
 }
 
 /**

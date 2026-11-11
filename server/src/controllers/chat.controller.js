@@ -148,11 +148,12 @@ export async function sendMessage(req, res, next) {
         isClientConnected = false;
       });
 
-      // Retrieve relevant user long-term memories across chats
+      // Retrieve relevant user long-term memories across chats with project scope awareness
       const memories = await memoryService.getRelevantMemories({
         userId: req.user._id,
         query: content,
-        limit: 8,
+        limit: 6,
+        projectId: chat.projectId,
       });
 
       let simSkill = null;
@@ -211,18 +212,32 @@ export async function sendMessage(req, res, next) {
       chat.updatedAt = new Date();
       await chat.save();
 
-      // Asynchronously extract and save user memories (skip if temporary chat)
+      let simMemoriesUpdated = [];
       if (!chat.isTemporary) {
-        memoryService
-          .extractAndSaveMemories({
+        try {
+          const memResult = await memoryService.extractAndSaveMemories({
             userId: req.user._id,
             messageContent: content,
             chatId: chat._id,
             isSimulation: true,
-          })
-          .catch((memErr) => {
-            logger.warn({ error: memErr.message }, 'Simulation memory extraction warning');
           });
+          if (memResult.savedMemories && memResult.savedMemories.length > 0) {
+            simMemoriesUpdated = memResult.savedMemories.map((m) => ({
+              id: m._id.toString(),
+              fact: m.fact,
+              category: m.category,
+              action: 'saved',
+            }));
+            sendSse(res, 'memory_updated', { memories: simMemoriesUpdated });
+          }
+        } catch (memErr) {
+          logger.warn({ error: memErr.message }, 'Simulation memory extraction warning');
+        }
+      }
+
+      if (simMemoriesUpdated.length > 0) {
+        assistantMessage.memoriesUpdated = simMemoriesUpdated;
+        await assistantMessage.save();
       }
 
       const currentCredits = req.user.wallet?.creditsRemaining ?? 0;
@@ -240,6 +255,7 @@ export async function sendMessage(req, res, next) {
         groundingMetadata: simGrounding,
         skillId: simSkill ? simSkill._id.toString() : null,
         isSimulation: true,
+        memoriesUpdated: simMemoriesUpdated,
         ...(governance ? { governance } : {}),
       });
 
@@ -270,11 +286,12 @@ export async function sendMessage(req, res, next) {
     // Load full message history for context
     const history = await Message.find({ chatId: chat._id }).sort({ createdAt: 1 });
 
-    // Retrieve relevant long-term memories for this user across conversations
+    // Retrieve relevant long-term memories for this user with strict threshold & project scope
     const memories = await memoryService.getRelevantMemories({
       userId: req.user._id,
       query: content,
-      limit: 8,
+      limit: 6,
+      projectId: chat.projectId,
     });
 
     // If chat belongs to a project, inject project custom instructions and sources
@@ -305,6 +322,12 @@ export async function sendMessage(req, res, next) {
     const recordedSteps = [];
     let recordedGrounding = null;
 
+    const toolExecutionMode = req.user.settings?.toolExecutionMode || 'auto';
+    let resolvedTools = Array.isArray(enabledTools) ? enabledTools : [];
+    if (resolvedTools.length === 0 && !activeSkill && toolExecutionMode !== 'manual') {
+      resolvedTools = ['web_search', 'fetch_url', 'workspace_search'];
+    }
+
     const stream = streamChatReply({
       messages: history,
       model,
@@ -314,7 +337,8 @@ export async function sendMessage(req, res, next) {
       memories,
       personalization: req.user.settings?.personalization,
       skill: activeSkill,
-      enabledTools: Array.isArray(enabledTools) ? enabledTools : [],
+      enabledTools: resolvedTools,
+      toolExecutionMode,
       context: { userId: req.user._id, projectId: chat.projectId },
     });
 
@@ -377,18 +401,35 @@ export async function sendMessage(req, res, next) {
     chat.updatedAt = new Date();
     await chat.save();
 
-    // Asynchronously extract and learn persistent user facts/memories from conversation (skip for temporary chats)
+    // Extract and learn persistent user facts/memories from conversation (skip for temporary chats)
+    let liveMemoriesUpdated = [];
     if (!chat.isTemporary) {
-      memoryService
-        .extractAndSaveMemories({
+      try {
+        const memResult = await memoryService.extractAndSaveMemories({
           userId: req.user._id,
           messageContent: content,
           chatId: chat._id,
+          projectId: chat.projectId,
           isSimulation: false,
-        })
-        .catch((memErr) => {
-          logger.warn({ error: memErr.message }, 'Background memory extraction warning');
+          isTemporary: Boolean(chat.isTemporary),
         });
+        if (memResult.savedMemories && memResult.savedMemories.length > 0) {
+          liveMemoriesUpdated = memResult.savedMemories.map((m) => ({
+            id: m._id.toString(),
+            fact: m.fact,
+            category: m.category,
+            action: 'saved',
+          }));
+          sendSse(res, 'memory_updated', { memories: liveMemoriesUpdated });
+        }
+      } catch (memErr) {
+        logger.warn({ error: memErr.message }, 'Background memory extraction warning');
+      }
+    }
+
+    if (liveMemoriesUpdated.length > 0) {
+      assistantMessage.memoriesUpdated = liveMemoriesUpdated;
+      await assistantMessage.save();
     }
 
     // Deduct credits atomically and record UsageLog
@@ -412,6 +453,7 @@ export async function sendMessage(req, res, next) {
       steps: recordedSteps,
       groundingMetadata: recordedGrounding,
       skillId: activeSkill ? activeSkill._id.toString() : null,
+      memoriesUpdated: liveMemoriesUpdated,
       ...(governance ? { governance } : {}),
     });
 

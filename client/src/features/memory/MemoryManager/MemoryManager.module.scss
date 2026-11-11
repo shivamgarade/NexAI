@@ -248,6 +248,14 @@
   }
 }
 
+.factWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
 .factText {
   font-size: var(--text-sm);
   color: var(--color-text-primary);
@@ -256,6 +264,20 @@
   white-space: normal;
   line-height: var(--leading-normal);
   cursor: pointer;
+}
+
+.sourceChatSnippet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+
+  .sourceChatIcon {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
 }
 
 .inlineEditRow {

@@ -13,6 +13,7 @@ const TABS = [
   { id: 'sql', label: 'PostgreSQL (DDL)', lang: 'sql', ext: 'schema.sql' },
   { id: 'prisma', label: 'Prisma Schema', lang: 'javascript', ext: 'schema.prisma' },
   { id: 'typescript', label: 'TypeScript Interfaces', lang: 'typescript', ext: 'types.ts' },
+  { id: 'dbml', label: 'DBML (dbdiagram.io)', lang: 'sql', ext: 'schema.dbml' },
 ];
 
 export function CodeInspector() {

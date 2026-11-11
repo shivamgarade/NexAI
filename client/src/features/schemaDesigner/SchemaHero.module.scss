@@ -1,0 +1,285 @@
+.heroContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px);
+  padding: var(--space-6) var(--space-4);
+  width: 100%;
+}
+
+.heroInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 760px;
+  width: 100%;
+  gap: var(--space-6);
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+}
+
+.badgePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.badgeIcon {
+  color: var(--color-accent);
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.heroSubtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  max-width: 600px;
+  line-height: 1.5;
+}
+
+/* Chat-style glowing Composer Box */
+.composerBox {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-bg-surface);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 12px 14px 10px;
+  gap: var(--space-2);
+  width: 100%;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent),
+      0 8px 24px rgba(0, 0, 0, 0.22);
+  }
+}
+
+.textareaWrapper {
+  width: 100%;
+}
+
+.textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  resize: none;
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  font-family: inherit;
+  padding: var(--space-1) 0;
+
+  &::placeholder {
+    color: var(--color-text-tertiary);
+  }
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  padding-top: var(--space-2);
+}
+
+.leftActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.modelPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-accent);
+  }
+
+  .modelIcon {
+    color: var(--color-accent);
+  }
+}
+
+.simPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &.simActive {
+    background-color: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+    color: var(--color-warning);
+  }
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.rightActions {
+  display: flex;
+  align-items: center;
+}
+
+.sendButton {
+  border-radius: var(--radius-full) !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  background-color: var(--color-accent) !important;
+  color: var(--color-text-inverse) !important;
+
+  &:hover:not(:disabled) {
+    opacity: 0.92;
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Templates Section */
+.templatesSection {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--space-2);
+}
+
+.templatesLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.chipsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.chipButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-accent);
+    background-color: var(--color-bg-elevated);
+    transform: translateY(-1px);
+  }
+
+  .chipIcon {
+    color: var(--color-accent);
+    display: flex;
+    align-items: center;
+  }
+
+  .chipTitle {
+    font-weight: 500;
+  }
+}
+
+.blankCanvasRow {
+  margin-top: var(--space-2);
+}
+
+.blankLink {
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+  }
+}

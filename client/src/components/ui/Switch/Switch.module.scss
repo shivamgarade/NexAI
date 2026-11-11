@@ -7,6 +7,10 @@
   cursor: pointer;
   user-select: none;
 
+  @media (pointer: coarse) {
+    min-height: 44px;
+  }
+
   &.disabled {
     opacity: 0.5;
     cursor: not-allowed;

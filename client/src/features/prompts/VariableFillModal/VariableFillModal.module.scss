@@ -94,4 +94,16 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
+
+  @include down(sm) {
+    width: 100%;
+    flex-direction: column-reverse;
+    align-items: stretch;
+
+    button {
+      width: 100%;
+      min-height: 42px;
+      justify-content: center;
+    }
+  }
 }

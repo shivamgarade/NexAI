@@ -14,6 +14,11 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: nowrap;
+
+  @include down(sm) {
+    flex-wrap: wrap;
+    width: 100%;
+  }
 }
 
 /* Tab Navigation */
@@ -25,7 +30,9 @@
   padding-bottom: var(--space-2);
   overflow-x: auto;
   overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+  @include custom-scrollbar;
 }
 
 .tabBtn {
@@ -42,6 +49,10 @@
   cursor: pointer;
   white-space: nowrap;
   transition: all var(--duration-fast) var(--ease-standard);
+
+  @media (pointer: coarse) {
+    min-height: 40px;
+  }
 
   &:hover {
     color: var(--color-text-primary);

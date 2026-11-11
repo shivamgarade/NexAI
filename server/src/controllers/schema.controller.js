@@ -3,15 +3,14 @@ import { generateDatabaseSchema } from '../agents/schema.agent.js';
 import { deductCredits } from '../services/credit.service.js';
 
 /**
- * Generate a production-ready database schema and visual ERD diagram.
+ * Generate a production-ready ER diagram model in Eraser ER language.
  * Protected by creditCheck & metered atomically.
  * POST /api/schemas/generate
  */
 export const generateSchema = asyncHandler(async (req, res) => {
   const {
     prompt,
-    dialects = ['mongoose', 'sql', 'prisma', 'typescript'],
-    existingSchema = '',
+    currentCode = '',
     model: requestedModel,
     isSimulation = false,
   } = req.body;
@@ -20,10 +19,9 @@ export const generateSchema = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const startTime = Date.now();
 
-  const { schema, tokensUsed } = await generateDatabaseSchema({
+  const { code, summary, tokensUsed } = await generateDatabaseSchema({
     prompt,
-    dialects,
-    existingSchema,
+    currentCode,
     model,
     isSimulation,
   });
@@ -46,7 +44,8 @@ export const generateSchema = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     data: {
-      schema,
+      code,
+      summary,
       telemetry: {
         tokensUsed,
         creditsDeducted,

@@ -22,6 +22,7 @@ import { TagInput } from '@/components/ui/TagInput';
 import { MarkdownRenderer } from '@/features/chat/MarkdownRenderer';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useAuthStore } from '@/store/authStore';
+import { useWalletStore } from '@/store/walletStore';
 import { cn } from '@/lib/utils/cn';
 import styles from './DocGeneratorModal.module.scss';
 
@@ -54,7 +55,8 @@ export function DocGeneratorModal() {
   } = useLibraryStore();
 
   const user = useAuthStore((state) => state.user);
-  const creditsRemaining = user?.wallet?.creditsRemaining ?? 0;
+  const walletCredits = useWalletStore((state) => state.wallet?.creditsRemaining);
+  const creditsRemaining = walletCredits ?? user?.wallet?.creditsRemaining ?? 100;
 
   // Step 1: Prompt & Category setup
   const [category, setCategory] = useState('spec');

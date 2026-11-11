@@ -12,6 +12,12 @@
   user-select: none;
   flex-shrink: 0;
 
+  &.xs {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
   &.sm {
     width: 28px;
     height: 28px;

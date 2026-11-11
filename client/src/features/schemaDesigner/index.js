@@ -1,7 +1,10 @@
 export { SchemaHeader } from './SchemaHeader';
 export { PromptPanel } from './PromptPanel';
 export { FloatingPromptBar } from './FloatingPromptBar';
+export { SchemaPromptBar } from './SchemaPromptBar';
+export { SchemaHero } from './SchemaHero';
 export { VisualErdCanvas } from './VisualErdCanvas';
-export { CodeInspector } from './CodeInspector';
-export { TelemetryDrawer } from './TelemetryDrawer';
+export { CodeEditorPanel } from './CodeEditorPanel';
 export { SchemaReviewModal } from './SchemaReviewModal';
+export { matchSchemaIntent } from './schemaIntent';
+export * from './erLang';

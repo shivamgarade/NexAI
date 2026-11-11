@@ -7,6 +7,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { CommandPalette } from '@/features/command-palette';
 import { SaveItemModal } from '@/features/library';
 import { SettingsModal } from '@/features/settings';
+import { PWAInstallBanner } from '@/components/common/PWAInstallBanner';
 import { useUiStore } from '@/store/uiStore';
 import { useWalletStore } from '@/store/walletStore';
 import { useAuthStore } from '@/store/authStore';
@@ -33,6 +34,37 @@ export function AppLayout() {
     setDrawerOpen(false);
   }, [location.pathname, setDrawerOpen]);
 
+  // Global Ctrl+B shortcut to toggle sidebar & Auto-collapse below 1100px width
+  const toggleSidebarCollapsed = useUiStore((state) => state.toggleSidebarCollapsed);
+  const setSidebarCollapsed = useUiStore((state) => state.setSidebarCollapsed);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebarCollapsed();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebarCollapsed]);
+
+  useEffect(() => {
+    let prevWidth = window.innerWidth;
+    const handleResize = () => {
+      const currentWidth = window.innerWidth;
+      // Auto-collapse when crossing below 1100px threshold
+      if (currentWidth < 1100 && prevWidth >= 1100) {
+        setSidebarCollapsed(true);
+      }
+      prevWidth = currentWidth;
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [setSidebarCollapsed]);
+
   const isChatRoute =
     location.pathname === '/chat' || location.pathname.startsWith('/chat/');
   const isSearchRoute = location.pathname === '/search';
@@ -49,12 +81,20 @@ export function AppLayout() {
       </div>
 
       {/* Mobile Drawer Sidebar */}
-      <Drawer open={isDrawerOpen} onClose={() => setDrawerOpen(false)} title="NexAI" side="left">
+      <Drawer
+        open={isDrawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="NexAI"
+        side="left"
+        hideHeader
+        className={styles.mobileNavDrawer}
+      >
         <Sidebar onItemClick={() => setDrawerOpen(false)} isMobile />
       </Drawer>
 
       <div className={styles.mainWrapper}>
         <Topbar />
+        <PWAInstallBanner />
         <main
           className={cn(
             styles.content,

@@ -24,6 +24,8 @@
     opacity: 0.5;
   }
 
+  @include touch-target;
+
   // Sizes
   &.sm {
     width: 32px;

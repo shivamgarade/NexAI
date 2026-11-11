@@ -187,5 +187,53 @@ export const vectorDbService = {
   clearLocalStore() {
     inMemoryStore.clear();
   },
+
+  /**
+   * Returns current count of vectors in local in-memory fallback store.
+   * @returns {number}
+   */
+  getLocalStoreSize() {
+    return inMemoryStore.size;
+  },
+
+  /**
+   * Checks if a vector is present in local in-memory store.
+   * @param {string} id
+   * @returns {boolean}
+   */
+  hasVector(id) {
+    return inMemoryStore.has(id);
+  },
+
+  /**
+   * Seeds in-memory store with vector embeddings from stored Memory documents.
+   * Enables seamless zero-latency retrieval after server reload or restart.
+   *
+   * @param {Array<any>} memoryDocs
+   * @returns {number} Count of vectors loaded
+   */
+  warmupFromMemories(memoryDocs) {
+    if (!Array.isArray(memoryDocs)) return 0;
+    let loaded = 0;
+    for (const mem of memoryDocs) {
+      if (mem && mem.active && mem.embedding && Array.isArray(mem.embedding) && mem.embedding.length > 0) {
+        const id = mem.vectorId || `mem_${mem._id.toString()}`;
+        inMemoryStore.set(id, {
+          id,
+          values: mem.embedding,
+          metadata: {
+            userId: mem.userId?.toString() || '',
+            type: 'memory',
+            category: mem.category || 'fact',
+            refId: mem._id.toString(),
+            scope: mem.scope || 'global',
+            projectId: mem.projectId ? mem.projectId.toString() : null,
+          },
+        });
+        loaded++;
+      }
+    }
+    return loaded;
+  },
 };
 

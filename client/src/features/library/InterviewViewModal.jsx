@@ -255,8 +255,12 @@ ${improvements.map((i) => `• ${i}`).join('\n')}`;
 
         {/* Footer Actions */}
         <div className={styles.modalFooter}>
-          <Button variant="secondary" size="md" onClick={handleCopyReport}>
-            {hasCopied ? <Check size={14} /> : <Copy size={14} />}
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={handleCopyReport}
+            leftIcon={hasCopied ? <Check size={14} /> : <Copy size={14} />}
+          >
             {hasCopied ? 'Copied' : 'Copy Scorecard'}
           </Button>
 

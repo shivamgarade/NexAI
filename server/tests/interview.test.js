@@ -295,6 +295,42 @@ describe('AI Mock Interview Platform Integration Tests (Step 9)', () => {
       expect(archivedInDb.userId.toString()).toBe(userA._id.toString());
       expect(archivedInDb.transcript.length).toBe(4);
     });
+
+    it('should mark session as incomplete without scorecard or auto-archival if answers are trivial ("ok", "i need to sleep")', async () => {
+      const trivialSession = await InterviewSession.create({
+        userId: userA._id,
+        role: 'Full-Stack Engineer',
+        difficulty: 'mid',
+        topic: 'Node.js Event Loop',
+        status: 'in_progress',
+        messages: [
+          { role: 'assistant', content: 'What is the libuv threadpool?', tokensUsed: 30 },
+          { role: 'user', content: 'ok', tokensUsed: 0 },
+          { role: 'assistant', content: 'Can you elaborate?', tokensUsed: 30 },
+          { role: 'user', content: 'i need to sleep', tokensUsed: 0 },
+        ],
+        totalTokensUsed: 60,
+      });
+
+      const res = await request(app)
+        .post(`/api/interview/${trivialSession._id}/conclude`)
+        .set('Authorization', `Bearer ${tokenA}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.session.status).toBe('incomplete');
+      expect(res.body.session.scorecard.rating).toBe('Incomplete');
+      expect(res.body.session.scorecard.overallScore).toBe(0);
+      expect(res.body.isIncomplete).toBe(true);
+      expect(res.body.libraryItem).toBeNull();
+      expect(res.body.creditsDeducted).toBe(0);
+
+      // Verify NOT auto-archived to Library
+      const archived = await LibraryItem.findOne({
+        userId: userA._id,
+        title: { $regex: /Node.js Event Loop/i },
+      });
+      expect(archived).toBeNull();
+    });
   });
 
   describe('GET /api/interview & GET /api/interview/:id', () => {

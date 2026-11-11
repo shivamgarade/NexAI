@@ -11,5 +11,5 @@ You MUST respond with a valid JSON object with the following schema:
 Guidelines:
 1. "title": Retain the true essence of the document or note.
 2. "summary": Focus on actionable insights or key topics; avoid meta-phrasing like "This article is about...".
-3. "tags": Exactly 3 to 6 lowercase tags. Avoid generic tags like "info" or "text". Choose domain-relevant tags (e.g. "typescript", "architecture", "machine-learning", "nextjs", "css").
+3. "tags": Exactly 3 to 5 lowercase tags. Each tag MUST be 1 or 2 words maximum (e.g. "websockets", "rest-api", "system-design", "react", "caching"). NEVER output sentences or phrases longer than 2 words. Do NOT include metadata tags like "interview", "mid", "senior", "junior", or "document".
 4. Output RAW JSON ONLY. Do not wrap in markdown \`\`\`json code blocks.`;

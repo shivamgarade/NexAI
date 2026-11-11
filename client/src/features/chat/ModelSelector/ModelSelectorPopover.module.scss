@@ -6,6 +6,25 @@
   right: 0;
   z-index: 1000;
   animation: compactPopIn 0.14s ease-out;
+
+  &.bottom {
+    bottom: auto;
+    top: calc(100% + 8px);
+    left: 0;
+    right: auto;
+  }
+
+  @include down(sm) {
+    position: fixed;
+    inset: 0;
+    background-color: rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 99999;
+    animation: fadeIn var(--duration-fast) var(--ease-standard);
+  }
 }
 
 @keyframes compactPopIn {
@@ -30,6 +49,38 @@
   padding: 5px;
   box-sizing: border-box;
   overflow: hidden;
+
+  @include down(sm) {
+    width: 100%;
+    max-width: 520px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: var(--space-4) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom, 16px));
+    animation: slideUpSheet var(--duration-base) cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .viewContent {
@@ -132,6 +183,11 @@
   text-align: left;
   transition: background-color var(--duration-fast) var(--ease-standard);
 
+  @include down(sm) {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
   &:hover {
     background-color: var(--color-bg-hover);
   }
@@ -224,6 +280,11 @@
   cursor: pointer;
   text-align: left;
   transition: background-color var(--duration-fast) var(--ease-standard);
+
+  @include down(sm) {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
 
   &:hover,
   &:focus-visible {

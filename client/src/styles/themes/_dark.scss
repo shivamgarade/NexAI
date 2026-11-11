@@ -1,31 +1,31 @@
 :root,
 [data-theme='dark'] {
-  --color-bg-app: var(--night-900);
-  --color-bg-surface: var(--night-850);
-  --color-bg-elevated: var(--night-800);
-  --color-bg-hover: var(--night-750);
-  --color-border: var(--night-700);
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-accent: var(--cobalt-500);
-  --color-accent-hover: var(--cobalt-400);
-  --color-accent-contrast: #ffffff;
-  --color-accent-secondary: var(--orchid-500);
-  --color-accent-gradient: linear-gradient(135deg, var(--cobalt-500) 0%, var(--orchid-500) 55%, var(--cyan-400) 100%);
-  
-  /* NexAI Brand Logo Tokens (Changing these variables updates the logo across all themes/screens) */
-  --color-logo-primary: #10e7b2;
-  --color-logo-accent: #00f0ff;
-  --color-logo-glow: rgba(16, 231, 178, 0.35);
-  --color-logo-gradient: linear-gradient(135deg, var(--color-logo-primary) 0%, var(--color-logo-accent) 100%);
+  --color-bg-app: #121214;
+  --color-bg-surface: #18181b;
+  --color-bg-elevated: #202024;
+  --color-bg-hover: #27272c;
+  --color-border: #28282e;
+  --color-text-primary: #f4f4f6;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+  --color-accent: #22c55e;
+  --color-accent-hover: #4ade80;
+  --color-accent-contrast: #0f1217;
+  --color-accent-secondary: #16a34a;
+  --color-accent-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
 
-  --color-success: #10b981;
+  /* NexAI Brand Logo Tokens */
+  --color-logo-primary: #22c55e;
+  --color-logo-accent: #4ade80;
+  --color-logo-glow: rgba(34, 197, 94, 0.35);
+  --color-logo-gradient: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+
+  --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
-  --color-info: var(--cobalt-400);
-  --color-focus-ring: color-mix(in srgb, var(--cobalt-500) 50%, transparent);
-  --shadow-sm: 0 1px 3px rgb(3 4 10 / 0.55);
-  --shadow-md: 0 6px 20px rgb(3 4 10 / 0.65);
-  --shadow-lg: 0 18px 48px rgb(3 4 10 / 0.8);
+  --color-info: #3b82f6;
+  --color-focus-ring: rgba(34, 197, 94, 0.25);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 12px 36px rgb(0 0 0 / 0.65);
 }

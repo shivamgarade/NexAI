@@ -35,12 +35,15 @@ export function SchemaReviewModal() {
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean);
 
-    await saveToLibrary({
+    const success = await saveToLibrary({
       title: title.trim(),
       summary: summary.trim(),
       tags,
     });
     setIsSaving(false);
+    if (success) {
+      setReviewModalOpen(false);
+    }
   };
 
   return (

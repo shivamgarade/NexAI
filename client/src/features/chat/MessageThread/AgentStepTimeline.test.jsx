@@ -47,4 +47,26 @@ describe('AgentStepTimeline Component', () => {
       'https://nodejs.org/api/cluster.html',
     );
   });
+
+  it('renders clean connected timeline for multiple steps in streaming mode', () => {
+    const steps = [
+      {
+        id: 'step-search-1',
+        tool: 'web_search',
+        title: 'Search for recent Gemini model names',
+        status: 'completed',
+      },
+      {
+        id: 'step-browse-2',
+        tool: 'fetch_url',
+        title: 'Browse Gemini 4 Argon blog announcement',
+        status: 'completed',
+      },
+    ];
+
+    render(<AgentStepTimeline steps={steps} isStreaming={true} />);
+
+    expect(screen.getByText('Search for recent Gemini model names')).toBeInTheDocument();
+    expect(screen.getByText('Browse Gemini 4 Argon blog announcement')).toBeInTheDocument();
+  });
 });

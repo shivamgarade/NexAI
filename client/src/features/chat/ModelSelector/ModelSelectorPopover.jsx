@@ -5,7 +5,7 @@ import { useChatStore, AVAILABLE_MODELS, MORE_MODELS, EFFORT_LEVELS } from '@/st
 import { cn } from '@/lib/utils/cn';
 import styles from './ModelSelectorPopover.module.scss';
 
-export function ModelSelectorPopover({ open, onClose, anchorRef }) {
+export function ModelSelectorPopover({ open, onClose, anchorRef, placement = 'top' }) {
   const {
     selectedModel,
     setSelectedModel,
@@ -79,7 +79,7 @@ export function ModelSelectorPopover({ open, onClose, anchorRef }) {
 
   return (
     <div
-      className={styles.popoverWrapper}
+      className={cn(styles.popoverWrapper, styles[placement])}
       ref={popoverRef}
       role="dialog"
       aria-label="Select AI Model and Effort"
@@ -243,4 +243,5 @@ ModelSelectorPopover.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   anchorRef: PropTypes.object,
+  placement: PropTypes.oneOf(['top', 'bottom']),
 };

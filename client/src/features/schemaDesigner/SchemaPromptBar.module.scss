@@ -1,0 +1,164 @@
+.dockedBarContainer {
+  width: 100%;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  background-color: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border);
+  box-sizing: border-box;
+}
+
+.composerBox {
+  max-width: 960px;
+  width: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-bg-surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px 10px;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 20%, transparent),
+      0 6px 20px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.sparkleIcon {
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  padding-left: var(--space-1);
+  flex-shrink: 0;
+}
+
+.textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  resize: none;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  font-family: inherit;
+  padding: 6px 0;
+  max-height: 120px;
+
+  &::placeholder {
+    color: var(--color-text-tertiary);
+  }
+}
+
+.actionsCluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.shortcutHint {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  user-select: none;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modelPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-accent);
+  }
+
+  .iconAccent {
+    color: var(--color-accent);
+  }
+}
+
+.simPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &.simActive {
+    background-color: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+    color: var(--color-warning);
+  }
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.sendButton {
+  border-radius: var(--radius-full) !important;
+  width: 30px !important;
+  height: 30px !important;
+  padding: 0 !important;
+  background-color: var(--color-accent) !important;
+  color: var(--color-text-inverse) !important;
+
+  &:hover:not(:disabled) {
+    opacity: 0.92;
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -49,3 +49,33 @@ If there is nothing meaningful to remember or forget, respond with:
 }
 
 Output RAW JSON ONLY without markdown code fences (\`\`\`json).`;
+
+export const MEMORY_DECISION_PROMPT = `You are NexAI's Memory Reconciliation & Temporal Engine.
+Your role is to decide how a newly extracted candidate memory interacts with a user's existing related memories.
+
+Decision Actions:
+- "ADD": The candidate memory contains new, non-overlapping information that does not conflict with existing memories.
+- "UPDATE": The candidate memory updates, evolves, or directly contradicts an existing memory (e.g. user moved to a new city, changed jobs, adopted a new preferred tech stack, or revised a personal fact). The existing memory will be superseded.
+- "DELETE": The user explicitly requested to forget or remove an existing remembered fact.
+- "NONE": The candidate memory is an exact duplicate, conveys identical semantic meaning to an existing memory, or is trivial/noise. No database mutation needed.
+
+Categories: "identity" | "preference" | "project" | "instruction" | "fact"
+
+Semantic Slot Key Guidelines:
+Assign a dot-notated logical key when applicable (e.g., "user.name", "user.location", "user.role", "user.pref.backend_lang", "user.pref.theme", "project.title").
+
+You MUST respond strictly with a valid JSON object matching this schema:
+{
+  "decisions": [
+    {
+      "action": "ADD" | "UPDATE" | "DELETE" | "NONE",
+      "targetMemoryId": "id of the existing memory being updated or deleted (null if ADD or NONE)",
+      "fact": "Polished, stand-alone factual statement written in third person",
+      "category": "identity" | "preference" | "project" | "instruction" | "fact",
+      "confidence": 0.95,
+      "key": "semantic.slot.key (optional or null)"
+    }
+  ]
+}
+
+Respond ONLY with raw JSON without markdown code fences.`;
