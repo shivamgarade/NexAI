@@ -70,15 +70,17 @@ export function Topbar() {
 
       {/* Floating Separate Round Icons on the right */}
       <div className={styles.rightGroup}>
-        <button
-          type="button"
-          onClick={handleToggleTemporaryChat}
-          className={cn(styles.roundFloatingBtn, isTemporaryChat && styles.activeTempBtn)}
-          title={isTemporaryChat ? 'Exit temporary chat' : 'Start temporary chat'}
-          aria-label={isTemporaryChat ? 'Exit temporary chat' : 'Start temporary chat'}
-        >
-          <MessageSquareDashed size={16} />
-        </button>
+        {(isTemporaryChat || (!targetChatId && (isChatRoute || location.pathname === '/'))) && (
+          <button
+            type="button"
+            onClick={handleToggleTemporaryChat}
+            className={cn(styles.roundFloatingBtn, isTemporaryChat && styles.activeTempBtn)}
+            title={isTemporaryChat ? 'Exit temporary chat' : 'Start temporary chat'}
+            aria-label={isTemporaryChat ? 'Exit temporary chat' : 'Start temporary chat'}
+          >
+            <MessageSquareDashed size={16} />
+          </button>
+        )}
 
         <button
           type="button"
