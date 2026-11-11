@@ -252,6 +252,54 @@ describe('chatStore Zustand Store', () => {
     );
   });
 
+  it('does not set isThinking before thinking starts and updates isThinking lifecycle correctly', async () => {
+    useChatStore.setState({
+      activeChatId: 'chat-1',
+      chats: [{ _id: 'chat-1', title: 'New Chat' }],
+      messages: [],
+      thinkingLevel: 'medium',
+    });
+
+    let capturedInitialAssistantState;
+
+    streamChatMessage.mockImplementation(async ({ onThought, onToken, onDone }) => {
+      // Capture assistant message state BEFORE any thought or token has streamed
+      capturedInitialAssistantState = { ...useChatStore.getState().messages[1] };
+
+      // Simulate model streaming thoughts
+      onThought('Thinking about step 1... ');
+      const stateWhileThinking = useChatStore.getState().messages[1];
+      expect(stateWhileThinking.isThinking).toBe(true);
+      expect(stateWhileThinking.thoughts).toBe('Thinking about step 1... ');
+
+      // Simulate model beginning response content (thinking ends)
+      onToken('Here is the answer.');
+      const stateWhileStreamingContent = useChatStore.getState().messages[1];
+      expect(stateWhileStreamingContent.isThinking).toBe(false);
+      expect(stateWhileStreamingContent.content).toBe('Here is the answer.');
+
+      onDone({
+        messageId: 'msg-final-1',
+        tokensUsed: 25,
+        creditsDeducted: 1,
+        creditsRemaining: 99,
+      });
+    });
+
+    await useChatStore.getState().sendMessage('Explain quantum computing');
+
+    // Verify initial assistant state had isThinking: false and empty thoughts
+    expect(capturedInitialAssistantState.isThinking).toBe(false);
+    expect(capturedInitialAssistantState.thoughts).toBe('');
+
+    // Verify final state
+    const finalAssistant = useChatStore.getState().messages[1];
+    expect(finalAssistant.isThinking).toBe(false);
+    expect(finalAssistant.isStreaming).toBe(false);
+    expect(finalAssistant.thoughts).toBe('Thinking about step 1... ');
+    expect(finalAssistant.content).toBe('Here is the answer.');
+  });
+
   describe('Real-Time Voice Conversation Mode', () => {
     it('toggles voice conversation mode on and off', () => {
       expect(useChatStore.getState().isVoiceMode).toBe(false);

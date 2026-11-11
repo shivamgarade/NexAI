@@ -332,10 +332,10 @@ const MessageItem = React.memo(function MessageItem({
                 groundingMetadata={message.groundingMetadata}
                 isStreaming={isCurrentlyStreaming}
               />
-              {Boolean(message.thoughts || (isCurrentlyStreaming && message.isThinking)) && (
+              {Boolean(message.thoughts) && (
                 <InlineThinking
                   thoughts={message.thoughts}
-                  isThinking={Boolean(message.isThinking || (isCurrentlyStreaming && !message.content))}
+                  isThinking={Boolean(isCurrentlyStreaming && message.isThinking)}
                   isStreaming={isCurrentlyStreaming}
                 />
               )}

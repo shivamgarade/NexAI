@@ -518,7 +518,7 @@ export const useChatStore = create((set, get) => ({
       steps: [],
       groundingMetadata: null,
       skillId,
-      isThinking: get().thinkingLevel !== 'off',
+      isThinking: false,
       isStreaming: true,
       createdAt: new Date().toISOString(),
     };
@@ -693,6 +693,7 @@ export const useChatStore = create((set, get) => ({
             if (lastMsg && lastMsg.role === 'assistant') {
               msgs[msgs.length - 1] = {
                 ...lastMsg,
+                isThinking: false,
                 isStreaming: false,
                 error: cleanMessage,
               };
@@ -721,7 +722,7 @@ export const useChatStore = create((set, get) => ({
           const msgs = [...state.messages];
           const lastMsg = msgs[msgs.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
-            msgs[msgs.length - 1] = { ...lastMsg, isStreaming: false };
+            msgs[msgs.length - 1] = { ...lastMsg, isStreaming: false, isThinking: false };
           }
           return {
             messages: msgs,
@@ -749,7 +750,7 @@ export const useChatStore = create((set, get) => ({
         const msgs = [...state.messages];
         const lastMsg = msgs[msgs.length - 1];
         if (lastMsg && lastMsg.role === 'assistant') {
-          msgs[msgs.length - 1] = { ...lastMsg, isStreaming: false };
+          msgs[msgs.length - 1] = { ...lastMsg, isStreaming: false, isThinking: false };
         }
         return {
           messages: msgs,
@@ -826,7 +827,7 @@ export const useChatStore = create((set, get) => ({
       steps: [],
       groundingMetadata: null,
       skillId,
-      isThinking: get().thinkingLevel !== 'off',
+      isThinking: false,
       isStreaming: true,
       createdAt: new Date().toISOString(),
     };
@@ -882,6 +883,7 @@ export const useChatStore = create((set, get) => ({
               next[idx] = {
                 ...next[idx],
                 thoughts: (next[idx].thoughts || '') + text,
+                isThinking: true,
               };
             }
             return { messages: next };
