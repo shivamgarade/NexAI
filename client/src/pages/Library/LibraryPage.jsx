@@ -13,6 +13,7 @@ import {
   ChevronDown,
   X,
   ArrowUpDown,
+  FileText,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SearchBar } from '@/components/common/SearchBar';
@@ -39,9 +40,10 @@ import styles from './LibraryPage.module.scss';
 
 const TABS = [
   { id: 'all', label: 'All Items', icon: <Layers size={15} /> },
-  { id: 'notes_links', label: 'Notes & Links', icon: <Bookmark size={15} /> },
+  { id: 'notes', label: 'Notes', icon: <FileText size={15} /> },
+  { id: 'bookmarks', label: 'Bookmarks', icon: <Bookmark size={15} /> },
   { id: 'documents', label: 'Documents', icon: <BookOpen size={15} /> },
-  { id: 'files', label: 'Files', icon: <Paperclip size={15} /> },
+  { id: 'files', label: 'Cloud Files', icon: <Paperclip size={15} /> },
   { id: 'interviews', label: 'Interviews', icon: <Mic size={15} /> },
 ];
 

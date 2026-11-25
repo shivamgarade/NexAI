@@ -1,13 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Zap,
   Plus,
   Search,
-  Star,
   Sparkles,
-  BookOpen,
-  Filter,
+  Terminal,
+  Clock,
+  Layers,
+  Sliders,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -22,17 +23,36 @@ import {
   SkillDetailModal,
   VariableFillModal,
 } from '@/features/skills';
+import { SchedulesTab } from '@/features/automations/SchedulesTab';
+import { ConnectedAppsTab } from '@/features/automations/ConnectedAppsTab';
+import PromptsPage from '@/pages/Prompts/PromptsPage';
 import { useSkillStore } from '@/store/skillStore';
 import { useChatStore } from '@/store/chatStore';
-import { toast } from '@/store/uiStore';
+import { useScheduleStore } from '@/store/scheduleStore';
+import { useConnectedAppStore } from '@/store/connectedAppStore';
 import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils/cn';
 import styles from './SkillsPage.module.scss';
 
 const CATEGORIES = ['All', 'Research', 'Coding', 'Writing', 'Analysis', 'Productivity', 'General'];
 
+const PRIMARY_TABS = [
+  { id: 'skills', label: 'Agent Skills', icon: <Zap size={15} /> },
+  { id: 'prompts', label: 'Prompt Vault', icon: <Terminal size={15} /> },
+  { id: 'automations', label: 'Automations', icon: <Clock size={15} /> },
+];
+
 export default function SkillsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'skills';
+
+  const [activePrimaryTab, setActivePrimaryTab] = useState(
+    ['skills', 'prompts', 'automations', 'schedules'].includes(initialTab)
+      ? initialTab === 'schedules' ? 'automations' : initialTab
+      : 'skills',
+  );
+
   const {
     skills,
     isLoading,
@@ -44,31 +64,47 @@ export default function SkillsPage() {
     setActiveSkill,
   } = useSkillStore();
 
-  const { createChat } = useChatStore();
+  const { schedules, fetchSchedules } = useScheduleStore();
+  const { apps, fetchConnectedApps } = useConnectedAppStore();
 
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'system' | 'custom' | 'favorites'
+  const [activeSubTab, setActiveSubTab] = useState('all'); // 'all' | 'system' | 'custom' | 'favorites'
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [search, setSearch] = useState('');
 
-  // Modals
+  // Modals for Skills
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState(null);
   const [detailSkill, setDetailSkill] = useState(null);
   const [activeSkillForVariables, setActiveSkillForVariables] = useState(null);
   const [deletingSkill, setDeletingSkill] = useState(null);
 
+  // Sync tab from URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['skills', 'prompts', 'automations', 'schedules'].includes(tab)) {
+      setActivePrimaryTab(tab === 'schedules' ? 'automations' : tab);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     fetchSkills();
-  }, [fetchSkills]);
+    fetchSchedules();
+    fetchConnectedApps();
+  }, [fetchSkills, fetchSchedules, fetchConnectedApps]);
+
+  const handleTabChange = (newTab) => {
+    setActivePrimaryTab(newTab);
+    setSearchParams({ tab: newTab });
+  };
 
   const filteredSkills = useMemo(() => {
     let pool = skills;
 
-    if (activeTab === 'system') {
+    if (activeSubTab === 'system') {
       pool = pool.filter((s) => s.isSystem);
-    } else if (activeTab === 'custom') {
+    } else if (activeSubTab === 'custom') {
       pool = pool.filter((s) => !s.isSystem);
-    } else if (activeTab === 'favorites') {
+    } else if (activeSubTab === 'favorites') {
       pool = pool.filter((s) => s.isFavorite);
     }
 
@@ -88,16 +124,13 @@ export default function SkillsPage() {
     }
 
     return pool;
-  }, [skills, activeTab, selectedCategory, search]);
+  }, [skills, activeSubTab, selectedCategory, search]);
 
   const handleUseSkill = (skill) => {
-    // If skill has variables, open variable fill modal first
     if (Array.isArray(skill.variables) && skill.variables.length > 0) {
       setActiveSkillForVariables(skill);
       return;
     }
-
-    // Direct run: set as active skill in store and open chat
     setActiveSkill(skill);
     navigate(ROUTES.CHAT);
   };
@@ -125,110 +158,166 @@ export default function SkillsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="AI Skills & Agentic Tools"
-        description="Autonomous agent capabilities equipped with live web search, deep link analysis, sandboxed code execution, and workspace retrieval."
-        icon={<Zap size={22} />}
-        actions={
-          <Button
-            variant="primary"
-            leftIcon={<Plus size={16} />}
-            onClick={() => {
-              setEditingSkill(null);
-              setIsFormOpen(true);
-            }}
-          >
-            Create Skill
-          </Button>
-        }
-      />
-
-      <div className={styles.controlsBar}>
-        <div className={styles.topRow}>
-          <Tabs
-            activeTab={activeTab}
-            onChange={setActiveTab}
-            tabs={[
-              { id: 'all', label: `All Skills (${skills.length})` },
-              { id: 'system', label: 'Built-in Systems' },
-              { id: 'custom', label: 'My Skills' },
-              { id: 'favorites', label: 'Favorites' },
-            ]}
-          />
-
-          <div className={styles.searchWrapper}>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search skills, tools, or tags..."
-              leftIcon={<Search size={15} />}
-            />
-          </div>
-        </div>
-
-        {/* Category Pills */}
-        <div className={styles.categoryChips}>
-          {CATEGORIES.map((cat) => (
+      {/* Unified Segmented Primary Navigation */}
+      <div className={styles.segmentedNavRow}>
+        <div className={styles.segmentedTabs} role="tablist">
+          {PRIMARY_TABS.map((tab) => (
             <button
-              key={cat}
+              key={tab.id}
               type="button"
-              className={cn(styles.categoryChip, selectedCategory === cat && styles.active)}
-              onClick={() => setSelectedCategory(cat)}
+              role="tab"
+              aria-selected={activePrimaryTab === tab.id}
+              className={cn(
+                styles.segmentedTabBtn,
+                activePrimaryTab === tab.id && styles.segmentedTabActive,
+              )}
+              onClick={() => handleTabChange(tab.id)}
             >
-              {cat}
+              <span className={styles.tabIcon}>{tab.icon}</span>
+              <span className={styles.tabLabel}>{tab.label}</span>
+              {tab.id === 'skills' && skills.length > 0 && (
+                <span className={styles.tabBadge}>{skills.length}</span>
+              )}
+              {tab.id === 'automations' && schedules.length > 0 && (
+                <span className={styles.tabBadge}>{schedules.length}</span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
-      {isLoading ? (
-        <div className={styles.loadingGrid}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className={styles.skeletonCard} />
-          ))}
-        </div>
-      ) : filteredSkills.length === 0 ? (
-        <EmptyState
-          icon={<Zap size={32} />}
-          title="No skills found"
-          description={
-            search || selectedCategory !== 'All'
-              ? 'Try adjusting your search terms or category filters.'
-              : 'Create your first custom AI agent skill with specialized instructions and tools.'
-          }
-          action={
-            <Button
-              variant="primary"
-              leftIcon={<Plus size={15} />}
-              onClick={() => {
-                setEditingSkill(null);
-                setIsFormOpen(true);
-              }}
-            >
-              Create New Skill
-            </Button>
-          }
-        />
-      ) : (
-        <div className={styles.grid}>
-          {filteredSkills.map((skill) => (
-            <SkillCard
-              key={skill._id}
-              skill={skill}
-              onUse={handleUseSkill}
-              onEdit={(s) => {
-                setEditingSkill(s);
-                setIsFormOpen(true);
-              }}
-              onDelete={(s) => setDeletingSkill(s)}
-              onToggleFavorite={toggleFavorite}
-              onViewDetails={(s) => setDetailSkill(s)}
+      {/* Tab 1: Agent Skills */}
+      {activePrimaryTab === 'skills' && (
+        <div className={styles.tabContent}>
+          <PageHeader
+            title="AI Agent Skills"
+            description="Autonomous capabilities equipped with web search, deep link scraping, code execution, and database modeling."
+            icon={<Zap size={22} />}
+            actions={
+              <Button
+                variant="primary"
+                leftIcon={<Plus size={16} />}
+                onClick={() => {
+                  setEditingSkill(null);
+                  setIsFormOpen(true);
+                }}
+              >
+                Create Skill
+              </Button>
+            }
+          />
+
+          <div className={styles.controlsBar}>
+            <div className={styles.topRow}>
+              <Tabs
+                activeTab={activeSubTab}
+                onChange={setActiveSubTab}
+                tabs={[
+                  { id: 'all', label: `All Skills (${skills.length})` },
+                  { id: 'system', label: 'Built-in Systems' },
+                  { id: 'custom', label: 'My Skills' },
+                  { id: 'favorites', label: 'Favorites' },
+                ]}
+              />
+
+              <div className={styles.searchWrapper}>
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search skills, tools, or tags..."
+                  leftIcon={<Search size={15} />}
+                />
+              </div>
+            </div>
+
+            <div className={styles.categoryChips}>
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className={cn(styles.categoryChip, selectedCategory === cat && styles.active)}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className={styles.loadingGrid}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className={styles.skeletonCard} />
+              ))}
+            </div>
+          ) : filteredSkills.length === 0 ? (
+            <EmptyState
+              icon={<Zap size={32} />}
+              title="No skills found"
+              description={
+                search || selectedCategory !== 'All'
+                  ? 'Try adjusting your search terms or category filters.'
+                  : 'Create your first custom AI agent skill with specialized instructions and tools.'
+              }
+              action={
+                <Button
+                  variant="primary"
+                  leftIcon={<Plus size={15} />}
+                  onClick={() => {
+                    setEditingSkill(null);
+                    setIsFormOpen(true);
+                  }}
+                >
+                  Create New Skill
+                </Button>
+              }
             />
-          ))}
+          ) : (
+            <div className={styles.grid}>
+              {filteredSkills.map((skill) => (
+                <SkillCard
+                  key={skill._id}
+                  skill={skill}
+                  onUse={handleUseSkill}
+                  onEdit={(s) => {
+                    setEditingSkill(s);
+                    setIsFormOpen(true);
+                  }}
+                  onDelete={(s) => setDeletingSkill(s)}
+                  onToggleFavorite={toggleFavorite}
+                  onViewDetails={(s) => setDetailSkill(s)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Form Modal (Create / Edit) */}
+      {/* Tab 2: Prompt Vault */}
+      {activePrimaryTab === 'prompts' && (
+        <div className={styles.embeddedTabWrapper}>
+          <PromptsPage />
+        </div>
+      )}
+
+      {/* Tab 3: Automations & Schedules */}
+      {activePrimaryTab === 'automations' && (
+        <div className={styles.automationsWrapper}>
+          <PageHeader
+            title="Automations & Routines"
+            description="Scheduled background tickers and connected workspace apps executing AI workflows automatically."
+            icon={<Clock size={22} />}
+          />
+          <div className={styles.automationsSubTabs}>
+            <SchedulesTab />
+            <div style={{ marginTop: 'var(--space-6)' }}>
+              <ConnectedAppsTab />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form Modal (Create / Edit Skill) */}
       <SkillFormModal
         open={isFormOpen}
         onClose={() => {

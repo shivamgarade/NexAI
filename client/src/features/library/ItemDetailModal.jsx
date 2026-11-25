@@ -369,10 +369,12 @@ ${improvements.map((i) => `• ${i}`).join('\n')}`;
             </a>
           )}
 
-          {isFile && viewingItem.fileData && (
+          {isFile && (viewingItem.url || viewingItem.fileData) && (
             <a
-              href={viewingItem.fileData}
+              href={viewingItem.url || viewingItem.fileData}
               download={viewingItem.fileName || viewingItem.title || 'download'}
+              target={viewingItem.url ? '_blank' : undefined}
+              rel="noopener noreferrer"
               className={styles.toolActionBtn}
               title="Download file"
             >
@@ -521,27 +523,30 @@ ${improvements.map((i) => `• ${i}`).join('\n')}`;
                 <span>{formatFileSize(viewingItem.size)}</span>
               </div>
 
-              {viewingItem.fileData &&
+              {(viewingItem.url || viewingItem.fileData) &&
                 (viewingItem.mimeType?.startsWith('image/') ||
-                  viewingItem.fileData.startsWith('data:image')) && (
+                  /\.(png|jpe?g|webp|gif|svg)$/i.test(viewingItem.fileName || viewingItem.url || '') ||
+                  viewingItem.fileData?.startsWith('data:image')) && (
                   <div className={styles.detailImageContainer}>
                     <img
-                      src={viewingItem.fileData}
+                      src={viewingItem.url || viewingItem.fileData}
                       alt={viewingItem.fileName || viewingItem.title}
                     />
                   </div>
                 )}
 
               <div className={styles.fileMetaList}>
-                <div><strong>File Name:</strong> {viewingItem.fileName || 'Unnamed File'}</div>
-                {viewingItem.mimeType && <div><strong>MIME Type:</strong> {viewingItem.mimeType}</div>}
+                <div><strong>File:</strong> {viewingItem.fileName || viewingItem.title || 'Uploaded Document'}</div>
+                {viewingItem.size > 0 && <div><strong>Size:</strong> {formatFileSize(viewingItem.size)}</div>}
               </div>
 
-              {viewingItem.fileData && (
+              {(viewingItem.url || viewingItem.fileData) && (
                 <div className={styles.fileActionRow}>
                   <a
-                    href={viewingItem.fileData}
+                    href={viewingItem.url || viewingItem.fileData}
                     download={viewingItem.fileName || viewingItem.title || 'download'}
+                    target={viewingItem.url ? '_blank' : undefined}
+                    rel="noopener noreferrer"
                     className={styles.toolActionBtn}
                   >
                     <Download size={13} />

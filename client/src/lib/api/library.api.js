@@ -50,6 +50,14 @@ export const libraryApi = {
   },
 
   /**
+   * Inline AI Co-Writer for notes (draft, expand, summarize, polish).
+   * @param {{ prompt: string, context?: string, mode?: string }} payload
+   */
+  aiWrite(payload) {
+    return apiClient.post('/library/ai-write', payload);
+  },
+
+  /**
    * Downloads a server-generated styled PDF for a library document.
    * @param {string} id
    * @param {string} [filename]

@@ -263,9 +263,9 @@ export function LibraryCard({
       </div>
 
       {/* If file item has an image, render preview thumbnail */}
-      {isFile && item.fileData && (item.mimeType?.startsWith('image/') || item.fileData.startsWith('data:image')) && (
+      {isFile && (item.url || item.fileData) && (item.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(item.fileName || item.url || '')) && (
         <div className={styles.imageCardPreview}>
-          <img src={item.fileData} alt={item.title} loading="lazy" />
+          <img src={item.url || item.fileData} alt={item.title} loading="lazy" />
         </div>
       )}
 

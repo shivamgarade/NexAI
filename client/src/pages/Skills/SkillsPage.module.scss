@@ -10,6 +10,88 @@
   gap: var(--space-6);
 }
 
+.segmentedNavRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.segmentedTabs {
+  display: inline-flex;
+  align-items: center;
+  background: var(--color-surface-subtle, rgba(255, 255, 255, 0.04));
+  padding: 4px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
+  gap: 4px;
+}
+
+.segmentedTabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 16px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #94a3b8);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) ease;
+
+  &:hover {
+    color: var(--color-text-primary, #ffffff);
+    background: var(--color-surface-hover, rgba(255, 255, 255, 0.06));
+  }
+
+  &.segmentedTabActive {
+    color: var(--color-text-primary, #ffffff);
+    background: var(--color-surface-elevated, rgba(255, 255, 255, 0.12));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    font-weight: 600;
+  }
+}
+
+.tabIcon {
+  display: flex;
+  align-items: center;
+}
+
+.tabBadge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--color-accent, #6366f1);
+  font-weight: 600;
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.embeddedTabWrapper {
+  width: 100%;
+}
+
+.automationsWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.automationsSubTabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
 .controlsBar {
   display: flex;
   flex-direction: column;

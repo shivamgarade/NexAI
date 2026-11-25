@@ -13,6 +13,7 @@ const ChatPage = lazy(() => import('@/pages/Chat/ChatPage'));
 const LibraryPage = lazy(() => import('@/pages/Library/LibraryPage'));
 const DocumentsPage = lazy(() => import('@/pages/Documents/DocumentsPage'));
 const PromptsPage = lazy(() => import('@/pages/Prompts/PromptsPage'));
+const SkillsPage = lazy(() => import('@/pages/Skills/SkillsPage'));
 const AutomationsPage = lazy(() => import('@/pages/Automations/AutomationsPage'));
 const InterviewPage = lazy(() => import('@/pages/Interview/InterviewPage'));
 const SchemaPage = lazy(() => import('@/pages/Schema/SchemaPage'));
@@ -34,9 +35,11 @@ const appChildren = [
   { path: ROUTES.CHAT, element: <ChatPage /> },
   { path: ROUTES.CHAT_ID, element: <ChatPage /> },
   { path: ROUTES.LIBRARY, element: <LibraryPage /> },
-  { path: ROUTES.DOCUMENTS, element: <DocumentsPage /> },
-  { path: ROUTES.DOCUMENT_ID, element: <DocumentsPage /> },
-  { path: ROUTES.PROMPTS, element: <PromptsPage /> },
+  { path: ROUTES.DOCUMENTS, element: <Navigate to={`${ROUTES.LIBRARY}?tab=documents`} replace /> },
+  { path: ROUTES.DOCUMENT_ID, element: <Navigate to={`${ROUTES.LIBRARY}?tab=documents`} replace /> },
+  { path: ROUTES.SKILLS, element: <SkillsPage /> },
+  { path: ROUTES.PROMPTS, element: <Navigate to={`${ROUTES.SKILLS}?tab=prompts`} replace /> },
+  { path: ROUTES.AUTOMATIONS, element: <Navigate to={`${ROUTES.SKILLS}?tab=automations`} replace /> },
   { path: ROUTES.INTERVIEW, element: <InterviewPage /> },
   { path: ROUTES.SCHEMA, element: <SchemaPage /> },
   { path: ROUTES.PROJECT_ID, element: <ProjectPage /> },

@@ -15,6 +15,7 @@ import memoryRoutes from './memory.routes.js';
 import schemaRoutes from './schema.routes.js';
 import scheduleRoutes from './schedule.routes.js';
 import connectedAppRoutes from './connectedApp.routes.js';
+import storageRoutes from './storage.routes.js';
 
 const router = Router();
 
@@ -34,6 +35,7 @@ router.use('/search', searchRoutes);
 router.use('/wallet', walletRoutes);
 router.use('/memories', memoryRoutes);
 router.use('/schemas', schemaRoutes);
+router.use('/storage', storageRoutes);
 
 export default router;
 

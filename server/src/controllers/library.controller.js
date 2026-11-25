@@ -338,7 +338,11 @@ export const listItems = asyncHandler(async (req, res) => {
 
   // Handle tabbed filtering
   if (tab) {
-    if (tab === 'notes_links') {
+    if (tab === 'notes') {
+      filter.type = 'note';
+    } else if (tab === 'bookmarks' || tab === 'links') {
+      filter.type = 'link';
+    } else if (tab === 'notes_links') {
       filter.type = { $in: ['link', 'note'] };
     } else if (tab === 'documents') {
       filter.type = 'document';
@@ -583,7 +587,11 @@ export const searchItems = asyncHandler(async (req, res) => {
 
   let typeFilter = null;
   if (tab) {
-    if (tab === 'notes_links') {
+    if (tab === 'notes') {
+      typeFilter = 'note';
+    } else if (tab === 'bookmarks' || tab === 'links') {
+      typeFilter = 'link';
+    } else if (tab === 'notes_links') {
       typeFilter = { $in: ['link', 'note'] };
     } else if (tab === 'documents') {
       typeFilter = 'document';
@@ -670,5 +678,48 @@ export const searchItems = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     data: matchedItems,
+  });
+});
+
+/**
+ * Inline AI Co-Writer for Notion-style notes editor.
+ * Uses Gemini Flash (free tier) to draft, expand, polish, or summarize text.
+ */
+export const aiWrite = asyncHandler(async (req, res) => {
+  const { prompt, context = '', mode = 'draft' } = req.body;
+
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    throw ApiError.badRequest('Prompt is required for AI writing');
+  }
+
+  const systemInstruction =
+    'You are an expert AI writing assistant embedded in a Notion-style markdown notes editor. ' +
+    'Provide clear, high-quality, directly usable markdown text without conversational preambles or wrap-ups.';
+
+  let contents = prompt.trim();
+  if (context && context.trim()) {
+    contents = `Existing note content for context:\n${context.trim().slice(0, 3000)}\n\nInstruction / Prompt: ${prompt.trim()}`;
+  }
+
+  const { text, totalTokens } = await geminiService.generateContent({
+    contents,
+    model: 'flash',
+    systemInstruction,
+  });
+
+  try {
+    await deductCredits(req.user._id, totalTokens || 100, {
+      feature: 'library',
+      model: 'flash',
+    });
+  } catch (creditErr) {
+    logger.warn({ err: creditErr.message }, 'Credit deduction notice for library ai-write');
+  }
+
+  res.status(200).json({
+    data: {
+      text,
+      tokensUsed: totalTokens || 0,
+    },
   });
 });

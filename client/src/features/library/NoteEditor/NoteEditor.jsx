@@ -1,30 +1,115 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Bold,
-  Italic,
+  Sparkles,
   Heading1,
   Heading2,
   Heading3,
-  Code,
-  FileCode,
   List,
   ListOrdered,
-  Quote,
-  Link,
   CheckSquare,
+  Code,
+  Quote,
+  Minus,
   Eye,
   Edit3,
+  Loader2,
+  Send,
+  X,
+  Wand2,
 } from 'lucide-react';
 import { MarkdownRenderer } from '@/features/chat/MarkdownRenderer';
+import { libraryApi } from '@/lib/api/library.api';
+import { toast } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
 import styles from './NoteEditor.module.scss';
+
+const SLASH_COMMANDS = [
+  {
+    id: 'ai',
+    title: 'Ask AI to write...',
+    description: 'Generate, brainstorm, outline or draft with Gemini',
+    icon: <Sparkles size={16} className={styles.aiSparkleIcon} />,
+    isAi: true,
+  },
+  {
+    id: 'h1',
+    title: 'Heading 1',
+    description: 'Top-level section title',
+    icon: <Heading1 size={16} />,
+    prefix: '# ',
+  },
+  {
+    id: 'h2',
+    title: 'Heading 2',
+    description: 'Key subsection header',
+    icon: <Heading2 size={16} />,
+    prefix: '## ',
+  },
+  {
+    id: 'h3',
+    title: 'Heading 3',
+    description: 'Minor section header',
+    icon: <Heading3 size={16} />,
+    prefix: '### ',
+  },
+  {
+    id: 'bullet',
+    title: 'Bulleted list',
+    description: 'Standard bullet point list',
+    icon: <List size={16} />,
+    prefix: '- ',
+  },
+  {
+    id: 'number',
+    title: 'Numbered list',
+    description: 'Sequential numbered list',
+    icon: <ListOrdered size={16} />,
+    prefix: '1. ',
+  },
+  {
+    id: 'todo',
+    title: 'To-do checklist',
+    description: 'Trackable task item',
+    icon: <CheckSquare size={16} />,
+    prefix: '- [ ] ',
+  },
+  {
+    id: 'quote',
+    title: 'Quote block',
+    description: 'Highlight an excerpt or quotation',
+    icon: <Quote size={16} />,
+    prefix: '> ',
+  },
+  {
+    id: 'code',
+    title: 'Code block',
+    description: 'Syntax-highlighted code container',
+    icon: <Code size={16} />,
+    prefix: '```javascript\n',
+    suffix: '\n```',
+  },
+  {
+    id: 'hr',
+    title: 'Divider',
+    description: 'Visually divide sections',
+    icon: <Minus size={16} />,
+    prefix: '\n---\n',
+  },
+];
+
+const AI_QUICK_ACTIONS = [
+  { label: 'Draft Outline', prompt: 'Create a structured outline with key bullet points for this topic:' },
+  { label: 'Summarize', prompt: 'Write a concise summary of the key takeaways from this note:' },
+  { label: 'Fix Grammar', prompt: 'Polish the grammar, tone, and readability of the following text while preserving its meaning:' },
+  { label: 'Expand Details', prompt: 'Expand on the following ideas with concrete examples and in-depth details:' },
+];
 
 export function NoteEditor({
   value = '',
   onChange,
-  placeholder = 'Write your notes with Markdown support...',
-  minHeight = 220,
+  placeholder = 'Type your note... Press "/" for Notion-style blocks & AI writer',
+  minHeight = 260,
   autoFocus = false,
   readOnly = false,
   className = '',
@@ -33,7 +118,154 @@ export function NoteEditor({
   const [activeTab, setActiveTab] = useState(initialTab); // 'write' | 'preview'
   const textareaRef = useRef(null);
 
-  // Helper to insert markdown tags around selection or at cursor
+  // Slash menu state
+  const [isSlashMenuOpen, setIsSlashMenuOpen] = useState(false);
+  const [slashFilter, setSlashFilter] = useState('');
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+
+  // Inline AI Assistant state
+  const [isAiBarOpen, setIsAiBarOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const aiInputRef = useRef(null);
+
+  // Filter slash commands based on typed query
+  const filteredCommands = SLASH_COMMANDS.filter((cmd) => {
+    if (!slashFilter.trim()) return true;
+    const q = slashFilter.toLowerCase();
+    return (
+      cmd.title.toLowerCase().includes(q) ||
+      cmd.description.toLowerCase().includes(q) ||
+      cmd.id.toLowerCase().includes(q)
+    );
+  });
+
+  // Clamp selected index
+  useEffect(() => {
+    setSlashSelectedIndex(0);
+  }, [slashFilter]);
+
+  const insertTextAtCursor = useCallback(
+    (insertion, replaceLength = 0) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      const before = value.substring(0, Math.max(0, start - replaceLength));
+      const after = value.substring(end);
+
+      const nextVal = `${before}${insertion}${after}`;
+      onChange?.(nextVal);
+
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          const newPos = before.length + insertion.length;
+          textareaRef.current.setSelectionRange(newPos, newPos);
+        }
+      }, 0);
+    },
+    [value, onChange],
+  );
+
+  const handleSelectCommand = (cmd) => {
+    setIsSlashMenuOpen(false);
+    // Replace the "/" and any filter query typed
+    const replaceLen = slashFilter.length + 1;
+
+    if (cmd.isAi) {
+      // Remove slash token and open AI bar
+      insertTextAtCursor('', replaceLen);
+      setIsAiBarOpen(true);
+      setTimeout(() => aiInputRef.current?.focus(), 50);
+      return;
+    }
+
+    const insertion = `${cmd.prefix || ''}${cmd.suffix || ''}`;
+    insertTextAtCursor(insertion, replaceLen);
+  };
+
+  const handleAiGenerate = async (customPrompt) => {
+    const promptToSend = (customPrompt || aiPrompt).trim();
+    if (!promptToSend) return;
+
+    setIsAiGenerating(true);
+    try {
+      const res = await libraryApi.aiWrite({
+        prompt: promptToSend,
+        context: value,
+      });
+
+      const generated = res?.data?.data?.text || res?.data?.text || '';
+      if (generated) {
+        const insertion = value.trim() ? `\n\n${generated}\n` : `${generated}\n`;
+        onChange?.(`${value}${insertion}`);
+        toast.success('AI content inserted into note');
+        setIsAiBarOpen(false);
+        setAiPrompt('');
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to generate AI content');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (readOnly) return;
+
+    // Handle Slash Menu Navigation
+    if (isSlashMenuOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) =>
+          prev < filteredCommands.length - 1 ? prev + 1 : 0,
+        );
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredCommands.length - 1,
+        );
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filteredCommands[slashSelectedIndex]) {
+          handleSelectCommand(filteredCommands[slashSelectedIndex]);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsSlashMenuOpen(false);
+        return;
+      }
+    }
+
+    // Tab key indent
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      insertTextAtCursor('  ');
+      return;
+    }
+
+    // Ctrl/Cmd shortcuts
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      insertFormatting('**', '**', 'bold text');
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+      e.preventDefault();
+      insertFormatting('*', '*', 'italic text');
+      return;
+    }
+  };
+
   const insertFormatting = (prefix, suffix = '', defaultText = '') => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -46,247 +278,206 @@ export function NoteEditor({
     const after = value.substring(end);
 
     const replacement = `${prefix}${selectedText}${suffix}`;
-    const nextValue = `${before}${replacement}${after}`;
+    onChange?.(`${before}${replacement}${after}`);
 
-    onChange?.(nextValue);
-
-    // Reposition cursor and refocus
     setTimeout(() => {
       textarea.focus();
-      const newCursorPos = start + prefix.length + selectedText.length;
-      textarea.setSelectionRange(start + prefix.length, newCursorPos);
+      const newPos = start + prefix.length + selectedText.length;
+      textarea.setSelectionRange(start + prefix.length, newPos);
     }, 0);
   };
 
-  const handleKeyDown = (e) => {
-    // Tab key indent
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const nextValue = `${value.substring(0, start)}  ${value.substring(end)}`;
-      onChange?.(nextValue);
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + 2, start + 2);
-      }, 0);
-      return;
-    }
+  const handleTextareaChange = (e) => {
+    const val = e.target.value;
+    onChange?.(val);
 
-    // Ctrl/Cmd + B for bold
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-      e.preventDefault();
-      insertFormatting('**', '**', 'bold text');
-      return;
-    }
+    const cursor = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursor);
 
-    // Ctrl/Cmd + I for italic
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
-      e.preventDefault();
-      insertFormatting('*', '*', 'italic text');
-      return;
-    }
-
-    // Ctrl/Cmd + K for link
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      insertFormatting('[', '](https://)', 'link title');
-      return;
+    // Look for slash trigger on current line
+    const match = textBeforeCursor.match(/(?:^|\n)\/([a-zA-Z0-9_-]*)$/);
+    if (match) {
+      setIsSlashMenuOpen(true);
+      setSlashFilter(match[1]);
+    } else if (isSlashMenuOpen) {
+      setIsSlashMenuOpen(false);
     }
   };
 
-  // Word, Character and Reading Time stats
-  const cleanText = (value || '').trim();
-  const charCount = (value || '').length;
-  const wordCount = cleanText ? cleanText.split(/\s+/).filter(Boolean).length : 0;
-  const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
+  // Word and read time statistics
+  const wordCount = value.trim() ? value.trim().split(/\s+/).filter(Boolean).length : 0;
+  const charCount = value.length;
+  const readTime = Math.ceil(wordCount / 200) || 1;
 
   return (
-    <div className={cn(styles.editorContainer, className)}>
+    <div className={cn(styles.notionEditor, className)}>
+      {/* Top Controls Header */}
       <div className={styles.topBar}>
-        <div className={styles.modeTabs} role="tablist">
+        <div className={styles.leftBarActions}>
+          <div className={styles.modeTabs}>
+            <button
+              type="button"
+              className={cn(styles.modeTab, activeTab === 'write' && styles.active)}
+              onClick={() => setActiveTab('write')}
+              title="Edit markdown canvas"
+            >
+              <Edit3 size={13} />
+              <span>Write</span>
+            </button>
+            <button
+              type="button"
+              className={cn(styles.modeTab, activeTab === 'preview' && styles.active)}
+              onClick={() => setActiveTab('preview')}
+              title="Formatted preview"
+            >
+              <Eye size={13} />
+              <span>Preview</span>
+            </button>
+          </div>
+
           <button
             type="button"
-            role="tab"
-            aria-selected={activeTab === 'write'}
-            className={cn(styles.modeTab, activeTab === 'write' && styles.active)}
-            onClick={() => setActiveTab('write')}
+            className={styles.askAiPill}
+            onClick={() => setIsAiBarOpen((prev) => !prev)}
+            title="Ask AI to draft, summarize or polish"
           >
-            <Edit3 size={13} />
-            <span>Write</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'preview'}
-            className={cn(styles.modeTab, activeTab === 'preview' && styles.active)}
-            onClick={() => setActiveTab('preview')}
-          >
-            <Eye size={13} />
-            <span>Preview</span>
+            <Wand2 size={13} />
+            <span>Ask AI Co-Writer</span>
           </button>
         </div>
 
-        {activeTab === 'write' && !readOnly && (
-            <div className={styles.toolbar} role="toolbar" aria-label="Markdown formatting">
-              <div className={styles.toolbarGroup}>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Bold (Ctrl+B)"
-                  onClick={() => insertFormatting('**', '**', 'bold text')}
-                >
-                  <Bold size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Italic (Ctrl+I)"
-                  onClick={() => insertFormatting('*', '*', 'italic text')}
-                >
-                  <Italic size={14} />
-                </button>
-              </div>
-
-              <div className={styles.divider} />
-
-              <div className={styles.toolbarGroup}>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Heading 1"
-                  onClick={() => insertFormatting('# ', '', 'Heading 1')}
-                >
-                  <Heading1 size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Heading 2"
-                  onClick={() => insertFormatting('## ', '', 'Heading 2')}
-                >
-                  <Heading2 size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Heading 3"
-                  onClick={() => insertFormatting('### ', '', 'Heading 3')}
-                >
-                  <Heading3 size={14} />
-                </button>
-              </div>
-
-              <div className={styles.divider} />
-
-              <div className={styles.toolbarGroup}>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Inline Code"
-                  onClick={() => insertFormatting('`', '`', 'code')}
-                >
-                  <Code size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Code Block"
-                  onClick={() => insertFormatting('```\n', '\n```', 'code block')}
-                >
-                  <FileCode size={14} />
-                </button>
-              </div>
-
-              <div className={styles.divider} />
-
-              <div className={styles.toolbarGroup}>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Bullet List"
-                  onClick={() => insertFormatting('- ', '', 'List item')}
-                >
-                  <List size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Numbered List"
-                  onClick={() => insertFormatting('1. ', '', 'Numbered item')}
-                >
-                  <ListOrdered size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Task Item"
-                  onClick={() => insertFormatting('- [ ] ', '', 'Task')}
-                >
-                  <CheckSquare size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Blockquote"
-                  onClick={() => insertFormatting('> ', '', 'Quote')}
-                >
-                  <Quote size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.toolBtn}
-                  title="Link (Ctrl+K)"
-                  onClick={() => insertFormatting('[', '](https://)', 'Link')}
-                >
-                  <Link size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+        <div className={styles.statsPill}>
+          <span>{wordCount} words</span>
+          <span className={styles.statsDot}>•</span>
+          <span>{readTime} min read</span>
+        </div>
       </div>
 
-      <div className={styles.editorArea} style={{ minHeight }}>
-        {activeTab === 'write' ? (
+      {/* Inline AI Assistant Bar */}
+      {isAiBarOpen && (
+        <div className={styles.aiAssistDrawer}>
+          <div className={styles.aiInputRow}>
+            <Sparkles size={16} className={styles.aiIcon} />
+            <input
+              ref={aiInputRef}
+              type="text"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAiGenerate();
+                } else if (e.key === 'Escape') {
+                  setIsAiBarOpen(false);
+                }
+              }}
+              placeholder="Ask AI to write anything... e.g. 'Draft an introduction to microservices', 'Summarize key takeaways'"
+              className={styles.aiPromptInput}
+              disabled={isAiGenerating}
+            />
+            {isAiGenerating ? (
+              <Loader2 size={16} className={styles.spinner} />
+            ) : (
+              <button
+                type="button"
+                className={styles.aiSubmitBtn}
+                onClick={() => handleAiGenerate()}
+                disabled={!aiPrompt.trim()}
+                title="Generate with Gemini Flash"
+              >
+                <Send size={14} />
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.aiCloseBtn}
+              onClick={() => setIsAiBarOpen(false)}
+              aria-label="Close AI Writer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          <div className={styles.aiQuickChips}>
+            {AI_QUICK_ACTIONS.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                className={styles.aiQuickChip}
+                onClick={() => {
+                  setAiPrompt(action.prompt);
+                  handleAiGenerate(action.prompt);
+                }}
+                disabled={isAiGenerating}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Canvas Area */}
+      {activeTab === 'write' ? (
+        <div className={styles.canvasContainer}>
           <textarea
             ref={textareaRef}
-            className={styles.textarea}
             value={value}
-            onChange={(e) => onChange?.(e.target.value)}
+            onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             autoFocus={autoFocus}
             readOnly={readOnly}
-            style={{ minHeight }}
-            rows={10}
+            style={{ minHeight: `${minHeight}px` }}
+            className={styles.textareaCanvas}
           />
-        ) : (
-          <div className={styles.previewArea} style={{ minHeight }}>
-            {value.trim() ? (
-              <MarkdownRenderer content={value} allowSaveSnippet={false} />
-            ) : (
-              <div className={styles.emptyPreview}>Nothing to preview yet. Start typing in Write mode.</div>
-            )}
-          </div>
-        )}
-      </div>
 
-      <div className={styles.statusBar}>
-        <div className={styles.statGroup}>
-          <span className={styles.statItem}>
-            <strong>{wordCount}</strong> {wordCount === 1 ? 'word' : 'words'}
-          </span>
-          <span className={styles.statItem}>
-            <strong>{charCount}</strong> characters
-          </span>
-          {wordCount > 10 && (
-            <span className={styles.statItem}>~{readingTimeMinutes} min read</span>
+          {/* Notion-Style Floating Slash Command Menu */}
+          {isSlashMenuOpen && filteredCommands.length > 0 && (
+            <div className={styles.slashMenu}>
+              <div className={styles.slashHeader}>
+                <span>Insert Blocks & AI</span>
+                <span className={styles.slashHint}>ESC to close</span>
+              </div>
+              <div className={styles.slashItemsList} role="listbox">
+                {filteredCommands.map((cmd, idx) => (
+                  <button
+                    key={cmd.id}
+                    type="button"
+                    role="option"
+                    aria-selected={idx === slashSelectedIndex}
+                    className={cn(
+                      styles.slashItem,
+                      idx === slashSelectedIndex && styles.slashItemActive,
+                      cmd.isAi && styles.slashItemAi,
+                    )}
+                    onClick={() => handleSelectCommand(cmd)}
+                  >
+                    <span className={styles.slashItemIcon}>{cmd.icon}</span>
+                    <div className={styles.slashItemMeta}>
+                      <span className={styles.slashItemTitle}>{cmd.title}</span>
+                      <span className={styles.slashItemDesc}>{cmd.description}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
-        <span className={styles.hintText}>Markdown supported</span>
-      </div>
+      ) : (
+        <div
+          className={styles.previewCanvas}
+          style={{ minHeight: `${minHeight}px` }}
+        >
+          {value.trim() ? (
+            <MarkdownRenderer content={value} />
+          ) : (
+            <div className={styles.emptyPreviewNotice}>
+              <p>Nothing to preview yet. Switch to Write mode or use "/" to start writing.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -295,9 +486,9 @@ NoteEditor.propTypes = {
   value: PropTypes.string,
   onChange: PropTypes.func,
   placeholder: PropTypes.string,
-  minHeight: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  minHeight: PropTypes.number,
   autoFocus: PropTypes.bool,
   readOnly: PropTypes.bool,
   className: PropTypes.string,
-  initialTab: PropTypes.oneOf(['write', 'preview']),
+  initialTab: PropTypes.string,
 };

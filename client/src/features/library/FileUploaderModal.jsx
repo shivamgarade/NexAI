@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { TagInput } from '@/components/ui/TagInput';
 import { useLibraryStore } from '@/store/libraryStore';
+import { storageApi } from '@/lib/api/storage.api';
 import { formatFileSize } from '@/lib/utils/formatFileSize';
 import { cn } from '@/lib/utils/cn';
 import styles from './FileUploaderModal.module.scss';
@@ -154,6 +155,30 @@ export function FileUploaderModal() {
     e?.preventDefault();
     if (!selectedFile || !title.trim()) return;
 
+    let cloudUrl = '';
+    const rawPayload =
+      imagePreview ||
+      (fileBase64 && selectedFile.type
+        ? `data:${selectedFile.type};base64,${fileBase64}`
+        : fileContent);
+
+    if (rawPayload) {
+      try {
+        const uploadRes = await storageApi.upload({
+          file: rawPayload,
+          fileName: selectedFile.name,
+          mimeType: selectedFile.type || 'application/octet-stream',
+          source: 'library',
+        });
+        const uploadData = uploadRes?.data?.data || uploadRes?.data;
+        if (uploadData?.url) {
+          cloudUrl = uploadData.url;
+        }
+      } catch (uploadErr) {
+        console.warn('Storage upload notice:', uploadErr);
+      }
+    }
+
     await saveItem({
       type: 'file',
       title: title.trim(),
@@ -163,11 +188,8 @@ export function FileUploaderModal() {
       content: fileContent,
       summary: summary.trim(),
       tags,
-      fileData:
-        imagePreview ||
-        (fileBase64 && selectedFile.type
-          ? `data:${selectedFile.type};base64,${fileBase64}`
-          : ''),
+      url: cloudUrl,
+      fileData: cloudUrl ? '' : (imagePreview || (fileBase64 && selectedFile.type ? `data:${selectedFile.type};base64,${fileBase64}` : '')),
     });
 
     handleClose();

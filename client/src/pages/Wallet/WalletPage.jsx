@@ -236,10 +236,10 @@ export default function WalletPage() {
           <div className={styles.sectionTitleRow}>
             <Zap size={22} className={styles.zapIcon} />
             <h2>Recharge &amp; Upgrade Plans</h2>
-            <Badge tone="neutral" style={{ marginLeft: 8 }}>Future Scope</Badge>
+            <Badge tone="success" style={{ marginLeft: 8 }}>Test Sandbox Active</Badge>
           </div>
           <p>
-            Future commercial monetization &amp; subscription tiers. Razorpay Test Mode checkout can be simulated below for demonstration.
+            Select any plan below to test the full Razorpay checkout and credit allocation flow in sandbox mode. Zero real money charged.
           </p>
         </div>
 

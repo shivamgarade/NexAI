@@ -2,6 +2,8 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -9,6 +11,9 @@ import { ApiError } from './utils/ApiError.js';
 import apiRoutes from './routes/index.js';
 import healthRoutes from './routes/health.routes.js';
 import webhookRoutes from './routes/webhook.routes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const app = express();
 
@@ -52,6 +57,9 @@ app.use(requestLogger);
 
 // Health check route (supports both /health and /api/health for Render/Uptime monitors)
 app.use('/health', healthRoutes);
+
+// Statically serve local file uploads (fallback when cloud storage is local)
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
 // API routes
 app.use('/api', apiRoutes);

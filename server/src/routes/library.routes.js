@@ -21,6 +21,7 @@ import {
   updateItem,
   deleteItem,
   searchItems,
+  aiWrite,
 } from '../controllers/library.controller.js';
 
 const router = Router();
@@ -60,6 +61,9 @@ router.post(
   validate({ body: generateDocumentSchema }),
   generateDocument,
 );
+
+// Inline AI Co-Writer for Notion-style notes
+router.post('/ai-write', aiLimiter, creditCheck, aiWrite);
 
 // Styled PDF Export stream endpoint
 router.get('/documents/:id/export.pdf', exportDocumentPdf);

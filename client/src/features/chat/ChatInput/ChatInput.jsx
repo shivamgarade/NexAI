@@ -27,6 +27,7 @@ import { useChatStore, AVAILABLE_MODELS, MORE_MODELS } from '@/store/chatStore';
 import { useSkillStore } from '@/store/skillStore';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { libraryApi } from '@/lib/api/library.api';
+import { storageApi } from '@/lib/api/storage.api';
 import { toast } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
 import styles from './ChatInput.module.scss';
@@ -501,18 +502,39 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           )
         );
 
-        // Persist media/file to user library in background
-        libraryApi
-          .createItem({
-            title: file.name,
-            type: 'file',
+        // Background upload to cloud storage (ImageKit / Cloudinary) with local fallback
+        storageApi
+          .upload({
+            file: dataUrl,
             fileName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            size: file.size,
-            fileData: dataUrl,
-            category: 'general',
+            mimeType:
+              file.type ||
+              (file.name.toLowerCase().endsWith('.pdf')
+                ? 'application/pdf'
+                : 'application/octet-stream'),
+            source: 'chat',
           })
-          .catch(() => {});
+          .then((res) => {
+            const uploaded = res?.data?.data || res?.data;
+            if (uploaded?.url) {
+              setAttachedContexts((prev) =>
+                prev.map((item) =>
+                  item.id === tempId
+                    ? {
+                        ...item,
+                        url: uploaded.url,
+                        thumbnailUrl: uploaded.thumbnailUrl,
+                        cloudId: uploaded.fileId,
+                      }
+                    : item,
+                ),
+              );
+            }
+          })
+          .catch((err) => {
+            // Gracefully ignore background sync errors; local dataUrl remains available for immediate AI prompt
+            console.warn('Background cloud upload notice:', err?.message || err);
+          });
       };
       reader.readAsDataURL(file);
     }
