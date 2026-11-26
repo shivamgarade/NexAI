@@ -58,7 +58,7 @@ const skillSchema = new mongoose.Schema(
     },
     tools: {
       type: [String],
-      enum: ['web_search', 'fetch_url', 'code_execution', 'workspace_search', 'memory_search'],
+      enum: ['web_search', 'fetch_url', 'code_execution', 'workspace_search', 'memory_search', 'save_to_library'],
       default: [],
     },
     category: {

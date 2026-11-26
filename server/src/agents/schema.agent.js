@@ -132,11 +132,13 @@ export async function generateDatabaseSchema({
 
   try {
     const result = await generateContent({
-      prompt: userContent,
+      contents: userContent,
       systemInstruction: SCHEMA_SYSTEM_PROMPT,
       model,
-      temperature: 0.2,
-      responseMimeType: 'application/json',
+      config: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+      },
     });
 
     const parsedJson = parseJsonOutput(result.text);

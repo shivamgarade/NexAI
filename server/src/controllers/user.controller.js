@@ -2,7 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const updateSettings = asyncHandler(async (req, res) => {
   const user = req.user;
-  const { theme, defaultModel, webSearchDefaultOn, personalization } = req.body;
+  const { theme, defaultModel, webSearchDefaultOn, toolExecutionMode, personalization } = req.body;
 
   if (theme !== undefined) {
     user.settings.theme = theme;
@@ -12,6 +12,9 @@ export const updateSettings = asyncHandler(async (req, res) => {
   }
   if (webSearchDefaultOn !== undefined) {
     user.settings.webSearchDefaultOn = webSearchDefaultOn;
+  }
+  if (toolExecutionMode !== undefined) {
+    user.settings.toolExecutionMode = toolExecutionMode;
   }
   if (personalization !== undefined) {
     if (!user.settings.personalization) {

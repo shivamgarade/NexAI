@@ -75,11 +75,10 @@ export const MORE_MODELS = [
 ];
 
 export const EFFORT_LEVELS = [
-  { id: 'low', name: 'Low', description: '' },
-  { id: 'medium', name: 'Medium', badge: 'Recommended', description: '' },
-  { id: 'high', name: 'High', description: '' },
-  { id: 'extra', name: 'Extra', description: '' },
-  { id: 'max', name: 'Max', warning: '5x or more usage', description: '' },
+  { id: 'off', name: 'Off', description: 'Immediate responses without reasoning' },
+  { id: 'low', name: 'Low', description: 'Brief internal reasoning' },
+  { id: 'medium', name: 'Medium', badge: 'Recommended', description: 'Balanced reasoning for complex questions' },
+  { id: 'high', name: 'High', description: 'Deep analytical thinking and proofs' },
 ];
 
 export const useChatStore = create((set, get) => ({

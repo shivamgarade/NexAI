@@ -2,6 +2,7 @@ import { Schedule } from '../models/Schedule.js';
 import { Chat } from '../models/Chat.js';
 import { Message } from '../models/Message.js';
 import { Document } from '../models/Document.js';
+import { LibraryItem } from '../models/LibraryItem.js';
 import { generateContent } from './gemini.service.js';
 import { assertBalance, deductCredits } from './credit.service.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -157,11 +158,12 @@ Today's date and time is ${new Date().toLocaleString('en-US')}.`;
 
     // If deliveryTarget is library, also archive a copy in Library
     if (schedule.deliveryTarget === 'library') {
-      await Document.create({
+      await LibraryItem.create({
         userId,
         title: `⏰ Schedule: ${schedule.title} (${new Date().toLocaleDateString()})`,
         content: text,
-        type: 'document',
+        summary: text.slice(0, 180).trim() + (text.length > 180 ? '...' : ''),
+        type: 'note',
         tags: ['schedule', 'automation', schedule.frequency],
       });
     }

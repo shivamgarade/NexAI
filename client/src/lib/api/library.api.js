@@ -66,7 +66,8 @@ export const libraryApi = {
     const response = await apiClient.get(`/library/documents/${id}/export.pdf`, {
       responseType: 'blob',
     });
-    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const blobData = response instanceof Blob ? response : response?.data || response;
+    const blob = blobData instanceof Blob ? blobData : new Blob([blobData], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

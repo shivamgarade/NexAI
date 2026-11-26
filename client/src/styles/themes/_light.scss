@@ -1,30 +1,35 @@
 [data-theme='light'] {
-  --color-bg-app: var(--gray-50);
-  --color-bg-surface: var(--gray-0);
-  --color-bg-elevated: var(--gray-0);
-  --color-bg-hover: var(--gray-100);
-  --color-border: var(--gray-200);
-  --color-text-primary: var(--gray-900);
-  --color-text-secondary: var(--gray-500);
-  --color-text-muted: var(--gray-400);
-  --color-accent: var(--green-600);
-  --color-accent-hover: var(--green-500);
-  --color-accent-contrast: var(--gray-0);
-  --color-accent-secondary: var(--green-500);
-  --color-accent-gradient: linear-gradient(135deg, var(--green-600) 0%, var(--green-500) 100%);
+  --color-bg-app: #f8fafc;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #ffffff;
+  --color-bg-hover: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-subtle: #edf2f7;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+  --color-accent: #4f46e5;
+  --color-accent-hover: #6366f1;
+  --color-accent-contrast: #ffffff;
+  --color-accent-secondary: #4338ca;
+  --color-accent-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
 
   /* NexAI Brand Logo Tokens */
-  --color-logo-primary: #16a34a;
-  --color-logo-accent: #22c55e;
-  --color-logo-glow: rgba(22, 163, 74, 0.2);
-  --color-logo-gradient: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+  --color-logo-primary: #4f46e5;
+  --color-logo-accent: #7c3aed;
+  --color-logo-glow: rgba(79, 70, 229, 0.25);
+  --color-logo-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
 
-  --color-success: var(--green-500);
-  --color-warning: var(--amber-500);
-  --color-danger: var(--red-500);
-  --color-info: var(--blue-500);
-  --color-focus-ring: rgba(34, 197, 94, 0.2);
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+  --color-focus-ring: rgba(79, 70, 229, 0.2);
   --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
   --shadow-md: 0 6px 20px rgb(16 24 40 / 0.08);
   --shadow-lg: 0 16px 48px rgb(16 24 40 / 0.12);
+
+  /* Modern Glass Effect Tokens */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.08);
 }

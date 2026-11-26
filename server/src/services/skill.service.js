@@ -61,8 +61,8 @@ export const SYSTEM_SKILLS = [
     description:
       'Designs normalized relational database models, entity relationships, indexes, and visual ER diagrams.',
     icon: 'Database',
-    category: 'Architecture',
-    tools: ['schema_modeling'],
+    category: 'Coding',
+    tools: ['code_execution', 'workspace_search'],
     instructions:
       'You are a Principal Database Architect. Model entity relationship diagrams, database schemas, foreign keys, and indexes.',
     isSystem: true,
