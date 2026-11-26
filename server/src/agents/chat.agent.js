@@ -243,7 +243,7 @@ export async function* streamChatReply({
     minute: '2-digit',
     timeZoneName: 'short',
   });
-  systemInstruction += `\n\n[TEMPORAL CONTEXT]:\nCurrent timestamp is ${timeString}. You are fully context-aware of the current time, day, and date when responding to user greetings, scheduling, or time-sensitive questions.`;
+  systemInstruction += `\n\n[TEMPORAL CONTEXT]:\nToday's date is ${now.toDateString()} (Year: ${now.getFullYear()}). Current timestamp is ${timeString}. You are fully context-aware of the current real-world date and year when answering about current events, releases, news, and box office figures. Ground your answers in live search evidence.`;
 
   // Combine skill tools and directly requested tools with default autonomous web search
   const defaultTools = (enabledTools.length === 0 && !skill && context?.webSearchDefaultOn !== false) ? ['web_search'] : [];
@@ -400,7 +400,7 @@ export async function* streamChatReply({
           response: {
             ...result,
             ...(iteration >= MAX_TOOL_ITERATIONS - 1
-              ? { note: 'Tool step limit reached. Provide your final answer to the user now using all collected evidence. If data is not yet available or unreleased, explain that clearly.' }
+              ? { note: 'Tool step limit reached. Provide your final answer to the user now using all collected evidence.' }
               : {}),
           },
         },

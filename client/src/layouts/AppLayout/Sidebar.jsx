@@ -907,69 +907,54 @@ export function Sidebar({ onItemClick, isMobile = false }) {
         )}
       </div>
 
-      {/* Merged Settings & Profile Footer Card */}
+      {/* Sleek Merged Profile & Settings Footer */}
       <div className={styles.footerSection}>
         {!isCollapsed ? (
-          <div className={styles.footerCard}>
-            {/* Quota Row */}
+          <div className={styles.footerBar}>
             <div
-              className={styles.quotaRow}
+              className={styles.userProfileBtn}
               role="button"
               tabIndex={0}
               onClick={() => {
                 onItemClick?.();
-                navigate(ROUTES.WALLET);
+                openSettingsModal('profile');
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   onItemClick?.();
-                  navigate(ROUTES.WALLET);
+                  openSettingsModal('profile');
                 }
               }}
-              title={`⚡ Daily Quota: ${quotaRemaining.toLocaleString()} / ${quotaLimit.toLocaleString()} calls remaining. Click to view usage.`}
-              aria-label="Daily Quota Status"
+              title={`Profile & Account (${userDisplayName})`}
+              aria-label="View Profile"
             >
-              <div className={styles.quotaStatus}>
-                <span className={styles.quotaPulseDot} />
-                <span className={styles.quotaTitle}>Daily Quota</span>
-              </div>
-              <div className={styles.quotaCountWrap}>
-                <Zap size={11} className={styles.quotaZap} />
-                <span className={styles.quotaCount}>{quotaRemaining.toLocaleString()}</span>
+              <Avatar name={userDisplayName} size="sm" />
+              <div className={styles.userInfo}>
+                <span className={styles.userName}>{userDisplayName}</span>
+                <span className={styles.userRole}>{userPlan}</span>
               </div>
             </div>
 
-            {/* Profile & Settings Row */}
-            <div className={styles.profileRow}>
-              <div
-                className={styles.profileClickArea}
-                role="button"
-                tabIndex={0}
-                onClick={() => {
+            <div className={styles.footerActions}>
+              <button
+                type="button"
+                className={styles.quotaPillBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
                   onItemClick?.();
-                  openSettingsModal('profile');
+                  navigate(ROUTES.WALLET);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onItemClick?.();
-                    openSettingsModal('profile');
-                  }
-                }}
-                title={`Profile & Account (${userDisplayName})`}
-                aria-label="View Profile"
+                title={`⚡ Daily Quota: ${quotaRemaining.toLocaleString()} / ${quotaLimit.toLocaleString()} calls remaining. Click to view usage.`}
+                aria-label="Daily Quota Status"
               >
-                <Avatar name={userDisplayName} size="sm" />
-                <div className={styles.profileInfo}>
-                  <span className={styles.profileName}>{userDisplayName}</span>
-                  <span className={styles.profileRole}>{userPlan}</span>
-                </div>
-              </div>
+                <Zap size={11} className={styles.quotaZap} />
+                <span>{quotaRemaining.toLocaleString()}</span>
+              </button>
 
               <button
                 type="button"
-                className={styles.settingsBtn}
+                className={styles.settingsIconBtn}
                 onClick={(e) => {
                   e.stopPropagation();
                   onItemClick?.();

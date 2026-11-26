@@ -41,6 +41,22 @@ import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils/cn';
 import styles from './SettingsModal.module.scss';
 
+const LIGHT_PRESETS = {
+  'Legacy Light': { bg: '#F9F9F9', fg: '#101010', accent: '#007ACC' },
+  'Pure White': { bg: '#FFFFFF', fg: '#0F172A', accent: '#4F46E5' },
+  'Soft Cream': { bg: '#FBFBFB', fg: '#1C1917', accent: '#059669' },
+  'GitHub Light': { bg: '#F6F8FA', fg: '#1F2328', accent: '#0969DA' },
+  'Solarized Light': { bg: '#FDF6E3', fg: '#002B36', accent: '#268BD2' },
+};
+
+const DARK_PRESETS = {
+  'Default Dark': { bg: '#070708', fg: '#FFFFFF', accent: '#A2FF00' },
+  'Obsidian OLED': { bg: '#000000', fg: '#EDEDED', accent: '#8B5CF6' },
+  'Tokyo Night': { bg: '#1A1B26', fg: '#C0CAF5', accent: '#7AA2F7' },
+  'Monokai Pro': { bg: '#2D2A2E', fg: '#FCFCFA', accent: '#FFD866' },
+  'Nord Midnight': { bg: '#2E3440', fg: '#ECEFF4', accent: '#88C0D0' },
+};
+
 export function SettingsModal() {
   const isOpen = useUiStore((state) => state.isSettingsModalOpen);
   const activeTab = useUiStore((state) => state.settingsModalTab || 'general');
@@ -54,6 +70,90 @@ export function SettingsModal() {
   const { governance, wallet, fetchWallet } = useWalletStore();
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(true);
+  const [isLightCodePreviewOpen, setIsLightCodePreviewOpen] = useState(false);
+  const [isDarkCodePreviewOpen, setIsDarkCodePreviewOpen] = useState(false);
+
+  const customColors = user?.settings?.customColors || {};
+  const lightBg = customColors.lightBg || '#F9F9F9';
+  const lightFg = customColors.lightFg || '#101010';
+  const lightAccent = customColors.lightAccent || '#007ACC';
+
+  const darkBg = customColors.darkBg || '#070708';
+  const darkFg = customColors.darkFg || '#FFFFFF';
+  const darkAccent = customColors.darkAccent || '#A2FF00';
+
+  const handleLightPresetChange = (presetName) => {
+    const preset = LIGHT_PRESETS[presetName] || LIGHT_PRESETS['Legacy Light'];
+    updateSettings({
+      themePresetLight: presetName,
+      customColors: {
+        ...customColors,
+        lightBg: preset.bg,
+        lightFg: preset.fg,
+        lightAccent: preset.accent,
+      },
+    });
+  };
+
+  const handleDarkPresetChange = (presetName) => {
+    const preset = DARK_PRESETS[presetName] || DARK_PRESETS['Default Dark'];
+    updateSettings({
+      themePresetDark: presetName,
+      customColors: {
+        ...customColors,
+        darkBg: preset.bg,
+        darkFg: preset.fg,
+        darkAccent: preset.accent,
+      },
+    });
+  };
+
+  const handleResetDarkTheme = () => {
+    handleDarkPresetChange('Default Dark');
+    toast.success('Dark theme reset to Default Dark');
+  };
+
+  const handleColorChange = (key, val) => {
+    updateSettings({
+      customColors: {
+        ...customColors,
+        [key]: val,
+      },
+    });
+  };
+
+  const renderColorPickerRow = (key, currentVal) => (
+    <div className={styles.colorInputGroup}>
+      <label className={styles.colorSwatchWrap}>
+        <input
+          type="color"
+          value={currentVal}
+          onChange={(e) => handleColorChange(key, e.target.value.toUpperCase())}
+          className={styles.hiddenColorInput}
+        />
+        <span
+          className={styles.colorSwatch}
+          style={{ backgroundColor: currentVal }}
+        />
+      </label>
+      <div className={styles.hexInputWrap}>
+        <span className={styles.hexHash}>#</span>
+        <input
+          type="text"
+          value={currentVal.replace(/^#/, '')}
+          maxLength={6}
+          onChange={(e) => {
+            const val = e.target.value.replace(/[^0-9A-Fa-f]/g, '');
+            if (val.length === 6) {
+              handleColorChange(key, `#${val.toUpperCase()}`);
+            }
+          }}
+          className={styles.hexInput}
+        />
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -75,7 +175,7 @@ export function SettingsModal() {
   if (!isOpen) return null;
 
   const currentModel = user?.settings?.defaultModel || 'flash';
-  const webSearchDefaultOn = user?.settings?.webSearchDefaultOn || false;
+  const webSearchDefaultOn = user?.settings?.webSearchDefaultOn !== false;
 
   const dailyLimit = governance?.dailyGeminiQuotaLimit || 1500;
   const requestsRemaining = governance?.dailyRequestsRemaining ?? dailyLimit;
@@ -92,15 +192,20 @@ export function SettingsModal() {
     }
   };
 
-  const handleThinkingChange = (e) => {
+  const handleThinkingChange = async (e) => {
     const level = e.target.value;
     setThinkingLevel(level);
+    const res = await updateSettings({ thinkingLevel: level });
+    if (res.success) {
+      toast.success(`Thinking depth set to ${level.toUpperCase()}`);
+    }
   };
 
   const handleWebSearchToggle = async () => {
-    const res = await updateSettings({ webSearchDefaultOn: !webSearchDefaultOn });
+    const nextVal = !webSearchDefaultOn;
+    const res = await updateSettings({ webSearchDefaultOn: nextVal });
     if (res.success) {
-      toast.success('Web search grounding updated');
+      toast.success(nextVal ? 'Web search grounding enabled' : 'Web search grounding disabled');
     }
   };
 
@@ -513,326 +618,16 @@ export function SettingsModal() {
               <div className={styles.appearanceContainer}>
                 {/* Header */}
                 <div className={styles.appearanceHeader}>
-                  <h3 className={styles.appearanceTitle}>Appearance & Display</h3>
+                  <h3 className={styles.appearanceTitle}>Appearance</h3>
                   <p className={styles.appearanceSubtitle}>
-                    Configure theme mode, designer color palettes, typography, and reading width.
+                    Configure the agent&apos;s visual theme and display preferences.
                   </p>
                 </div>
 
-                {/* Section 1: Interface Theme */}
+                {/* Section 1: Chat */}
                 <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Interface Theme</h4>
-                  <div className={styles.themeGrid}>
-                    <button
-                      type="button"
-                      className={cn(
-                        styles.themeChoiceCard,
-                        user?.settings?.theme === 'system' && styles.themeChoiceCardActive,
-                      )}
-                      onClick={() => updateSettings({ theme: 'system' })}
-                    >
-                      <div className={styles.themeIconWrap}>
-                        <Monitor size={18} />
-                      </div>
-                      <div className={styles.themeTextWrap}>
-                        <span className={styles.themeChoiceTitle}>System</span>
-                        <span className={styles.themeChoiceDesc}>Match your OS preference</span>
-                      </div>
-                      {user?.settings?.theme === 'system' && <Check size={16} className={styles.themeCheckIcon} />}
-                    </button>
-
-                    <button
-                      type="button"
-                      className={cn(
-                        styles.themeChoiceCard,
-                        (!isDark && user?.settings?.theme !== 'system') && styles.themeChoiceCardActive,
-                      )}
-                      onClick={() => {
-                        if (isDark) toggleTheme();
-                        updateSettings({ theme: 'light' });
-                      }}
-                    >
-                      <div className={styles.themeIconWrap}>
-                        <Sun size={18} />
-                      </div>
-                      <div className={styles.themeTextWrap}>
-                        <span className={styles.themeChoiceTitle}>Light Mode</span>
-                        <span className={styles.themeChoiceDesc}>Crisp daylight contrast</span>
-                      </div>
-                      {(!isDark && user?.settings?.theme !== 'system') && <Check size={16} className={styles.themeCheckIcon} />}
-                    </button>
-
-                    <button
-                      type="button"
-                      className={cn(
-                        styles.themeChoiceCard,
-                        (isDark && user?.settings?.theme !== 'system') && styles.themeChoiceCardActive,
-                      )}
-                      onClick={() => {
-                        if (!isDark) toggleTheme();
-                        updateSettings({ theme: 'dark' });
-                      }}
-                    >
-                      <div className={styles.themeIconWrap}>
-                        <Moon size={18} />
-                      </div>
-                      <div className={styles.themeTextWrap}>
-                        <span className={styles.themeChoiceTitle}>Dark Mode</span>
-                        <span className={styles.themeChoiceDesc}>Deep OLED obsidian</span>
-                      </div>
-                      {(isDark && user?.settings?.theme !== 'system') && <Check size={16} className={styles.themeCheckIcon} />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Section 2: Curated Color Palettes */}
-                <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>
-                    {isDark ? 'Dark Theme Palette' : 'Light Theme Palette'}
-                  </h4>
-                  <div className={styles.paletteGrid}>
-                    {isDark ? (
-                      <>
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.paletteCard,
-                            (user?.settings?.themePresetDark === 'Obsidian Noir' ||
-                              !user?.settings?.themePresetDark) &&
-                              styles.paletteCardActive,
-                          )}
-                          onClick={() => {
-                            updateSettings({
-                              themePresetDark: 'Obsidian Noir',
-                              customColors: {
-                                darkBg: '#09090b',
-                                darkAccent: '#10b981',
-                              },
-                            });
-                          }}
-                        >
-                          <div className={styles.paletteSwatches}>
-                            <span className={styles.swatchDot} style={{ background: '#09090b', border: '1px solid #27272a' }} />
-                            <span className={styles.swatchDot} style={{ background: '#10b981' }} />
-                          </div>
-                          <div className={styles.paletteInfo}>
-                            <span className={styles.paletteName}>Obsidian Noir</span>
-                            <span className={styles.paletteDesc}>Minimalist deep black with emerald accents</span>
-                          </div>
-                          {(user?.settings?.themePresetDark === 'Obsidian Noir' ||
-                            !user?.settings?.themePresetDark) && <Check size={14} className={styles.paletteCheck} />}
-                        </button>
-
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.paletteCard,
-                            user?.settings?.themePresetDark === 'Cyberpunk Glow' &&
-                              styles.paletteCardActive,
-                          )}
-                          onClick={() => {
-                            updateSettings({
-                              themePresetDark: 'Cyberpunk Glow',
-                              customColors: {
-                                darkBg: '#070708',
-                                darkAccent: '#a2ff00',
-                              },
-                            });
-                          }}
-                        >
-                          <div className={styles.paletteSwatches}>
-                            <span className={styles.swatchDot} style={{ background: '#070708', border: '1px solid #27272a' }} />
-                            <span className={styles.swatchDot} style={{ background: '#a2ff00' }} />
-                          </div>
-                          <div className={styles.paletteInfo}>
-                            <span className={styles.paletteName}>Cyberpunk Glow</span>
-                            <span className={styles.paletteDesc}>High-contrast carbon with electric lime</span>
-                          </div>
-                          {user?.settings?.themePresetDark === 'Cyberpunk Glow' && <Check size={14} className={styles.paletteCheck} />}
-                        </button>
-
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.paletteCard,
-                            user?.settings?.themePresetDark === 'Nordic Slate' &&
-                              styles.paletteCardActive,
-                          )}
-                          onClick={() => {
-                            updateSettings({
-                              themePresetDark: 'Nordic Slate',
-                              customColors: {
-                                darkBg: '#0f172a',
-                                darkAccent: '#6366f1',
-                              },
-                            });
-                          }}
-                        >
-                          <div className={styles.paletteSwatches}>
-                            <span className={styles.swatchDot} style={{ background: '#0f172a', border: '1px solid #334155' }} />
-                            <span className={styles.swatchDot} style={{ background: '#6366f1' }} />
-                          </div>
-                          <div className={styles.paletteInfo}>
-                            <span className={styles.paletteName}>Nordic Slate</span>
-                            <span className={styles.paletteDesc}>Slate navy base with electric indigo</span>
-                          </div>
-                          {user?.settings?.themePresetDark === 'Nordic Slate' && <Check size={14} className={styles.paletteCheck} />}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.paletteCard,
-                            (user?.settings?.themePresetLight === 'Clean Daylight' ||
-                              !user?.settings?.themePresetLight) &&
-                              styles.paletteCardActive,
-                          )}
-                          onClick={() => {
-                            updateSettings({
-                              themePresetLight: 'Clean Daylight',
-                              customColors: {
-                                lightBg: '#f8fafc',
-                                lightAccent: '#4f46e5',
-                              },
-                            });
-                          }}
-                        >
-                          <div className={styles.paletteSwatches}>
-                            <span className={styles.swatchDot} style={{ background: '#ffffff', border: '1px solid #cbd5e1' }} />
-                            <span className={styles.swatchDot} style={{ background: '#4f46e5' }} />
-                          </div>
-                          <div className={styles.paletteInfo}>
-                            <span className={styles.paletteName}>Clean Daylight</span>
-                            <span className={styles.paletteDesc}>Pure crisp white with royal indigo</span>
-                          </div>
-                          {(user?.settings?.themePresetLight === 'Clean Daylight' ||
-                            !user?.settings?.themePresetLight) && <Check size={14} className={styles.paletteCheck} />}
-                        </button>
-
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.paletteCard,
-                            user?.settings?.themePresetLight === 'Warm Minimal' &&
-                              styles.paletteCardActive,
-                          )}
-                          onClick={() => {
-                            updateSettings({
-                              themePresetLight: 'Warm Minimal',
-                              customColors: {
-                                lightBg: '#fbfbfb',
-                                lightAccent: '#059669',
-                              },
-                            });
-                          }}
-                        >
-                          <div className={styles.paletteSwatches}>
-                            <span className={styles.swatchDot} style={{ background: '#fbfbfb', border: '1px solid #cbd5e1' }} />
-                            <span className={styles.swatchDot} style={{ background: '#059669' }} />
-                          </div>
-                          <div className={styles.paletteInfo}>
-                            <span className={styles.paletteName}>Warm Minimal</span>
-                            <span className={styles.paletteDesc}>Warm cream paper with emerald green</span>
-                          </div>
-                          {user?.settings?.themePresetLight === 'Warm Minimal' && <Check size={14} className={styles.paletteCheck} />}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Section 3: Typography & Fonts */}
-                <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Typography</h4>
+                  <h4 className={styles.sectionHeading}>Chat</h4>
                   <div className={styles.groupCard}>
-                    <div className={styles.rowItem}>
-                      <div className={styles.rowText}>
-                        <span className={styles.rowTitle}>Font Family</span>
-                        <span className={styles.rowSubtitle}>
-                          Primary typeface across the entire workspace and UI.
-                        </span>
-                      </div>
-                      <select
-                        className={styles.nativeDropdown}
-                        value={user?.settings?.font || 'Plus Jakarta Sans'}
-                        onChange={(e) => updateSettings({ font: e.target.value })}
-                        aria-label="Font family"
-                      >
-                        <option value="Plus Jakarta Sans">Plus Jakarta Sans (Recommended • Modern AI)</option>
-                        <option value="Inter">Inter (Clean Neutral)</option>
-                        <option value="JetBrains Mono">JetBrains Mono (Developer Mono)</option>
-                        <option value="System Default">System Default</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.rowItem}>
-                      <div className={styles.rowText}>
-                        <span className={styles.rowTitle}>Font Size</span>
-                        <span className={styles.rowSubtitle}>
-                          Base font size for reading messages and editor text.
-                        </span>
-                      </div>
-                      <div className={styles.segmentedPill}>
-                        {[
-                          { id: '13px', label: '13px' },
-                          { id: '14px', label: '14px' },
-                          { id: '15px', label: '15px' },
-                          { id: '16px', label: '16px' },
-                        ].map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            className={cn(
-                              styles.segmentedPillBtn,
-                              (user?.settings?.fontSize || '14px') === s.id &&
-                                styles.segmentedPillBtnActive,
-                            )}
-                            onClick={() => updateSettings({ fontSize: s.id })}
-                          >
-                            {s.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 4: Chat & Reading Layout */}
-                <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Chat & Reading Layout</h4>
-                  <div className={styles.groupCard}>
-                    <div className={styles.rowItem}>
-                      <div className={styles.rowText}>
-                        <span className={styles.rowTitle}>Conversation Width</span>
-                        <span className={styles.rowSubtitle}>
-                          Maximum width of chat messages and markdown blocks.
-                        </span>
-                      </div>
-                      <div className={styles.segmentedPill}>
-                        {[
-                          { id: 'narrow', label: 'Narrow' },
-                          { id: 'default', label: 'Default' },
-                          { id: 'wide', label: 'Wide' },
-                          { id: 'fill', label: 'Full Width' },
-                        ].map((w) => (
-                          <button
-                            key={w.id}
-                            type="button"
-                            className={cn(
-                              styles.segmentedPillBtn,
-                              (user?.settings?.conversationWidth || 'wide') === w.id &&
-                                styles.segmentedPillBtnActive,
-                            )}
-                            onClick={() => updateSettings({ conversationWidth: w.id })}
-                          >
-                            {w.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
                     <div className={styles.rowItem}>
                       <div className={styles.rowText}>
                         <span className={styles.rowTitle}>Conversation steps</span>
@@ -860,24 +655,395 @@ export function SettingsModal() {
                   </div>
                 </div>
 
-                {/* Section 5: Accessibility */}
+                {/* Section 2: Appearance Controls (Theme, Contrast, Font, Font size) */}
                 <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Accessibility</h4>
+                  <h4 className={styles.sectionHeading}>Appearance</h4>
                   <div className={styles.groupCard}>
+                    {/* Theme */}
                     <div className={styles.rowItem}>
                       <div className={styles.rowText}>
-                        <span className={styles.rowTitle}>Screen reader mode</span>
-                        <span className={styles.rowSubtitle}>
-                          Optimize the interface and terminal output for screen readers.
-                        </span>
+                        <span className={styles.rowTitle}>Theme</span>
                       </div>
-                      <Switch
-                        checked={Boolean(user?.settings?.screenReaderMode)}
-                        onChange={(checked) => updateSettings({ screenReaderMode: checked })}
-                        aria-label="Toggle screen reader mode"
-                      />
+                      <div className={styles.segmentedIcons}>
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.segmentedIconBtn,
+                            user?.settings?.theme === 'system' && styles.segmentedIconBtnActive,
+                          )}
+                          onClick={() => {
+                            updateSettings({ theme: 'system' });
+                            useUiStore.getState().setTheme('system');
+                          }}
+                          title="System Theme (Match OS)"
+                          aria-label="System Theme"
+                        >
+                          <Monitor size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.segmentedIconBtn,
+                            (user?.settings?.theme === 'light' || (!isDark && user?.settings?.theme !== 'system')) &&
+                              styles.segmentedIconBtnActive,
+                          )}
+                          onClick={() => {
+                            if (isDark) toggleTheme();
+                            updateSettings({ theme: 'light' });
+                            useUiStore.getState().setTheme('light');
+                          }}
+                          title="Light Mode"
+                          aria-label="Light Mode"
+                        >
+                          <Sun size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.segmentedIconBtn,
+                            (user?.settings?.theme === 'dark' || (isDark && user?.settings?.theme !== 'system')) &&
+                              styles.segmentedIconBtnActive,
+                          )}
+                          onClick={() => {
+                            if (!isDark) toggleTheme();
+                            updateSettings({ theme: 'dark' });
+                            useUiStore.getState().setTheme('dark');
+                          }}
+                          title="Dark Mode"
+                          aria-label="Dark Mode"
+                        >
+                          <Moon size={15} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Contrast */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Contrast</span>
+                      </div>
+                      <div className={styles.segmentedPill}>
+                        {['default', 'strong'].map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            className={cn(
+                              styles.segmentedPillBtn,
+                              (user?.settings?.contrast || 'default') === c &&
+                                styles.segmentedPillBtnActive,
+                            )}
+                            onClick={() => updateSettings({ contrast: c })}
+                          >
+                            {c.charAt(0).toUpperCase() + c.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Font */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Font</span>
+                      </div>
+                      <select
+                        className={styles.nativeDropdown}
+                        value={user?.settings?.font || 'Google Sans'}
+                        onChange={(e) => updateSettings({ font: e.target.value })}
+                        aria-label="Font family"
+                      >
+                        <option value="Google Sans">Google Sans</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Geist">Geist</option>
+                        <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                        <option value="JetBrains Mono">JetBrains Mono</option>
+                        <option value="Fira Code">Fira Code</option>
+                        <option value="System Default">System Default</option>
+                      </select>
+                    </div>
+
+                    {/* Font size */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Font size</span>
+                      </div>
+                      <select
+                        className={styles.nativeDropdown}
+                        value={user?.settings?.fontSize || '14px'}
+                        onChange={(e) => updateSettings({ fontSize: e.target.value })}
+                        aria-label="Font size"
+                      >
+                        <option value="12px">12px</option>
+                        <option value="13px">13px</option>
+                        <option value="14px">14px</option>
+                        <option value="15px">15px</option>
+                        <option value="16px">16px</option>
+                      </select>
                     </div>
                   </div>
+                </div>
+
+                {/* Section 3: Light Theme */}
+                <div className={styles.appearanceSection}>
+                  <h4 className={styles.sectionHeading}>Light Theme</h4>
+                  <div className={styles.groupCard}>
+                    {/* Preset */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Preset</span>
+                      </div>
+                      <select
+                        className={styles.nativeDropdown}
+                        value={user?.settings?.themePresetLight || 'Legacy Light'}
+                        onChange={(e) => handleLightPresetChange(e.target.value)}
+                        aria-label="Light theme preset"
+                      >
+                        <option value="Legacy Light">Legacy Light</option>
+                        <option value="Pure White">Pure White</option>
+                        <option value="Soft Cream">Soft Cream</option>
+                        <option value="GitHub Light">GitHub Light</option>
+                        <option value="Solarized Light">Solarized Light</option>
+                      </select>
+                    </div>
+
+                    {/* Background */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Background</span>
+                      </div>
+                      {renderColorPickerRow('lightBg', lightBg)}
+                    </div>
+
+                    {/* Foreground */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Foreground</span>
+                      </div>
+                      {renderColorPickerRow('lightFg', lightFg)}
+                    </div>
+
+                    {/* Accent */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Accent</span>
+                      </div>
+                      {renderColorPickerRow('lightAccent', lightAccent)}
+                    </div>
+
+                    {/* Code Preview Accordion */}
+                    <div className={styles.codePreviewWrapper}>
+                      <button
+                        type="button"
+                        className={styles.codePreviewTrigger}
+                        onClick={() => setIsLightCodePreviewOpen((prev) => !prev)}
+                        aria-expanded={isLightCodePreviewOpen}
+                      >
+                        <span>Code Preview</span>
+                        {isLightCodePreviewOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                      {isLightCodePreviewOpen && (
+                        <div
+                          className={styles.codePreviewBox}
+                          style={{
+                            backgroundColor: lightBg,
+                            color: lightFg,
+                            borderColor: 'rgba(128, 128, 128, 0.2)',
+                          }}
+                        >
+                          <div className={styles.codePreviewLine}>
+                            <span style={{ color: lightAccent, fontWeight: 600 }}>function</span>{' '}
+                            <span style={{ color: lightFg, fontWeight: 600 }}>calculateTotal</span>
+                            <span>(tokens, rate) &#123;</span>
+                          </div>
+                          <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
+                            <span style={{ opacity: 0.6 }}>// Real-time utility billing computation</span>
+                          </div>
+                          <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
+                            <span style={{ color: lightAccent, fontWeight: 600 }}>const</span> credits = Math.ceil(tokens / rate);
+                          </div>
+                          <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
+                            <span style={{ color: lightAccent, fontWeight: 600 }}>return</span> credits;
+                          </div>
+                          <div className={styles.codePreviewLine}>
+                            <span>&#125;</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 4: Dark Theme */}
+                <div className={styles.appearanceSection}>
+                  <h4 className={styles.sectionHeading}>Dark Theme</h4>
+                  <div className={styles.groupCard}>
+                    {/* Preset with Reset Icon */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Preset</span>
+                      </div>
+                      <div className={styles.presetSelectGroup}>
+                        <button
+                          type="button"
+                          className={styles.resetBtn}
+                          onClick={handleResetDarkTheme}
+                          title="Reset to Default Dark"
+                          aria-label="Reset dark theme"
+                        >
+                          <RotateCcw size={13} />
+                        </button>
+                        <select
+                          className={styles.nativeDropdown}
+                          value={user?.settings?.themePresetDark || 'Default Dark'}
+                          onChange={(e) => handleDarkPresetChange(e.target.value)}
+                          aria-label="Dark theme preset"
+                        >
+                          <option value="Default Dark">Default Dark</option>
+                          <option value="Obsidian OLED">Obsidian OLED</option>
+                          <option value="Tokyo Night">Tokyo Night</option>
+                          <option value="Monokai Pro">Monokai Pro</option>
+                          <option value="Nord Midnight">Nord Midnight</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Background */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Background</span>
+                      </div>
+                      {renderColorPickerRow('darkBg', darkBg)}
+                    </div>
+
+                    {/* Foreground */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Foreground</span>
+                      </div>
+                      {renderColorPickerRow('darkFg', darkFg)}
+                    </div>
+
+                    {/* Accent */}
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Accent</span>
+                      </div>
+                      {renderColorPickerRow('darkAccent', darkAccent)}
+                    </div>
+
+                    {/* Code Preview Accordion */}
+                    <div className={styles.codePreviewWrapper}>
+                      <button
+                        type="button"
+                        className={styles.codePreviewTrigger}
+                        onClick={() => setIsDarkCodePreviewOpen((prev) => !prev)}
+                        aria-expanded={isDarkCodePreviewOpen}
+                      >
+                        <span>Code Preview</span>
+                        {isDarkCodePreviewOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                      {isDarkCodePreviewOpen && (
+                        <div
+                          className={styles.codePreviewBox}
+                          style={{
+                            backgroundColor: darkBg,
+                            color: darkFg,
+                            borderColor: 'rgba(128, 128, 128, 0.2)',
+                          }}
+                        >
+                          <div className={styles.codePreviewLine}>
+                            <span style={{ color: darkAccent, fontWeight: 600 }}>function</span>{' '}
+                            <span style={{ color: darkFg, fontWeight: 600 }}>calculateTotal</span>
+                            <span>(tokens, rate) &#123;</span>
+                          </div>
+                          <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
+                            <span style={{ opacity: 0.6 }}>// Real-time utility billing computation</span>
+                          </div>
+                          <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
+                            <span style={{ color: darkAccent, fontWeight: 600 }}>const</span> credits = Math.ceil(tokens / rate);
+                          </div>
+                          <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
+                            <span style={{ color: darkAccent, fontWeight: 600 }}>return</span> credits;
+                          </div>
+                          <div className={styles.codePreviewLine}>
+                            <span>&#125;</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 5: Advanced Settings (Expandable Accordion) */}
+                <div className={styles.appearanceSection}>
+                  <button
+                    type="button"
+                    className={styles.advancedAccordionHeader}
+                    onClick={() => setIsAdvancedOpen((prev) => !prev)}
+                    aria-expanded={isAdvancedOpen}
+                  >
+                    <span>Advanced Settings</span>
+                    {isAdvancedOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                  </button>
+
+                  {isAdvancedOpen && (
+                    <div className={styles.advancedAccordionContent}>
+                      {/* Chat Layout */}
+                      <div className={styles.advancedSubSection}>
+                        <h5 className={styles.subHeading}>Chat Layout</h5>
+                        <div className={styles.groupCard}>
+                          <div className={styles.rowItem}>
+                            <div className={styles.rowText}>
+                              <span className={styles.rowTitle}>Conversation width</span>
+                              <span className={styles.rowSubtitle}>
+                                Configure the maximum width of the conversation panel.
+                              </span>
+                            </div>
+                            <div className={styles.segmentedPill}>
+                              {[
+                                { id: 'narrow', label: 'Narrow' },
+                                { id: 'default', label: 'Default' },
+                                { id: 'wide', label: 'Wide' },
+                                { id: 'fill', label: 'Fill' },
+                              ].map((w) => (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  className={cn(
+                                    styles.segmentedPillBtn,
+                                    (user?.settings?.conversationWidth || 'wide') === w.id &&
+                                      styles.segmentedPillBtnActive,
+                                  )}
+                                  onClick={() => updateSettings({ conversationWidth: w.id })}
+                                >
+                                  {w.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Accessibility */}
+                      <div className={styles.advancedSubSection}>
+                        <h5 className={styles.subHeading}>Accessibility</h5>
+                        <div className={styles.groupCard}>
+                          <div className={styles.rowItem}>
+                            <div className={styles.rowText}>
+                              <span className={styles.rowTitle}>Screen reader mode</span>
+                              <span className={styles.rowSubtitle}>
+                                Optimize the interface and terminal output for screen readers.
+                              </span>
+                            </div>
+                            <Switch
+                              checked={Boolean(user?.settings?.screenReaderMode)}
+                              onChange={(checked) => updateSettings({ screenReaderMode: checked })}
+                              aria-label="Toggle screen reader mode"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

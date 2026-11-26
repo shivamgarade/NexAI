@@ -237,17 +237,39 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: var(--space-3);
+  min-height: 480px;
+  align-content: start;
+  transition: opacity 150ms ease-out;
 }
 
 .loadingGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: var(--space-3);
+  min-height: 480px;
 }
 
 .skeletonCard {
   height: 150px;
   border-radius: var(--radius-md);
+}
+
+.loadMoreContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-4) 0;
+}
+
+.loadMoreBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.countHint {
+  font-size: 11px;
+  color: var(--color-text-muted);
 }
 
 .embeddedTabWrapper {

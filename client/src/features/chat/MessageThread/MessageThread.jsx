@@ -286,10 +286,8 @@ const MessageItem = React.memo(function MessageItem({
       <div className={styles.avatarWrapper}>
         {isUser ? (
           <Avatar name={userEmail || 'User'} size="sm" />
-        ) : isCurrentlyStreaming && !message.content ? (
-          <ThinkingIndicator variant="dots" size="sm" />
         ) : (
-          <div className={styles.aiAvatar}>
+          <div className={cn(styles.aiAvatar, isCurrentlyStreaming && styles.aiAvatarStreaming)}>
             <NexAiLogo size={22} className={styles.avatarLogo} />
           </div>
         )}

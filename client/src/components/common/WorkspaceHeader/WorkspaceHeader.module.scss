@@ -1,0 +1,156 @@
+@use '@/styles/abstracts' as *;
+
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky, 100);
+  background: color-mix(in srgb, var(--color-bg-app) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 0;
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.commandRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.mobileMenuBtn {
+  display: flex;
+  align-items: center;
+
+  @include up(md) {
+    display: none;
+  }
+}
+
+.titleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+
+  .titleIcon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .titleText {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+}
+
+.segmentedTabs {
+  display: inline-flex;
+  align-items: center;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  gap: 2px;
+  overflow-x: auto;
+  @include custom-scrollbar;
+}
+
+.segmentedTabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) ease;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+  }
+
+  &.segmentedTabActive {
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+
+    .tabBadge {
+      background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+      color: var(--color-accent);
+      border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    }
+  }
+}
+
+.tabIcon {
+  display: flex;
+  align-items: center;
+}
+
+.tabLabel {
+  display: inline;
+}
+
+.tabBadge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.actionsGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.searchWrapper {
+  width: 220px;
+
+  @include down(sm) {
+    width: 140px;
+  }
+}
+
+.subFilterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: 2px;
+}

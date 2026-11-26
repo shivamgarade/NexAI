@@ -92,7 +92,7 @@ export default function SettingsPage() {
   };
 
   const currentModel = user?.settings?.defaultModel || 'flash';
-  const webSearchDefaultOn = user?.settings?.webSearchDefaultOn || false;
+  const webSearchDefaultOn = user?.settings?.webSearchDefaultOn !== false;
   const toolExecutionMode = user?.settings?.toolExecutionMode || 'auto';
 
   const dailyLimit = governance?.dailyGeminiQuotaLimit || 1500;
@@ -140,16 +140,20 @@ export default function SettingsPage() {
     }
   };
 
-  const handleThinkingChange = (e) => {
+  const handleThinkingChange = async (e) => {
     const level = e.target.value;
     setThinkingLevel(level);
-    toast.success(`Thinking depth set to ${level.toUpperCase()}`);
+    const res = await updateSettings({ thinkingLevel: level });
+    if (res.success) {
+      toast.success(`Thinking depth set to ${level.toUpperCase()}`);
+    }
   };
 
   const handleWebSearchToggle = async () => {
-    const res = await updateSettings({ webSearchDefaultOn: !webSearchDefaultOn });
+    const nextVal = !webSearchDefaultOn;
+    const res = await updateSettings({ webSearchDefaultOn: nextVal });
     if (res.success) {
-      toast.success('Web search default updated');
+      toast.success(nextVal ? 'Web search default enabled' : 'Web search default disabled');
     }
   };
 

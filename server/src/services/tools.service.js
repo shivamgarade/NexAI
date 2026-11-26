@@ -116,6 +116,55 @@ export async function performWebSearch(query) {
     logger.warn({ error: groundingErr.message, query: cleanQuery }, 'Gemini Google Grounding search tier bypassed, cascading to free web APIs');
   }
 
+  // Tier 1.5: Google Real-Time Live Feed Search (100% Free, live real-time articles & news, zero 429 quota exhaustion)
+  try {
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(cleanQuery)}&hl=en-IN&gl=IN&ceid=IN:en`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+    const rssRes = await fetch(rssUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (rssRes.ok) {
+      const xml = await rssRes.text();
+      const $ = cheerio.load(xml, { xmlMode: true });
+      const googleResults = [];
+      $('item').each((_, el) => {
+        if (googleResults.length >= 6) return;
+        const title = $(el).find('title').text().trim();
+        const link = $(el).find('link').text().trim();
+        const pubDate = $(el).find('pubDate').text().trim();
+        const descRaw = $(el).find('description').text();
+        const descText = descRaw.replace(/<[^>]+>/g, '').trim();
+
+        if (title && link) {
+          googleResults.push({
+            title,
+            snippet: descText ? `${title} — ${descText}` : `${title} (${pubDate})`,
+            url: link,
+            publishedAt: pubDate,
+          });
+        }
+      });
+
+      if (googleResults.length > 0) {
+        return {
+          query: cleanQuery,
+          source: 'Google Live Search',
+          resultsCount: googleResults.length,
+          results: googleResults,
+        };
+      }
+    }
+  } catch (rssErr) {
+    logger.warn({ error: rssErr.message, query: cleanQuery }, 'Google Live Search tier bypassed, attempting other search tiers');
+  }
+
   // 2. Tier 2: DuckDuckGo Instant Answer API & DuckDuckGo Lite (100% Free, no JS challenge)
   try {
     const ddgResults = [];

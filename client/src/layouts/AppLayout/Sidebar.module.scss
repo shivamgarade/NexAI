@@ -896,10 +896,11 @@
   background-color: var(--color-bg-surface);
 }
 
-.footerCard {
+.footerBar {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 6px 8px;
   border-radius: var(--radius-lg);
   background-color: var(--color-bg-elevated);
@@ -915,81 +916,7 @@
   }
 }
 
-.quotaRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 8px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-app));
-  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-standard);
-
-  &:hover {
-    background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-app));
-  }
-}
-
-.quotaStatus {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.quotaPulseDot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-success, #10b981);
-  box-shadow: 0 0 6px var(--color-success, #10b981);
-  animation: pulseDot 2s infinite ease-in-out;
-}
-
-@keyframes pulseDot {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(0.85);
-  }
-}
-
-.quotaTitle {
-  font-size: 11px;
-  font-weight: var(--weight-medium);
-  color: var(--color-text-secondary);
-}
-
-.quotaCountWrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: var(--weight-semibold);
-  color: var(--color-accent);
-}
-
-.quotaZap {
-  color: var(--color-accent);
-  fill: currentColor;
-}
-
-.quotaCount {
-  font-variant-numeric: tabular-nums;
-}
-
-.profileRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 2px 4px;
-}
-
-.profileClickArea {
+.userProfileBtn {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1005,28 +932,61 @@
   }
 }
 
-.profileInfo {
+.userInfo {
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
 }
 
-.profileName {
+.userName {
   font-size: 13px;
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
   @include text-truncate;
 }
 
-.profileRole {
+.userRole {
   font-size: 10px;
   font-weight: var(--weight-medium);
   color: var(--color-text-muted);
   text-transform: capitalize;
 }
 
-.settingsBtn {
+.footerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.quotaPillBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-app));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-app));
+    transform: translateY(-0.5px);
+  }
+}
+
+.quotaZap {
+  color: var(--color-accent);
+  fill: currentColor;
+}
+
+.settingsIconBtn {
   display: flex;
   align-items: center;
   justify-content: center;

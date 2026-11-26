@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -14,17 +14,14 @@ import {
   X,
   ArrowUpDown,
   FileText,
-  Menu,
 } from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
-import { SearchBar } from '@/components/common/SearchBar';
+import { WorkspaceHeader } from '@/components/common/WorkspaceHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
-import { IconButton } from '@/components/ui/IconButton';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useUiStore, toast } from '@/store/uiStore';
+import { toast } from '@/store/uiStore';
 import {
   LibraryCard,
   EditItemModal,
@@ -132,6 +129,17 @@ export default function LibraryPage() {
 
   const [localSearch, setLocalSearch] = useState('');
   const debouncedSearch = useDebounce(localSearch, 350);
+
+  // Client-side pagination batch to prevent lagging or freeze when loading many items
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [activeTab, debouncedSearch, activeTag]);
+
+  const displayedItems = useMemo(() => {
+    return items.slice(0, visibleCount);
+  }, [items, visibleCount]);
 
   // Sync tab with URL query parameter
   useEffect(() => {
@@ -285,60 +293,24 @@ export default function LibraryPage() {
 
   return (
     <div className={styles.page}>
-      {/* Pinned Sticky Command Header: Compact, Minimal, Zero Bloat */}
-      <header className={styles.stickyHeader}>
-        <div className={styles.commandRow}>
-          {/* Left: Mobile Menu + Library Title + Segmented Tabs */}
-          <div className={styles.navLeft}>
-            <div className={styles.mobileMenuBtn}>
-              <IconButton
-                icon={<Menu size={18} />}
-                label="Open menu"
-                size="sm"
-                variant="ghost"
-                onClick={() => setDrawerOpen(true)}
-              />
-            </div>
-
-            <div className={styles.titleBadge}>
-              <Bookmark size={15} className={styles.titleIcon} />
-              <span className={styles.titleText}>Library</span>
-            </div>
-
-            <div className={styles.segmentedTabs} role="tablist">
-              {TABS.map((tab) => {
-                const count = counts?.[tab.id] ?? 0;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    role="tab"
-                    aria-selected={isActive}
-                    type="button"
-                    className={cn(styles.tabBtn, isActive && styles.activeTab)}
-                    onClick={() => handleTabChange(tab.id)}
-                  >
-                    <span className={styles.tabIconWrap}>{tab.icon}</span>
-                    <span className={styles.tabLabel}>{tab.label}</span>
-                    {count > 0 && <span className={styles.tabCount}>{count}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Right: Search + Sort + Filter + Add Dropdown */}
-          <div className={styles.actionsGroup}>
-            <div className={styles.searchWrapper}>
-              <SearchBar
-                value={localSearch}
-                onChange={setLocalSearch}
-                onClear={handleClearSearch}
-                placeholder="Search library..."
-                size="sm"
-              />
-            </div>
-
+      {/* Higher-Order Workspace Header: Unified Layout Skeleton */}
+      <WorkspaceHeader
+        titleIcon={<Bookmark size={15} />}
+        titleText="Library"
+        tabs={TABS.map((tab) => ({
+          id: tab.id,
+          label: tab.label,
+          icon: tab.icon,
+          count: counts?.[tab.id] ?? 0,
+        }))}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        search={localSearch}
+        onSearchChange={(e) => setLocalSearch(e.target.value)}
+        onSearchClear={handleClearSearch}
+        searchPlaceholder="Search notes, files, docs..."
+        actions={
+          <>
             <Dropdown
               align="right"
               trigger={
@@ -381,43 +353,43 @@ export default function LibraryPage() {
               }
               items={actionDropdownItems}
             />
-          </div>
-        </div>
-
-        {/* Active Tag or Semantic Search Banner (Only when active) */}
-        {(activeTag || isSearchActive) && (
-          <div className={styles.filterBanner}>
-            {activeTag && (
-              <div className={styles.activeTagBadge}>
-                <span className={styles.activeTagText}>#{activeTag}</span>
-                <button
-                  type="button"
-                  className={styles.activeTagRemoveBtn}
-                  onClick={() => setActiveTag(null)}
-                  aria-label="Remove filter"
-                >
-                  <X size={11} />
-                </button>
-              </div>
-            )}
-            {isSearchActive && (
-              <div className={styles.semanticIndicator}>
-                <Sparkles size={13} className={styles.semanticIcon} />
-                <span>
-                  Semantic search for <span className={styles.semanticQuery}>&ldquo;{debouncedSearch}&rdquo;</span>
-                </span>
-                <button
-                  type="button"
-                  className={styles.clearSearchBtn}
-                  onClick={handleClearSearch}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </header>
+          </>
+        }
+        subFilters={
+          (activeTag || isSearchActive) && (
+            <div className={styles.filterBanner}>
+              {activeTag && (
+                <div className={styles.activeTagBadge}>
+                  <span className={styles.activeTagText}>#{activeTag}</span>
+                  <button
+                    type="button"
+                    className={styles.activeTagRemoveBtn}
+                    onClick={() => setActiveTag(null)}
+                    aria-label="Remove filter"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              )}
+              {isSearchActive && (
+                <div className={styles.semanticIndicator}>
+                  <Sparkles size={13} className={styles.semanticIcon} />
+                  <span>
+                    Semantic search for <span className={styles.semanticQuery}>&ldquo;{debouncedSearch}&rdquo;</span>
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.clearSearchBtn}
+                    onClick={handleClearSearch}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        }
+      />
 
       {/* Loading Skeletons */}
       {(isLoading || isSearching) && items.length === 0 ? (
@@ -425,16 +397,12 @@ export default function LibraryPage() {
           {Array.from({ length: 6 }).map((_, idx) => (
             <div key={idx} className={styles.skeletonCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Skeleton width={28} height={28} radius="sm" />
-                <Skeleton width={60} height={18} radius="sm" />
+                <Skeleton width={24} height={24} radius="sm" />
+                <Skeleton width={50} height={16} radius="sm" />
               </div>
-              <Skeleton width="80%" height={22} radius="sm" />
-              <Skeleton width="100%" height={16} radius="sm" />
-              <Skeleton width="90%" height={16} radius="sm" />
-              <div style={{ marginTop: 'auto', display: 'flex', gap: '6px' }}>
-                <Skeleton width={50} height={20} radius="full" />
-                <Skeleton width={60} height={20} radius="full" />
-              </div>
+              <Skeleton width="75%" height={18} radius="sm" />
+              <Skeleton width="100%" height={14} radius="sm" />
+              <Skeleton width="85%" height={14} radius="sm" />
             </div>
           ))}
         </div>
@@ -461,13 +429,11 @@ export default function LibraryPage() {
       ) : (
         <>
           <div className={styles.grid}>
-            {items.map((item) => (
+            {displayedItems.map((item) => (
               <LibraryCard
                 key={item._id}
                 item={item}
-                activeTag={activeTag}
                 onCardClick={openViewItemModal}
-                onTagClick={(tag) => setActiveTag(tag)}
                 onEdit={openEditModal}
                 onDelete={openDeleteDialog}
                 onTogglePin={togglePinItem}
@@ -476,7 +442,22 @@ export default function LibraryPage() {
             ))}
           </div>
 
-          {page < totalPages && !searchQuery && (
+          {/* Pagination: Lazy batch loading */}
+          {displayedItems.length < items.length ? (
+            <div className={styles.loadMoreContainer}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setVisibleCount((prev) => prev + 12)}
+                className={styles.loadMoreBtn}
+              >
+                <span>Show More Items</span>
+                <span className={styles.pageCountHint}>
+                  ({displayedItems.length} of {items.length})
+                </span>
+              </Button>
+            </div>
+          ) : page < totalPages && !searchQuery ? (
             <div className={styles.loadMoreContainer}>
               <Button
                 variant="secondary"
@@ -492,7 +473,7 @@ export default function LibraryPage() {
                   </>
                 ) : (
                   <>
-                    <span>Load More Items</span>
+                    <span>Fetch More from Cloud</span>
                     <span className={styles.pageCountHint}>
                       ({items.length} of {total})
                     </span>
@@ -500,7 +481,7 @@ export default function LibraryPage() {
                 )}
               </Button>
             </div>
-          )}
+          ) : null}
         </>
       )}
 

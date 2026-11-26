@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema(
     settings: {
       theme: {
         type: String,
-        enum: ['dark', 'light'],
+        enum: ['dark', 'light', 'system'],
         default: 'dark',
       },
       defaultModel: {

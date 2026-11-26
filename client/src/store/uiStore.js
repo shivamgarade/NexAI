@@ -34,7 +34,13 @@ export const useUiStore = create((set, get) => ({
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('nexai_theme', theme);
-      document.documentElement.dataset.theme = theme;
+      const effectiveTheme =
+        theme === 'system'
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+          : theme;
+      document.documentElement.dataset.theme = effectiveTheme;
     }
     set({ theme });
   },

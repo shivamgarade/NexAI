@@ -278,7 +278,10 @@
 .grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  min-height: 480px;
+  align-content: start;
+  transition: opacity 150ms ease-out;
 
   @media (min-width: 640px) {
     grid-template-columns: repeat(2, 1fr);
@@ -328,12 +331,12 @@
 .skeletonCard {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: 12px 14px;
   background-color: var(--color-bg-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  min-height: 180px;
+  border-radius: var(--radius-lg, 12px);
+  min-height: 120px;
 }
 
 .errorState {

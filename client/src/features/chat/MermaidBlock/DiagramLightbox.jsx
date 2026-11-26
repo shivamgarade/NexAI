@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
+import mermaid from 'mermaid';
 import {
   Workflow,
   X,
@@ -19,17 +20,36 @@ import styles from './DiagramLightbox.module.scss';
 export function DiagramLightbox({
   isOpen,
   onClose,
-  svgContent,
+  svgContent: initialSvg,
   title = 'Architecture Diagram',
+  rawChart = '',
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [copiedSvg, setCopiedSvg] = useState(false);
+  const [renderedSvg, setRenderedSvg] = useState(initialSvg || '');
 
   const viewportRef = useRef(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef({ x: 0, y: 0 });
+
+  // Sync or compile SVG whenever lightbox opens or content updates
+  useEffect(() => {
+    if (initialSvg) {
+      setRenderedSvg(initialSvg);
+    } else if (isOpen && rawChart) {
+      const renderId = `nexai-lightbox-${Date.now()}`;
+      mermaid
+        .render(renderId, rawChart.trim())
+        .then(({ svg }) => {
+          setRenderedSvg(svg);
+        })
+        .catch((err) => {
+          console.error('Lightbox mermaid compilation fallback failed:', err);
+        });
+    }
+  }, [initialSvg, rawChart, isOpen]);
 
   // Reset zoom & pan whenever the lightbox is opened
   useEffect(() => {
@@ -159,9 +179,10 @@ export function DiagramLightbox({
 
   const handleCopySvg = async (e) => {
     e.stopPropagation();
-    if (!svgContent) return;
+    const svgToCopy = renderedSvg || initialSvg;
+    if (!svgToCopy) return;
     try {
-      await navigator.clipboard.writeText(svgContent);
+      await navigator.clipboard.writeText(svgToCopy);
       setCopiedSvg(true);
       toast.success('Diagram SVG copied to clipboard');
       setTimeout(() => setCopiedSvg(false), 2000);
@@ -172,9 +193,10 @@ export function DiagramLightbox({
 
   const handleDownloadSvg = (e) => {
     e.stopPropagation();
-    if (!svgContent) return;
+    const svgToDownload = renderedSvg || initialSvg;
+    if (!svgToDownload) return;
     try {
-      const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+      const blob = new Blob([svgToDownload], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -296,7 +318,7 @@ export function DiagramLightbox({
             transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom})`,
             transformOrigin: 'center center',
           }}
-          dangerouslySetInnerHTML={{ __html: svgContent }}
+          dangerouslySetInnerHTML={{ __html: renderedSvg || initialSvg || '' }}
         />
       </div>
 

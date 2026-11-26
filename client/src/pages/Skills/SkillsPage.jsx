@@ -3,22 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Zap,
   Plus,
-  Search,
-  Sparkles,
   Terminal,
   Clock,
-  Layers,
-  Sliders,
-  Menu,
-  X,
 } from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
+import { WorkspaceHeader } from '@/components/common/WorkspaceHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
-import { IconButton } from '@/components/ui/IconButton';
-import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { Tabs } from '@/components/ui/Tabs';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import {
   SkillCard,
@@ -33,7 +24,6 @@ import { useSkillStore } from '@/store/skillStore';
 import { useChatStore } from '@/store/chatStore';
 import { useScheduleStore } from '@/store/scheduleStore';
 import { useConnectedAppStore } from '@/store/connectedAppStore';
-import { useUiStore } from '@/store/uiStore';
 import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils/cn';
 import styles from './SkillsPage.module.scss';
@@ -131,6 +121,17 @@ export default function SkillsPage() {
     return pool;
   }, [skills, activeSubTab, selectedCategory, search]);
 
+  // Client-side pagination batching to prevent freeze and layout jumps
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [activeSubTab, selectedCategory, search]);
+
+  const displayedSkills = useMemo(() => {
+    return filteredSkills.slice(0, visibleCount);
+  }, [filteredSkills, visibleCount]);
+
   const handleUseSkill = (skill) => {
     if (Array.isArray(skill.variables) && skill.variables.length > 0) {
       setActiveSkillForVariables(skill);
@@ -163,130 +164,83 @@ export default function SkillsPage() {
 
   return (
     <div className={styles.page}>
-      {/* Pinned Sticky Command Header: Compact, Minimal, Zero Bloat */}
-      <header className={styles.stickyHeader}>
-        <div className={styles.commandRow}>
-          {/* Left: Mobile Menu + Studio Title + Primary Segmented Tabs */}
-          <div className={styles.navLeft}>
-            <div className={styles.mobileMenuBtn}>
-              <IconButton
-                icon={<Menu size={18} />}
-                label="Open menu"
-                size="sm"
-                variant="ghost"
-                onClick={() => setDrawerOpen(true)}
-              />
-            </div>
-
-            <div className={styles.titleBadge}>
-              <Zap size={15} className={styles.titleIcon} />
-              <span className={styles.titleText}>Studio</span>
-            </div>
-
-            <div className={styles.segmentedTabs} role="tablist">
-              {PRIMARY_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={activePrimaryTab === tab.id}
-                  className={cn(
-                    styles.segmentedTabBtn,
-                    activePrimaryTab === tab.id && styles.segmentedTabActive,
-                  )}
-                  onClick={() => handleTabChange(tab.id)}
-                >
-                  <span className={styles.tabIcon}>{tab.icon}</span>
-                  <span className={styles.tabLabel}>{tab.label}</span>
-                  {tab.id === 'skills' && skills.length > 0 && (
-                    <span className={styles.tabBadge}>{skills.length}</span>
-                  )}
-                  {tab.id === 'automations' && schedules.length > 0 && (
-                    <span className={styles.tabBadge}>{schedules.length}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Right: Search & Create Action */}
-          {activePrimaryTab === 'skills' && (
-            <div className={styles.actionsGroup}>
-              <div className={styles.searchWrapper}>
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search skills or tools..."
-                  size="sm"
-                  leftIcon={<Search size={14} />}
-                  rightIcon={
-                    search ? (
-                      <X
-                        size={13}
-                        className={styles.clearIcon}
-                        onClick={() => setSearch('')}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    ) : null
-                  }
-                />
+      {/* Higher-Order Workspace Header: Unified Layout Skeleton */}
+      <WorkspaceHeader
+        titleIcon={<Zap size={15} />}
+        titleText="Studio"
+        tabs={PRIMARY_TABS.map((tab) => ({
+          id: tab.id,
+          label: tab.label,
+          icon: tab.icon,
+          count:
+            tab.id === 'skills'
+              ? skills.length
+              : tab.id === 'automations'
+                ? schedules.length
+                : undefined,
+        }))}
+        activeTab={activePrimaryTab}
+        onTabChange={handleTabChange}
+        search={activePrimaryTab === 'skills' ? search : ''}
+        onSearchChange={activePrimaryTab === 'skills' ? (e) => setSearch(e.target.value) : undefined}
+        onSearchClear={activePrimaryTab === 'skills' ? () => setSearch('') : undefined}
+        searchPlaceholder="Search skills or tools..."
+        actions={
+          activePrimaryTab === 'skills' ? (
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus size={14} />}
+              onClick={() => {
+                setEditingSkill(null);
+                setIsFormOpen(true);
+              }}
+            >
+              Create Skill
+            </Button>
+          ) : null
+        }
+        subFilters={
+          activePrimaryTab === 'skills' ? (
+            <>
+              <div className={styles.subTabs}>
+                {[
+                  { id: 'all', label: `All (${skills.length})` },
+                  { id: 'system', label: 'Built-in' },
+                  { id: 'custom', label: 'Custom' },
+                  { id: 'favorites', label: 'Favorites' },
+                ].map((sub) => (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    className={cn(styles.subTabBtn, activeSubTab === sub.id && styles.activeSubTab)}
+                    onClick={() => setActiveSubTab(sub.id)}
+                  >
+                    {sub.label}
+                  </button>
+                ))}
               </div>
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<Plus size={14} />}
-                onClick={() => {
-                  setEditingSkill(null);
-                  setIsFormOpen(true);
-                }}
-              >
-                Create Skill
-              </Button>
-            </div>
-          )}
-        </div>
 
-        {/* Sub-Filter Strip (Only on Skills tab) */}
-        {activePrimaryTab === 'skills' && (
-          <div className={styles.subFilterRow}>
-            <div className={styles.subTabs}>
-              {[
-                { id: 'all', label: `All (${skills.length})` },
-                { id: 'system', label: 'Built-in' },
-                { id: 'custom', label: 'Custom' },
-                { id: 'favorites', label: 'Favorites' },
-              ].map((sub) => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  className={cn(styles.subTabBtn, activeSubTab === sub.id && styles.activeSubTab)}
-                  onClick={() => setActiveSubTab(sub.id)}
-                >
-                  {sub.label}
-                </button>
-              ))}
-            </div>
-
-            <div className={styles.categoryChips}>
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  className={cn(styles.categoryChip, selectedCategory === cat && styles.active)}
-                  onClick={() => setSelectedCategory(cat)}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </header>
+              <div className={styles.categoryChips}>
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={cn(styles.categoryChip, selectedCategory === cat && styles.active)}
+                    onClick={() => setSelectedCategory(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null
+        }
+      />
 
       {/* Tab 1: Agent Skills Content */}
       {activePrimaryTab === 'skills' && (
         <div className={styles.tabContent}>
-
           {isLoading ? (
             <div className={styles.loadingGrid}>
               {Array.from({ length: 6 }).map((_, i) => (
@@ -316,22 +270,41 @@ export default function SkillsPage() {
               }
             />
           ) : (
-            <div className={styles.grid}>
-              {filteredSkills.map((skill) => (
-                <SkillCard
-                  key={skill._id}
-                  skill={skill}
-                  onUse={handleUseSkill}
-                  onEdit={(s) => {
-                    setEditingSkill(s);
-                    setIsFormOpen(true);
-                  }}
-                  onDelete={(s) => setDeletingSkill(s)}
-                  onToggleFavorite={toggleFavorite}
-                  onViewDetails={(s) => setDetailSkill(s)}
-                />
-              ))}
-            </div>
+            <>
+              <div className={styles.grid}>
+                {displayedSkills.map((skill) => (
+                  <SkillCard
+                    key={skill._id}
+                    skill={skill}
+                    onUse={handleUseSkill}
+                    onEdit={(s) => {
+                      setEditingSkill(s);
+                      setIsFormOpen(true);
+                    }}
+                    onDelete={(s) => setDeletingSkill(s)}
+                    onToggleFavorite={toggleFavorite}
+                    onViewDetails={(s) => setDetailSkill(s)}
+                  />
+                ))}
+              </div>
+
+              {/* Lazy Pagination Control */}
+              {displayedSkills.length < filteredSkills.length && (
+                <div className={styles.loadMoreContainer}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setVisibleCount((prev) => prev + 12)}
+                    className={styles.loadMoreBtn}
+                  >
+                    <span>Show More Skills</span>
+                    <span className={styles.countHint}>
+                      ({displayedSkills.length} of {filteredSkills.length})
+                    </span>
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

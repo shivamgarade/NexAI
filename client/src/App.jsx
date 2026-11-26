@@ -15,24 +15,82 @@ export default function App() {
     checkAuth();
   }, [checkAuth]);
 
-  // Synchronize live appearance tokens (theme, colors, font) from user preferences
+  // Synchronize live appearance tokens (theme, colors, font, layout) from user preferences
   useEffect(() => {
-    if (user?.settings?.theme) {
-      document.documentElement.dataset.theme = user.settings.theme;
+    if (!user?.settings) return;
+    const settings = user.settings;
+
+    // 1. Theme (dark, light, system)
+    const effectiveTheme =
+      settings.theme === 'system'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : settings.theme || 'dark';
+    document.documentElement.dataset.theme = effectiveTheme;
+
+    // 2. Contrast
+    if (settings.contrast) {
+      document.documentElement.dataset.contrast = settings.contrast;
     }
-    if (user?.settings?.customColors) {
-      const colors = user.settings.customColors;
-      const isDark = (user?.settings?.theme || 'dark') === 'dark';
-      if (isDark) {
-        if (colors.darkBg) document.documentElement.style.setProperty('--color-bg-app', colors.darkBg);
-        if (colors.darkAccent) document.documentElement.style.setProperty('--color-accent', colors.darkAccent);
-      } else {
-        if (colors.lightBg) document.documentElement.style.setProperty('--color-bg-app', colors.lightBg);
-        if (colors.lightAccent) document.documentElement.style.setProperty('--color-accent', colors.lightAccent);
-      }
+
+    // 3. Screen Reader Mode
+    if (settings.screenReaderMode !== undefined) {
+      document.documentElement.dataset.screenReader = String(settings.screenReaderMode);
     }
-    if (user?.settings?.font && user.settings.font !== 'System Default') {
-      document.documentElement.style.setProperty('--font-sans', user.settings.font);
+
+    // 4. Font Family
+    if (settings.font && settings.font !== 'System Default') {
+      const fontStack =
+        settings.font === 'Google Sans'
+          ? '"Google Sans", "Outfit", system-ui, -apple-system, sans-serif'
+          : settings.font === 'Geist'
+            ? '"Geist", system-ui, -apple-system, sans-serif'
+            : settings.font === 'Inter'
+              ? '"Inter", system-ui, -apple-system, sans-serif'
+              : settings.font === 'JetBrains Mono'
+                ? '"JetBrains Mono", monospace'
+                : settings.font === 'Fira Code'
+                  ? '"Fira Code", monospace'
+                  : `"${settings.font}", system-ui, sans-serif`;
+      document.documentElement.style.setProperty('--font-sans', fontStack);
+      document.documentElement.style.setProperty('--font-family', fontStack);
+    }
+
+    // 5. Font Size
+    if (settings.fontSize) {
+      document.documentElement.style.setProperty('--font-size-base', settings.fontSize);
+    }
+
+    // 6. Conversation Width
+    if (settings.conversationWidth) {
+      const widthMap = {
+        narrow: '720px',
+        default: '840px',
+        wide: '1040px',
+        fill: '100%',
+      };
+      const widthVal = widthMap[settings.conversationWidth] || '1040px';
+      document.documentElement.style.setProperty('--chat-max-width', widthVal);
+    }
+
+    // 7. Custom Colors (Background, Foreground, Accent)
+    const colors = settings.customColors || {};
+    const isDark = effectiveTheme === 'dark';
+    if (isDark) {
+      const bg = colors.darkBg || '#070708';
+      const fg = colors.darkFg || '#FFFFFF';
+      const accent = colors.darkAccent || '#A2FF00';
+      document.documentElement.style.setProperty('--color-bg-app', bg);
+      document.documentElement.style.setProperty('--color-text-primary', fg);
+      document.documentElement.style.setProperty('--color-accent', accent);
+    } else {
+      const bg = colors.lightBg || '#F9F9F9';
+      const fg = colors.lightFg || '#101010';
+      const accent = colors.lightAccent || '#007ACC';
+      document.documentElement.style.setProperty('--color-bg-app', bg);
+      document.documentElement.style.setProperty('--color-text-primary', fg);
+      document.documentElement.style.setProperty('--color-accent', accent);
     }
   }, [user?.settings]);
 

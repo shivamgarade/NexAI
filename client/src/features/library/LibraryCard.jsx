@@ -11,9 +11,10 @@ import {
   Eye,
   Pin,
   MessageSquare,
+  MoreVertical,
 } from 'lucide-react';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { formatDate } from '@/lib/utils/formatDate';
-import { formatFileSize } from '@/lib/utils/formatFileSize';
 import { cn } from '@/lib/utils/cn';
 import styles from './LibraryCard.module.scss';
 
@@ -22,10 +23,8 @@ export function LibraryCard({
   onCardClick,
   onEdit,
   onDelete,
-  onTagClick,
   onTogglePin,
   onSendToChat,
-  activeTag,
 }) {
   const isNote = item.type === 'note';
   const isLink = item.type === 'link';
@@ -33,83 +32,96 @@ export function LibraryCard({
   const isFile = item.type === 'file';
   const isInterview = item.type === 'interview';
 
-  let hostname = '';
-  if (isLink && item.url) {
-    try {
-      hostname = new URL(item.url).hostname.replace(/^www\./, '');
-    } catch {
-      hostname = '';
-    }
-  }
+  const isImage =
+    isFile &&
+    (item.url || item.fileData) &&
+    (item.mimeType?.startsWith('image/') ||
+      /\.(png|jpe?g|webp|gif|svg)$/i.test(item.fileName || item.url || ''));
 
   const getTypeMeta = () => {
     switch (item.type) {
       case 'note':
-        return { label: 'Note', icon: <FileText size={12} />, class: styles.note };
+        return { label: 'Note', icon: <FileText size={13} />, class: styles.note };
       case 'link':
-        return { label: 'Link', icon: <Globe size={12} />, class: styles.link };
+        return { label: 'Link', icon: <Globe size={13} />, class: styles.link };
       case 'document':
-        return { label: 'Doc', icon: <BookOpen size={12} />, class: styles.document };
+        return { label: 'Document', icon: <BookOpen size={13} />, class: styles.document };
       case 'file':
-        return { label: 'File', icon: <Paperclip size={12} />, class: styles.file };
+        return { label: 'File', icon: <Paperclip size={13} />, class: styles.file };
       case 'interview':
-        return { label: 'Interview', icon: <Mic size={12} />, class: styles.interview };
+        return { label: 'Interview', icon: <Mic size={13} />, class: styles.interview };
       default:
-        return { label: 'Note', icon: <FileText size={12} />, class: styles.note };
+        return { label: 'Note', icon: <FileText size={13} />, class: styles.note };
     }
   };
 
   const typeMeta = getTypeMeta();
-
-  // Word count for notes
-  const noteWordCount =
-    isNote && item.content ? item.content.trim().split(/\s+/).filter(Boolean).length : 0;
 
   const previewExcerpt =
     item.summary ||
     (isNote && item.content ? item.content : '') ||
     (isDoc && Array.isArray(item.sections) && item.sections[0]
       ? `${item.sections[0].heading}: ${item.sections[0].body}`
-      : 'Click to view full details...');
+      : 'Click to view details...');
 
-  const getScoreColorClass = (score) => {
-    if (score >= 85) return styles.scoreSuccess;
-    if (score >= 70) return styles.scoreAccent;
-    if (score >= 50) return styles.scoreWarning;
-    return styles.scoreDanger;
-  };
+  const menuItems = [
+    {
+      label: item.pinned ? 'Unpin item' : 'Pin to top',
+      icon: <Pin size={13} className={item.pinned ? styles.pinnedIconFill : undefined} />,
+      onClick: (e) => {
+        e?.stopPropagation?.();
+        onTogglePin?.(item);
+      },
+    },
+    {
+      label: 'Use in AI Chat',
+      icon: <MessageSquare size={13} />,
+      onClick: (e) => {
+        e?.stopPropagation?.();
+        onSendToChat?.(item);
+      },
+    },
+    {
+      label: 'Open Details',
+      icon: <Eye size={13} />,
+      onClick: (e) => {
+        e?.stopPropagation?.();
+        onCardClick?.(item);
+      },
+    },
+    ...(isLink && item.url
+      ? [
+          {
+            label: 'Open URL',
+            icon: <ExternalLink size={13} />,
+            onClick: (e) => {
+              e?.stopPropagation?.();
+              window.open(item.url, '_blank', 'noopener,noreferrer');
+            },
+          },
+        ]
+      : []),
+    {
+      label: 'Edit',
+      icon: <Pencil size={13} />,
+      onClick: (e) => {
+        e?.stopPropagation?.();
+        onEdit?.(item);
+      },
+    },
+    {
+      label: 'Delete',
+      icon: <Trash2 size={13} />,
+      destructive: true,
+      onClick: (e) => {
+        e?.stopPropagation?.();
+        onDelete?.(item);
+      },
+    },
+  ];
 
   const handleCardClick = () => {
     onCardClick?.(item);
-  };
-
-  const handleTagClick = (e, tag) => {
-    e.stopPropagation();
-    onTagClick?.(tag);
-  };
-
-  const handleEditClick = (e) => {
-    e.stopPropagation();
-    onEdit?.(item);
-  };
-
-  const handleDeleteClick = (e) => {
-    e.stopPropagation();
-    onDelete?.(item);
-  };
-
-  const handlePinClick = (e) => {
-    e.stopPropagation();
-    onTogglePin?.(item);
-  };
-
-  const handleSendToChatClick = (e) => {
-    e.stopPropagation();
-    onSendToChat?.(item);
-  };
-
-  const handleExternalLink = (e) => {
-    e.stopPropagation();
   };
 
   return (
@@ -126,177 +138,56 @@ export function LibraryCard({
       }}
       aria-label={`View details for ${item.title}`}
     >
-      {/* Minimal Top Bar with inline metadata & hover ghost actions */}
+      {/* Sleek Minimalist Top Header: Type Icon & Date on Left, Pin & 3-Dot on Right */}
       <div className={styles.topBar}>
         <div className={styles.metaLeft}>
-          {item.pinned && (
-            <span className={styles.pinnedBadge} title="Pinned item">
-              <Pin size={10} className={styles.pinnedIconFill} />
-              <span>Pinned</span>
-            </span>
-          )}
-          <span className={cn(styles.typePill, typeMeta.class)}>
+          <span className={cn(styles.typeBadge, typeMeta.class)} title={typeMeta.label}>
             {typeMeta.icon}
-            <span>{typeMeta.label}</span>
           </span>
-          <span className={styles.dotSeparator}>•</span>
           <span className={styles.dateText}>{formatDate(item.createdAt)}</span>
-          {isNote && noteWordCount > 0 && (
-            <>
-              <span className={styles.dotSeparator}>•</span>
-              <span className={styles.auxMeta}>{noteWordCount} words</span>
-            </>
-          )}
-          {isDoc && (
-            <>
-              {item.category && (
-                <>
-                  <span className={styles.dotSeparator}>•</span>
-                  <span className={styles.auxMeta}>{item.category}</span>
-                </>
-              )}
-              {Array.isArray(item.sections) && (
-                <>
-                  <span className={styles.dotSeparator}>•</span>
-                  <span className={styles.auxMeta}>
-                    {item.sections.length} {item.sections.length === 1 ? 'sec' : 'secs'}
-                  </span>
-                </>
-              )}
-            </>
-          )}
-          {isLink && hostname && (
-            <>
-              <span className={styles.dotSeparator}>•</span>
-              <span className={styles.auxMeta}>{hostname}</span>
-            </>
-          )}
-          {isFile && item.fileName && (
-            <>
-              <span className={styles.dotSeparator}>•</span>
-              <span className={styles.auxMeta}>
-                {item.size > 0 ? formatFileSize(item.size) : 'File'}
-              </span>
-            </>
-          )}
-          {isInterview && item.scorecard?.overallScore !== undefined && (
-            <>
-              <span className={styles.dotSeparator}>•</span>
-              <span
-                className={cn(
-                  styles.scoreMeta,
-                  getScoreColorClass(item.scorecard.overallScore),
-                )}
-              >
-                Score: {item.scorecard.overallScore}/100
-              </span>
-            </>
-          )}
         </div>
 
-        {/* Hover / Quick Ghost Action Bar */}
-        <div className={styles.hoverActions}>
-          <button
-            type="button"
-            className={cn(styles.actionIconBtn, item.pinned && styles.pinnedActive)}
-            onClick={handlePinClick}
-            title={item.pinned ? 'Unpin item' : 'Pin to top'}
-            aria-label={item.pinned ? 'Unpin item' : 'Pin to top'}
-          >
-            <Pin size={13} className={item.pinned ? styles.pinnedIconFill : undefined} />
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionIconBtn}
-            onClick={handleSendToChatClick}
-            title="Use in AI Chat"
-            aria-label="Use in AI Chat"
-          >
-            <MessageSquare size={13} />
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionIconBtn}
-            onClick={handleCardClick}
-            title="Open Details"
-            aria-label="Open details"
-          >
-            <Eye size={13} />
-          </button>
-
-          {isLink && item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.actionIconBtn}
-              onClick={handleExternalLink}
-              title="Open external link"
-              aria-label="Open external link"
-            >
-              <ExternalLink size={13} />
-            </a>
+        <div className={styles.metaRight} onClick={(e) => e.stopPropagation()}>
+          {item.pinned && (
+            <span className={styles.pinIndicator} title="Pinned item">
+              <Pin size={11} className={styles.pinnedIconFill} />
+            </span>
           )}
-
-          <button
-            type="button"
-            className={styles.actionIconBtn}
-            onClick={handleEditClick}
-            title="Edit item"
-            aria-label="Edit item"
-          >
-            <Pencil size={13} />
-          </button>
-
-          <button
-            type="button"
-            className={cn(styles.actionIconBtn, styles.danger)}
-            onClick={handleDeleteClick}
-            title="Delete item"
-            aria-label="Delete item"
-          >
-            <Trash2 size={13} />
-          </button>
+          <Dropdown
+            portal
+            align="right"
+            trigger={
+              <button
+                type="button"
+                className={styles.moreBtn}
+                aria-label="Item actions"
+                title="More options"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical size={14} />
+              </button>
+            }
+            items={menuItems}
+          />
         </div>
       </div>
 
-      {/* If file item has an image, render preview thumbnail */}
-      {isFile && (item.url || item.fileData) && (item.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(item.fileName || item.url || '')) && (
-        <div className={styles.imageCardPreview}>
-          <img src={item.url || item.fileData} alt={item.title} loading="lazy" />
-        </div>
-      )}
-
-      {/* Main Content Area */}
-      <h3 className={styles.title} title={item.title}>
-        {item.title}
-      </h3>
-
-      <p className={styles.previewText}>{previewExcerpt}</p>
-
-      {/* Minimalist Tags List (no divider line or heavy borders) */}
-      {Array.isArray(item.tags) && item.tags.length > 0 && (
-        <div className={styles.bottomBar}>
-          <div className={styles.tagsList}>
-            {item.tags.slice(0, 3).map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={cn(styles.tagChip, activeTag === tag && styles.activeTag)}
-                onClick={(e) => handleTagClick(e, tag)}
-                title={`Filter by #${tag}`}
-              >
-                #{tag}
-              </button>
-            ))}
-            {item.tags.length > 3 && (
-              <span className={styles.tagOverflowCount}>
-                +{item.tags.length - 3}
-              </span>
-            )}
+      {/* Main Body */}
+      {isImage ? (
+        <div className={styles.imageBody}>
+          <div className={styles.imageCardPreview}>
+            <img src={item.url || item.fileData} alt={item.title} loading="lazy" />
           </div>
+          <h3 className={styles.title} title={item.title}>
+            {item.title}
+          </h3>
+        </div>
+      ) : (
+        <div className={styles.textBody}>
+          <h3 className={styles.title} title={item.title}>
+            {item.title}
+          </h3>
+          <p className={styles.previewText}>{previewExcerpt}</p>
         </div>
       )}
     </div>
@@ -324,8 +215,6 @@ LibraryCard.propTypes = {
   onCardClick: PropTypes.func,
   onEdit: PropTypes.func,
   onDelete: PropTypes.func,
-  onTagClick: PropTypes.func,
   onTogglePin: PropTypes.func,
   onSendToChat: PropTypes.func,
-  activeTag: PropTypes.string,
 };
