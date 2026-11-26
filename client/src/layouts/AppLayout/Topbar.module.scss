@@ -5,13 +5,14 @@
   align-items: center;
   justify-content: space-between;
   height: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
   padding: 0 var(--space-4);
-  background: transparent;
-  border-bottom: none;
-  position: sticky;
-  top: 0;
+  background: var(--color-bg-app);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
   z-index: var(--z-sticky);
-  pointer-events: none;
+  pointer-events: auto;
 
   @include up(md) {
     padding: 0 var(--space-5);

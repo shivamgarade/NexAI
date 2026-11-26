@@ -24,6 +24,20 @@ export const respondInterviewSchema = z.object({
     .trim()
     .min(1, 'Response content cannot be empty')
     .max(8000, 'Response content cannot exceed 8000 characters'),
+  codeSolution: z.string().max(30000).optional(),
+  language: z.string().max(50).optional(),
+  model: z.enum(['flash', 'pro']).optional(),
+  isSimulation: z.boolean().optional(),
+});
+
+export const interviewBuddySchema = z.object({
+  query: z
+    .string({ required_error: 'Query is required for AI Interview Buddy' })
+    .trim()
+    .min(1, 'Query cannot be empty')
+    .max(3000, 'Query cannot exceed 3000 characters'),
+  hintLevel: z.string().max(50).optional(),
+  codeContext: z.string().max(30000).optional(),
   model: z.enum(['flash', 'pro']).optional(),
   isSimulation: z.boolean().optional(),
 });

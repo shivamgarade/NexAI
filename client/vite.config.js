@@ -111,6 +111,9 @@ export default defineConfig({
     },
   },
   server: {
+    fs: {
+      allow: ['..', 'D:/dev/projects/NexAI'],
+    },
     port: 5173,
     proxy: {
       '/api': {
@@ -122,6 +125,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/test/setup.js',
+    setupFiles: path.resolve(__dirname, './src/test/setup.js'),
   },
 });

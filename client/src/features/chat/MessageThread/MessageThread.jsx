@@ -369,6 +369,10 @@ const MessageItem = React.memo(function MessageItem({
                     <span className={styles.blinkingCursor} aria-hidden="true" />
                   )}
                 </div>
+              ) : isCurrentlyStreaming && !message.thoughts && (!message.steps || message.steps.length === 0) ? (
+                <div className={styles.streamingWarmup}>
+                  <ThinkingIndicator variant="dots" size="sm" />
+                </div>
               ) : null}
             </div>
           )}

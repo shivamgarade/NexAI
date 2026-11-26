@@ -291,6 +291,8 @@ export async function streamChatMessage({
 export async function streamInterviewResponse({
   interviewId,
   content,
+  codeSolution = '',
+  language = 'javascript',
   model,
   isSimulation = false,
   signal,
@@ -312,7 +314,7 @@ export async function streamInterviewResponse({
   const response = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ content, model, isSimulation }),
+    body: JSON.stringify({ content, codeSolution, language, model, isSimulation }),
     signal,
     credentials: 'include',
   });
@@ -347,6 +349,93 @@ export async function streamInterviewResponse({
       code: errorJson?.error?.code || 'STREAM_ERROR',
       message: sanitizeErrorMessage(rawMsg),
       details: errorJson?.error?.details || null,
+    };
+    onError?.(err);
+    throw err;
+  }
+
+  if (!response.body) {
+    const err = {
+      status: 500,
+      code: 'EMPTY_RESPONSE_BODY',
+      message: 'Server returned an empty response body',
+    };
+    onError?.(err);
+    throw err;
+  }
+
+  await parseSseStream(response.body, { onToken, onDone, onError });
+}
+
+/**
+ * Initiates an authenticated SSE stream for consulting the AI Interview Buddy (Co-Pilot).
+ * Strict Socratic guardrails prevent providing complete code or direct solutions.
+ *
+ * @param {Object} params
+ * @param {string} params.interviewId
+ * @param {string} params.query
+ * @param {string} [params.hintLevel='general']
+ * @param {string} [params.codeContext='']
+ * @param {string} [params.model]
+ * @param {boolean} [params.isSimulation]
+ * @param {AbortSignal} [params.signal]
+ * @param {(text: string) => void} [params.onToken]
+ * @param {(doneData: any) => void} [params.onDone]
+ * @param {(errorData: any) => void} [params.onError]
+ * @returns {Promise<void>}
+ */
+export async function streamInterviewBuddy({
+  interviewId,
+  query,
+  hintLevel = 'general',
+  codeContext = '',
+  model,
+  isSimulation = false,
+  signal,
+  onToken,
+  onDone,
+  onError,
+}) {
+  const token = useAuthStore.getState().accessToken;
+  const baseUrl = import.meta.env.VITE_API_URL || '/api';
+  const url = `${baseUrl}/interview/${interviewId}/buddy`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  if (isSimulation) {
+    headers['x-simulation'] = 'true';
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      query,
+      hintLevel,
+      codeContext,
+      model,
+      isSimulation,
+    }),
+    signal,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    let errorJson = null;
+    try {
+      errorJson = await response.json();
+    } catch {
+      // ignore
+    }
+    const rawMsg = errorJson?.error?.message || response.statusText || 'Failed to consult AI Buddy';
+    const err = {
+      status: response.status,
+      code: errorJson?.error?.code || 'BUDDY_STREAM_ERROR',
+      message: sanitizeErrorMessage(rawMsg),
     };
     onError?.(err);
     throw err;

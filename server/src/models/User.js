@@ -52,7 +52,65 @@ const userSchema = new mongoose.Schema(
       },
       webSearchDefaultOn: {
         type: Boolean,
+        default: true,
+      },
+      thinkingLevel: {
+        type: String,
+        enum: ['off', 'dynamic', 'low', 'medium', 'high'],
+        default: 'dynamic',
+      },
+      smartTokenOptimization: {
+        type: Boolean,
+        default: true,
+      },
+      maxContextTurns: {
+        type: Number,
+        default: 20,
+      },
+      conversationWidth: {
+        type: String,
+        enum: ['narrow', 'default', 'wide', 'fill'],
+        default: 'wide',
+      },
+      contrast: {
+        type: String,
+        enum: ['default', 'strong'],
+        default: 'default',
+      },
+      screenReaderMode: {
+        type: Boolean,
         default: false,
+      },
+      conversationSteps: {
+        type: String,
+        enum: ['default', 'verbose'],
+        default: 'default',
+      },
+      font: {
+        type: String,
+        default: 'Google Sans',
+      },
+      fontSize: {
+        type: String,
+        default: '14px',
+      },
+      themePresetLight: {
+        type: String,
+        default: 'Legacy Light',
+      },
+      themePresetDark: {
+        type: String,
+        default: 'Default Dark',
+      },
+      customColors: {
+        type: Map,
+        of: String,
+        default: {},
+      },
+      interviewGuardrailLevel: {
+        type: String,
+        enum: ['strict_socratic', 'guided', 'direct'],
+        default: 'strict_socratic',
       },
       toolExecutionMode: {
         type: String,

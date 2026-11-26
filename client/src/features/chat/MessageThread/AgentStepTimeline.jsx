@@ -181,23 +181,41 @@ export function AgentStepTimeline({
 
           {sources.length > 0 && (
             <div className={styles.citationsContainer}>
+              <div className={styles.citationsLabel}>Web References:</div>
               <div className={styles.citationsList}>
-                {sources.map((src, idx) => (
-                  <a
-                    key={`${src.url || src.uri}-${idx}`}
-                    href={src.url || src.uri}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.citationLink}
-                    title={src.title || src.url || src.uri}
-                  >
-                    <Globe size={11} className={styles.citationIcon} />
-                    <span className={styles.citationText}>
-                      {src.title || (src.url || src.uri || '').replace(/^https?:\/\/(www\.)?/, '').slice(0, 32)}
-                    </span>
-                    <ExternalLink size={9} className={styles.citationExt} />
-                  </a>
-                ))}
+                {sources.map((src, idx) => {
+                  const url = src.url || src.uri || '#';
+                  let domain = 'web';
+                  let label = src.title || '';
+                  try {
+                    const u = new URL(url);
+                    domain = u.hostname.replace(/^www\./, '');
+                    if (!label || label.startsWith('http')) {
+                      const pathEnd = u.pathname.replace(/\/$/, '').split('/').pop() || '';
+                      label = pathEnd ? pathEnd.replace(/[-_]/g, ' ') : domain;
+                    }
+                  } catch {
+                    domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] || 'web';
+                    if (!label) label = domain;
+                  }
+
+                  return (
+                    <a
+                      key={`${url}-${idx}`}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.citationLink}
+                      title={`${label}\n${url}`}
+                    >
+                      <Globe size={11} className={styles.citationIcon} />
+                      <span className={styles.citationDomain}>{domain}</span>
+                      <span className={styles.citationSeparator}>·</span>
+                      <span className={styles.citationText}>{label}</span>
+                      <ExternalLink size={9} className={styles.citationExt} />
+                    </a>
+                  );
+                })}
               </div>
             </div>
           )}

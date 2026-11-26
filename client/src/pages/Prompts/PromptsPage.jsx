@@ -182,7 +182,10 @@ export default function PromptsPage({ hideHeader = false }) {
   ];
 
   return (
-    <div className={styles.pageContainer} data-testid="prompts-page">
+    <div
+      className={cn(styles.pageContainer, hideHeader && styles.embeddedPage)}
+      data-testid="prompts-page"
+    >
       {!hideHeader && (
         <PageHeader
           title="Prompt Vault"

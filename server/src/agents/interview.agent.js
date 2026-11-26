@@ -3,6 +3,7 @@ import { generateContent, streamContent } from '../services/gemini.service.js';
 import {
   INTERVIEWER_SYSTEM_PROMPT,
   SCORECARD_SYSTEM_PROMPT,
+  INTERVIEW_BUDDY_SYSTEM_PROMPT,
 } from './prompts/interview.prompt.js';
 import { logger } from '../utils/logger.js';
 
@@ -218,4 +219,60 @@ export async function generateInterviewScorecard({ session, model = 'flash' }) {
       tokensUsed: 0,
     };
   }
+}
+
+/**
+ * Streams Socratic hint & architectural guidance from the AI Interview Buddy.
+ * Strict guardrails prevent outputting direct code solutions or copy-paste answers.
+ *
+ * @param {Object} params
+ * @param {string} params.currentQuestion
+ * @param {string} params.candidateQuery
+ * @param {string} [params.codeContext='']
+ * @param {string} [params.hintLevel='general']
+ * @param {string} params.role
+ * @param {string} params.difficulty
+ * @param {string} params.topic
+ * @param {'flash' | 'pro'} [params.model='flash']
+ * @returns {AsyncGenerator<{text: string, usageMetadata: any}, void, unknown>}
+ */
+export async function* streamInterviewBuddyTurn({
+  currentQuestion = '',
+  candidateQuery = '',
+  codeContext = '',
+  hintLevel = 'general',
+  role = 'Software Engineer',
+  difficulty = 'mid',
+  topic = 'System Design',
+  model = 'flash',
+}) {
+  const systemInstruction = `${INTERVIEW_BUDDY_SYSTEM_PROMPT}\n\n[CURRENT INTERVIEW CONTEXT]:
+- Role: ${role} (${difficulty.toUpperCase()})
+- Topic: ${topic}
+- Active Interview Question: "${currentQuestion}"
+- Candidate's Current Draft Code:
+\`\`\`
+${codeContext || '// No code drafted yet'}
+\`\`\`
+- Requested Guidance: ${hintLevel}`;
+
+  const contents = [
+    {
+      role: 'user',
+      parts: [
+        {
+          text: `Candidate Question / Request: "${candidateQuery}"\n\nProvide Socratic guidance and hints according to Hint Level ${hintLevel}. Remember: strictly do NOT output full code solutions or direct answers.`,
+        },
+      ],
+    },
+  ];
+
+  yield* streamContent({
+    contents,
+    model,
+    systemInstruction,
+    config: {
+      temperature: 0.5,
+    },
+  });
 }

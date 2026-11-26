@@ -182,6 +182,13 @@
   padding-left: 32px;
 }
 
+.citationsLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
 .citationsList {
   display: flex;
   flex-wrap: wrap;
@@ -208,6 +215,16 @@
   }
 }
 
+.citationDomain {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.citationSeparator {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
 .citationIcon {
   color: var(--color-text-muted);
   flex-shrink: 0;
@@ -217,7 +234,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 170px;
+  max-width: 220px;
 }
 
 .citationExt {

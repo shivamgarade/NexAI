@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { interviewApi } from '@/lib/api/interview.api.js';
-import { streamInterviewResponse, sanitizeErrorMessage } from '@/lib/sse.js';
+import { streamInterviewResponse, streamInterviewBuddy, sanitizeErrorMessage } from '@/lib/sse.js';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 
@@ -61,14 +61,17 @@ export const useInterviewStore = create((set, get) => ({
   // Active session
   currentSession: null,
   messages: [],
+  buddyMessages: [],
   scorecard: null,
   archivedLibraryItem: null,
 
   // Loading & streaming indicators
   isStarting: false,
   isStreaming: false,
+  isBuddyStreaming: false,
   isConcluding: false,
   abortController: null,
+  buddyAbortController: null,
   error: null,
   insufficientCredits: false,
 
@@ -161,6 +164,7 @@ export const useInterviewStore = create((set, get) => ({
       set({
         currentSession: session,
         messages: session.messages || [],
+        buddyMessages: session.buddyMessages || [],
         scorecard: session.scorecard || null,
         role: session.role,
         difficulty: session.difficulty,
@@ -240,15 +244,32 @@ export const useInterviewStore = create((set, get) => ({
   },
 
   // Send candidate answer and stream live Gemini interviewer response
-  sendResponse: async (content) => {
+  sendResponse: async (payload) => {
+    let content = '';
+    let codeSolution = '';
+    let language = 'javascript';
+
+    if (typeof payload === 'string') {
+      content = payload;
+    } else if (payload && typeof payload === 'object') {
+      content = payload.content || '';
+      codeSolution = payload.codeSolution || '';
+      language = payload.language || 'javascript';
+    }
+
     const trimmed = (content || '').trim();
+    const hasCode = Boolean(codeSolution && codeSolution.trim());
     const session = get().currentSession;
 
-    if (!trimmed || !session || get().isStreaming) return;
+    if ((!trimmed && !hasCode) || !session || get().isStreaming) return;
+
+    const displaySubmission = hasCode
+      ? `${trimmed ? trimmed + '\n\n' : ''}\`\`\`${language}\n${codeSolution.trim()}\n\`\`\``
+      : trimmed;
 
     const userMessage = {
       role: 'user',
-      content: trimmed,
+      content: displaySubmission,
       tokensUsed: 0,
       timestamp: new Date().toISOString(),
     };
@@ -277,7 +298,9 @@ export const useInterviewStore = create((set, get) => ({
 
       await streamInterviewResponse({
         interviewId: session._id,
-        content: trimmed,
+        content: trimmed || 'Here is my code implementation for the challenge:',
+        codeSolution,
+        language,
         model,
         isSimulation: Boolean(session.isSimulation || get().isSimulation),
         signal: abortController.signal,
@@ -377,6 +400,100 @@ export const useInterviewStore = create((set, get) => ({
 
         toast.error(cleanMessage);
       }
+    }
+  },
+
+  // Consult AI Interview Buddy for Socratic guidance and hints without advancing question
+  askBuddy: async ({ query, hintLevel = 'general', codeContext = '' }) => {
+    const trimmed = (query || '').trim();
+    const session = get().currentSession;
+    if (!trimmed || !session || get().isBuddyStreaming) return;
+
+    const userBuddyMsg = {
+      role: 'user',
+      content: trimmed,
+      hintLevel,
+      timestamp: new Date().toISOString(),
+    };
+
+    const assistantPlaceholder = {
+      role: 'assistant',
+      content: '',
+      hintLevel,
+      timestamp: new Date().toISOString(),
+      isStreaming: true,
+    };
+
+    const buddyAbortController = new AbortController();
+
+    set((state) => ({
+      buddyMessages: [...(state.buddyMessages || []), userBuddyMsg, assistantPlaceholder],
+      isBuddyStreaming: true,
+      buddyAbortController,
+    }));
+
+    try {
+      const model = get().selectedModel;
+      await streamInterviewBuddy({
+        interviewId: session._id,
+        query: trimmed,
+        hintLevel,
+        codeContext,
+        model,
+        isSimulation: Boolean(session.isSimulation || get().isSimulation),
+        signal: buddyAbortController.signal,
+        onToken: (text) => {
+          set((state) => {
+            const bMsgs = [...(state.buddyMessages || [])];
+            const last = bMsgs[bMsgs.length - 1];
+            if (last && last.role === 'assistant') {
+              bMsgs[bMsgs.length - 1] = {
+                ...last,
+                content: (last.content || '') + text,
+              };
+            }
+            return { buddyMessages: bMsgs };
+          });
+        },
+        onDone: () => {
+          set((state) => {
+            const bMsgs = [...(state.buddyMessages || [])];
+            const last = bMsgs[bMsgs.length - 1];
+            if (last && last.role === 'assistant') {
+              bMsgs[bMsgs.length - 1] = {
+                ...last,
+                isStreaming: false,
+              };
+            }
+            return {
+              buddyMessages: bMsgs,
+              isBuddyStreaming: false,
+              buddyAbortController: null,
+            };
+          });
+        },
+        onError: (err) => {
+          const cleanMessage = sanitizeErrorMessage(err.message || 'Buddy guidance unavailable');
+          set((state) => {
+            const bMsgs = [...(state.buddyMessages || [])];
+            const last = bMsgs[bMsgs.length - 1];
+            if (last && last.role === 'assistant') {
+              bMsgs[bMsgs.length - 1] = {
+                ...last,
+                content: (last.content || '') + `\n\n*(Error: ${cleanMessage})*`,
+                isStreaming: false,
+              };
+            }
+            return {
+              buddyMessages: bMsgs,
+              isBuddyStreaming: false,
+              buddyAbortController: null,
+            };
+          });
+        },
+      });
+    } catch {
+      set({ isBuddyStreaming: false, buddyAbortController: null });
     }
   },
 

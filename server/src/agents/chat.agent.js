@@ -8,15 +8,34 @@ import { logger } from '../utils/logger.js';
 const MAX_HISTORY_MESSAGES = 20;
 
 /**
- * Builds thinking configuration based on user preference and model capability.
+ * Evaluates whether a prompt is a simple greeting or trivial conversational utterance.
+ * If true, skips thinking tokens to ensure near-zero latency and conserve tokens.
+ *
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isTrivialQuery(text = '') {
+  const clean = text.trim().toLowerCase();
+  if (clean.length < 2) return true;
+  const greetings = [
+    'hi', 'hello', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening',
+    'sup', 'howdy', 'yo', 'thanks', 'thank you', 'ok', 'okay', 'yes', 'no', 'cool',
+    'bye', 'goodbye', 'help', 'what can you do', 'who are you',
+  ];
+  return greetings.includes(clean);
+}
+
+/**
+ * Builds thinking configuration based on user preference, model capability, and query complexity.
  * Follows official Google GenAI thinkingConfig documentation for Gemini 2.5 and 3.
  *
  * @param {Object} params
- * @param {'off' | 'low' | 'medium' | 'high'} [params.thinkingLevel='off']
+ * @param {'off' | 'dynamic' | 'low' | 'medium' | 'high'} [params.thinkingLevel='off']
  * @param {'flash' | 'pro'} [params.model='flash']
+ * @param {string} [params.query='']
  * @returns {Record<string, unknown> | undefined}
  */
-export function buildThinkingConfig({ thinkingLevel = 'off', model = 'flash' }) {
+export function buildThinkingConfig({ thinkingLevel = 'off', model = 'flash', query = '' }) {
   if (!thinkingLevel || thinkingLevel === 'off') {
     return undefined;
   }
@@ -27,9 +46,31 @@ export function buildThinkingConfig({ thinkingLevel = 'off', model = 'flash' }) 
   const isGemini3 = modelName.includes('3') || modelName.includes('gemini-3');
 
   if (isGemini3) {
+    if (level === 'dynamic') {
+      if (isTrivialQuery(query)) {
+        return undefined; // zero thinking tokens burned on simple greetings
+      }
+      return {
+        includeThoughts: true,
+        thinkingLevel: 'low',
+      };
+    }
     return {
       includeThoughts: true,
       thinkingLevel: level,
+    };
+  }
+
+  // Gemini 2.5 thinking budget
+  if (level === 'dynamic') {
+    if (isTrivialQuery(query)) {
+      return undefined; // zero thinking tokens on simple greetings
+    }
+    const hasCodeOrMath = /(function|class|def |const |let |var |import |SELECT |WHERE |algorithm|architecture|debug|error|why|how does|compare|difference|\{|\}|\=\>|\$|\=)/i.test(query);
+    const budget = hasCodeOrMath ? (model === 'pro' ? 4096 : 2048) : 1024;
+    return {
+      includeThoughts: true,
+      thinkingBudget: budget,
     };
   }
 
@@ -47,34 +88,57 @@ export function buildThinkingConfig({ thinkingLevel = 'off', model = 'flash' }) 
 
 /**
  * Normalizes database messages into the contents structure expected by Google GenAI.
- * Formats roles ('user' -> 'user', 'assistant' -> 'model') and ensures valid turn order.
+ * Formats roles ('user' -> 'user', 'assistant' -> 'model'), ensures valid turn order,
+ * and prunes redundant past-turn base64 attachments to preserve context window tokens.
  *
  * @param {Array<{role: string, content: string}>} rawMessages
+ * @param {Object} [options]
+ * @param {number} [options.maxMessages=20]
+ * @param {boolean} [options.pruneOlderAttachments=true]
  * @returns {Array<{role: 'user' | 'model', parts: Array<{text: string}>}>}
  */
-export function formatConversationHistory(rawMessages) {
+export function formatConversationHistory(rawMessages, options = {}) {
+  const maxMessages = options.maxMessages || MAX_HISTORY_MESSAGES;
+  const pruneAttachments = options.pruneOlderAttachments !== false;
+
   // Take last N messages
-  const sliced = rawMessages.slice(-MAX_HISTORY_MESSAGES);
+  const sliced = rawMessages.slice(-maxMessages);
 
   // Find first user message to guarantee conversation starts with a user turn
   const firstUserIdx = sliced.findIndex((m) => m.role === 'user');
   const validMessages = firstUserIdx >= 0 ? sliced.slice(firstUserIdx) : sliced;
 
-  return validMessages.map((msg) => {
+  // Identify index of the latest message with attachments
+  let lastAttachmentMsgIdx = -1;
+  for (let i = validMessages.length - 1; i >= 0; i--) {
+    if (Array.isArray(validMessages[i].attachments) && validMessages[i].attachments.length > 0) {
+      lastAttachmentMsgIdx = i;
+      break;
+    }
+  }
+
+  return validMessages.map((msg, idx) => {
     const parts = [{ text: msg.content || '' }];
 
     if (Array.isArray(msg.attachments)) {
       for (const att of msg.attachments) {
         if (att.data && att.mimeType) {
-          const base64Data = att.data.includes('base64,')
-            ? att.data.split('base64,')[1]
-            : att.data;
-          parts.push({
-            inlineData: {
-              mimeType: att.mimeType,
-              data: base64Data,
-            },
-          });
+          // If this is an older turn and pruning is active, don't re-transmit megabytes of base64
+          if (pruneAttachments && idx < lastAttachmentMsgIdx) {
+            parts.push({
+              text: `[Attached media: ${att.name || att.mimeType} previously analyzed]`,
+            });
+          } else {
+            const base64Data = att.data.includes('base64,')
+              ? att.data.split('base64,')[1]
+              : att.data;
+            parts.push({
+              inlineData: {
+                mimeType: att.mimeType,
+                data: base64Data,
+              },
+            });
+          }
         }
       }
     }
@@ -181,13 +245,15 @@ export async function* streamChatReply({
   });
   systemInstruction += `\n\n[TEMPORAL CONTEXT]:\nCurrent timestamp is ${timeString}. You are fully context-aware of the current time, day, and date when responding to user greetings, scheduling, or time-sensitive questions.`;
 
-  // Combine skill tools and directly requested tools
+  // Combine skill tools and directly requested tools with default autonomous web search
+  const defaultTools = (enabledTools.length === 0 && !skill && context?.webSearchDefaultOn !== false) ? ['web_search'] : [];
   const combinedTools = Array.from(
-    new Set([...(skill?.tools || []), ...(Array.isArray(enabledTools) ? enabledTools : [])]),
+    new Set([...defaultTools, ...(skill?.tools || []), ...(Array.isArray(enabledTools) ? enabledTools : [])]),
   );
 
+  const latestUserMessage = messages[messages.length - 1]?.content || '';
   const geminiTools = buildGeminiToolsConfig(combinedTools);
-  const thinkingConfig = buildThinkingConfig({ thinkingLevel, model });
+  const thinkingConfig = buildThinkingConfig({ thinkingLevel, model, query: latestUserMessage });
 
   const MAX_TOOL_ITERATIONS = 4;
   let iteration = 0;

@@ -8,11 +8,33 @@ import { useAuthStore } from './store/authStore';
 
 export default function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
+  const user = useAuthStore((state) => state.user);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Synchronize live appearance tokens (theme, colors, font) from user preferences
+  useEffect(() => {
+    if (user?.settings?.theme) {
+      document.documentElement.dataset.theme = user.settings.theme;
+    }
+    if (user?.settings?.customColors) {
+      const colors = user.settings.customColors;
+      const isDark = (user?.settings?.theme || 'dark') === 'dark';
+      if (isDark) {
+        if (colors.darkBg) document.documentElement.style.setProperty('--color-bg-app', colors.darkBg);
+        if (colors.darkAccent) document.documentElement.style.setProperty('--color-accent', colors.darkAccent);
+      } else {
+        if (colors.lightBg) document.documentElement.style.setProperty('--color-bg-app', colors.lightBg);
+        if (colors.lightAccent) document.documentElement.style.setProperty('--color-accent', colors.lightAccent);
+      }
+    }
+    if (user?.settings?.font && user.settings.font !== 'System Default') {
+      document.documentElement.style.setProperty('--font-sans', user.settings.font);
+    }
+  }, [user?.settings]);
 
   const content = (
     <ErrorBoundary>

@@ -9,6 +9,7 @@ import { synthesizeEdgeSpeech, DEFAULT_EDGE_VOICE } from '../services/edgeTts.se
 import {
   generateInterviewGreeting,
   streamInterviewTurn,
+  streamInterviewBuddyTurn,
   generateInterviewScorecard,
 } from '../agents/interview.agent.js';
 import { logger } from '../utils/logger.js';
@@ -96,7 +97,7 @@ export const startInterview = asyncHandler(async (req, res) => {
  */
 export const respondInterview = async (req, res) => {
   const { id } = req.params;
-  const { content, model: requestedModel } = req.body;
+  const { content, codeSolution, language, model: requestedModel } = req.body;
   const model = requestedModel || req.user.settings?.defaultModel || 'flash';
   const userId = req.user._id;
 
@@ -112,10 +113,23 @@ export const respondInterview = async (req, res) => {
       throw new ApiError(400, 'INTERVIEW_COMPLETED', 'Interview session is already completed');
     }
 
+    // Format full submission incorporating candidate's code if drafted
+    const hasCode = Boolean(codeSolution && codeSolution.trim());
+    const fullSubmission = hasCode
+      ? `${content ? content.trim() + '\n\n' : ''}\`\`\`${language || 'javascript'}\n${codeSolution.trim()}\n\`\`\``
+      : content;
+
+    // Track active code and increment official question counter
+    if (hasCode) {
+      session.currentCodeSolution = codeSolution;
+      session.currentCodeLanguage = language || 'javascript';
+    }
+    session.currentQuestionNumber = (session.currentQuestionNumber || 1) + 1;
+
     // Append candidate response
     session.messages.push({
       role: 'user',
-      content,
+      content: fullSubmission,
       tokensUsed: 0,
       timestamp: new Date(),
     });
@@ -267,6 +281,156 @@ export const respondInterview = async (req, res) => {
           code: error.code || 'INTERVIEW_ERROR',
           message: cleanMessage,
           details: null,
+        },
+      });
+    }
+  }
+};
+
+/**
+ * Streams Socratic hint & architectural guidance from the AI Interview Buddy via SSE.
+ * Strict guardrails prevent providing complete code or direct solutions.
+ * POST /api/interview/:id/buddy
+ */
+export const askInterviewBuddy = async (req, res) => {
+  const { id } = req.params;
+  const { query, hintLevel = 'general', codeContext = '', model: requestedModel, isSimulation = false } = req.body;
+  const model = requestedModel || req.user.settings?.defaultModel || 'flash';
+  const userId = req.user._id;
+
+  let sseStarted = false;
+
+  try {
+    const session = await InterviewSession.findOne({ _id: id, userId });
+    if (!session) {
+      throw new ApiError(404, 'INTERVIEW_NOT_FOUND', 'Interview session not found');
+    }
+
+    // Identify active challenge from latest assistant message
+    const lastAssistantMsg = [...(session.messages || [])]
+      .reverse()
+      .find((m) => m.role === 'assistant');
+    const currentQuestion = lastAssistantMsg?.content || session.topic;
+
+    // Record user inquiry in buddyMessages
+    if (!Array.isArray(session.buddyMessages)) {
+      session.buddyMessages = [];
+    }
+    session.buddyMessages.push({
+      role: 'user',
+      content: query,
+      hintLevel,
+      timestamp: new Date(),
+    });
+
+    setupSse(res);
+    sseStarted = true;
+
+    let isClientConnected = true;
+    req.on('close', () => {
+      isClientConnected = false;
+    });
+
+    let fullText = '';
+    let tokensUsed = 0;
+
+    // Handle simulation mode
+    if (session.isSimulation || isSimulation || req.headers['x-simulation'] === 'true') {
+      let simHint = '';
+      if (hintLevel === '1' || hintLevel === 'concept') {
+        simHint = `💡 **Conceptual Guidance**: Focus on algorithmic invariants for ${session.topic}. A two-pointer scan or sliding window avoids nested loops and keeps time complexity linear.`;
+      } else if (hintLevel === '2' || hintLevel === 'structure') {
+        simHint = `🧱 **Data Structure Nudge**: Consider using an auxiliary Hash Map paired with a Deque or Priority Queue. This enables $O(1)$ lookups while maintaining order.`;
+      } else if (hintLevel === '3' || hintLevel === 'edge_case') {
+        simHint = `⚠️ **Edge Cases to Check**: Make sure your logic handles empty arrays, single elements, negative numbers, and boundary limits before submitting.`;
+      } else {
+        simHint = `Let's break down your question: What part of the requirement feels unclear? Check your invariants and whether pre-sorting or memoization simplifies the state.`;
+      }
+
+      const words = simHint.match(/\S+\s*/g) || [simHint];
+      const delayMs = process.env.NODE_ENV === 'test' ? 0 : 20;
+
+      for (const word of words) {
+        if (!isClientConnected) break;
+        fullText += word;
+        sendSse(res, 'token', { text: word });
+        if (delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+
+      const buddyAssistantMsg = {
+        role: 'assistant',
+        content: fullText,
+        hintLevel,
+        timestamp: new Date(),
+      };
+
+      session.buddyMessages.push(buddyAssistantMsg);
+      await session.save();
+
+      sendSse(res, 'done', {
+        message: buddyAssistantMsg,
+        tokensUsed: 0,
+      });
+
+      closeSse(res);
+      return;
+    }
+
+    // Live Gemini streaming for Interview Buddy with Socratic guardrails
+    const stream = streamInterviewBuddyTurn({
+      currentQuestion,
+      candidateQuery: query,
+      codeContext: codeContext || session.currentCodeSolution || '',
+      hintLevel,
+      role: session.role,
+      difficulty: session.difficulty,
+      topic: session.topic,
+      model,
+    });
+
+    for await (const chunk of stream) {
+      if (!isClientConnected) break;
+      if (chunk.text) {
+        fullText += chunk.text;
+        sendSse(res, 'token', { text: chunk.text });
+      }
+      if (chunk.usageMetadata?.totalTokenCount) {
+        tokensUsed = chunk.usageMetadata.totalTokenCount;
+      }
+    }
+
+    const buddyAssistantMsg = {
+      role: 'assistant',
+      content: fullText,
+      hintLevel,
+      timestamp: new Date(),
+    };
+
+    session.buddyMessages.push(buddyAssistantMsg);
+    session.totalTokensUsed = (session.totalTokensUsed || 0) + tokensUsed;
+    await session.save();
+
+    sendSse(res, 'done', {
+      message: buddyAssistantMsg,
+      tokensUsed,
+    });
+
+    closeSse(res);
+  } catch (error) {
+    logger.error({ error: error.message }, 'Error in askInterviewBuddy SSE stream');
+    if (sseStarted) {
+      sendSse(res, 'error', {
+        code: error.code || 'BUDDY_STREAM_ERROR',
+        message: error.message || 'Failed to retrieve AI Buddy guidance',
+      });
+      closeSse(res);
+    } else {
+      res.status(error.statusCode || 500).json({
+        error: {
+          code: error.code || 'BUDDY_STREAM_ERROR',
+          message: error.message || 'Failed to retrieve AI Buddy guidance',
         },
       });
     }

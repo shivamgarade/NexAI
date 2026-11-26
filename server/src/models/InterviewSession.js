@@ -24,6 +24,30 @@ const interviewMessageSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const buddyMessageSchema = new mongoose.Schema(
+  {
+    role: {
+      type: String,
+      enum: ['user', 'assistant'],
+      required: true,
+    },
+    content: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    hintLevel: {
+      type: String,
+      default: 'general',
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false },
+);
+
 const scorecardCategorySchema = new mongoose.Schema(
   {
     technicalAccuracy: { type: Number, min: 0, max: 100, default: 0 },
@@ -104,6 +128,22 @@ const interviewSessionSchema = new mongoose.Schema(
     messages: {
       type: [interviewMessageSchema],
       default: [],
+    },
+    buddyMessages: {
+      type: [buddyMessageSchema],
+      default: [],
+    },
+    currentQuestionNumber: {
+      type: Number,
+      default: 1,
+    },
+    currentCodeSolution: {
+      type: String,
+      default: '',
+    },
+    currentCodeLanguage: {
+      type: String,
+      default: 'javascript',
     },
     scorecard: {
       type: scorecardSchema,

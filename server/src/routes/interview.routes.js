@@ -6,12 +6,14 @@ import { validate } from '../middleware/validate.js';
 import {
   startInterviewSchema,
   respondInterviewSchema,
+  interviewBuddySchema,
   interviewIdParamSchema,
   interviewTtsSchema,
 } from '../validators/interview.validator.js';
 import {
   startInterview,
   respondInterview,
+  askInterviewBuddy,
   concludeInterview,
   getInterviews,
   getInterviewById,
@@ -50,6 +52,13 @@ router.post(
   creditCheck,
   validate({ params: interviewIdParamSchema, body: respondInterviewSchema }),
   respondInterview,
+);
+router.post(
+  '/:id/buddy',
+  aiLimiter,
+  creditCheck,
+  validate({ params: interviewIdParamSchema, body: interviewBuddySchema }),
+  askInterviewBuddy,
 );
 router.post(
   '/:id/conclude',

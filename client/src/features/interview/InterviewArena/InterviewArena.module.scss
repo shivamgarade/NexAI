@@ -160,6 +160,20 @@
   gap: 8px;
 }
 
+.buddyTriggerBtn {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12));
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 12px;
+  transition: all var(--duration-fast);
+
+  &:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(168, 85, 247, 0.22));
+    border-color: var(--color-accent);
+  }
+}
+
 .outlinedConcludeBtn {
   font-weight: 600;
   font-size: 12px;

@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { InterviewCodeEditor, STARTER_TEMPLATES } from '../InterviewCodeEditor/InterviewCodeEditor';
+import { InterviewBuddyDrawer } from '../InterviewBuddy/InterviewBuddyDrawer';
 import { toast } from '@/components/ui/Toast';
 import { MarkdownRenderer } from '@/features/chat/MarkdownRenderer/MarkdownRenderer';
 import { cn } from '@/lib/utils/cn';
@@ -121,6 +122,7 @@ export function InterviewArena({
   const [codeContent, setCodeContent] = useState(STARTER_TEMPLATES.javascript);
   const [responseText, setResponseText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isBuddyOpen, setIsBuddyOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPastTurnsOpen, setIsPastTurnsOpen] = useState(false);
   const [showConcludeConfirm, setShowConcludeConfirm] = useState(false);
@@ -261,29 +263,12 @@ export function InterviewArena({
   // Submit response
   const handleSubmit = (e) => {
     e?.preventDefault?.();
-    let finalPayload = '';
 
     const hasCode = codeContent && codeContent.trim() && codeContent !== STARTER_TEMPLATES[codeLanguage];
     const hasText = responseText && responseText.trim();
 
-    if (activeWorkspaceTab === 'code') {
-      if (hasCode) {
-        finalPayload = `\`\`\`${codeLanguage}\n${codeContent.trim()}\n\`\`\`${hasText ? `\n\nExplanation:\n${hasText}` : ''}`;
-      } else if (hasText) {
-        finalPayload = hasText;
-      }
-    } else {
-      if (hasText) {
-        finalPayload = hasText;
-        if (hasCode) {
-          finalPayload += `\n\n\`\`\`${codeLanguage}\n${codeContent.trim()}\n\`\`\``;
-        }
-      } else if (hasCode) {
-        finalPayload = `\`\`\`${codeLanguage}\n${codeContent.trim()}\n\`\`\``;
-      }
-    }
-
-    if (!finalPayload.trim() || isStreaming) return;
+    if (!hasText && !hasCode) return;
+    if (isStreaming) return;
 
     if (isListening && recognitionRef.current) {
       try {
@@ -294,7 +279,12 @@ export function InterviewArena({
       setIsListening(false);
     }
 
-    onSendResponse(finalPayload);
+    onSendResponse({
+      content: responseText,
+      codeSolution: hasCode ? codeContent : '',
+      language: codeLanguage,
+    });
+
     setResponseText('');
   };
 
@@ -341,7 +331,7 @@ export function InterviewArena({
 
   const questionNumber = Math.min(
     BENCHMARK_QUESTIONS_TOTAL,
-    Math.max(1, assistantMessages.length),
+    Math.max(1, session?.currentQuestionNumber || assistantMessages.length),
   );
   const progressPercent = Math.min(
     100,
@@ -443,6 +433,17 @@ export function InterviewArena({
 
         {/* Right: Actions Menu & Outlined Conclude */}
         <div className={styles.topBarRight}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsBuddyOpen(true)}
+            leftIcon={<Sparkles size={13} />}
+            className={styles.buddyTriggerBtn}
+            title="Open Socratic AI Interview Co-Pilot for progressive hints without advancing questions"
+          >
+            AI Co-Pilot
+          </Button>
+
           <Button
             variant="secondary"
             size="sm"
@@ -797,8 +798,9 @@ export function InterviewArena({
                   onClick={handleSubmit}
                   className={styles.submitAnswerBtn}
                   leftIcon={<Send size={13} />}
+                  disabled={isStreaming || (!responseText.trim() && !codeContent.trim())}
                 >
-                  Submit Answer
+                  Submit Solution (Q{questionNumber}/{BENCHMARK_QUESTIONS_TOTAL})
                 </Button>
               )}
             </div>
@@ -847,6 +849,13 @@ export function InterviewArena({
           </div>
         </div>
       )}
+      {/* 4. Socratic AI Interview Co-Pilot Drawer */}
+      <InterviewBuddyDrawer
+        isOpen={isBuddyOpen}
+        onClose={() => setIsBuddyOpen(false)}
+        currentQuestion={parsedQuestion.question}
+        draftCode={codeContent}
+      />
     </div>
   );
 }

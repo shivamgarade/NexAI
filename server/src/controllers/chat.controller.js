@@ -339,7 +339,11 @@ export async function sendMessage(req, res, next) {
       skill: activeSkill,
       enabledTools: resolvedTools,
       toolExecutionMode,
-      context: { userId: req.user._id, projectId: chat.projectId },
+      context: {
+        userId: req.user._id,
+        projectId: chat.projectId,
+        webSearchDefaultOn: req.user.settings?.webSearchDefaultOn !== false,
+      },
     });
 
     for await (const chunk of stream) {
