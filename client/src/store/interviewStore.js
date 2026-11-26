@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { interviewApi } from '@/lib/api/interview.api.js';
 import { streamInterviewResponse, streamInterviewBuddy, sanitizeErrorMessage } from '@/lib/sse.js';
+import { cancelSpeech as cancelClientSpeech } from '@/lib/utils/speechSynthesis.js';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/components/ui/Toast';
 
@@ -577,6 +578,7 @@ export const useInterviewStore = create((set, get) => ({
 
   // Cancel any active speech readout (Gemini audio or browser speechSynthesis)
   cancelSpeech: () => {
+    cancelClientSpeech();
     if (typeof window !== 'undefined') {
       if (window.__nexaiTtsAudio) {
         try {
@@ -634,8 +636,13 @@ export const useInterviewStore = create((set, get) => ({
           : response?.data instanceof Blob
             ? response.data
             : response?.data || response;
-      if (!audioBlob || (audioBlob.size !== undefined && audioBlob.size === 0)) {
-        throw new Error('Empty audio received from TTS service');
+
+      if (audioBlob?.type && audioBlob.type.includes('json')) {
+        const errJson = await audioBlob.text();
+        throw new Error(`TTS service response: ${errJson}`);
+      }
+      if (!audioBlob || (audioBlob.size !== undefined && audioBlob.size < 100)) {
+        throw new Error('Empty or invalid audio received from TTS service');
       }
 
       const audioUrl = URL.createObjectURL(audioBlob);

@@ -516,6 +516,7 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
           })
           .then((res) => {
             const uploaded = res?.data?.data || res?.data;
+            const fileUrl = uploaded?.url || dataUrl;
             if (uploaded?.url) {
               setAttachedContexts((prev) =>
                 prev.map((item) =>
@@ -530,9 +531,45 @@ export function ChatInput({ prefillValue, onClearPrefill }) {
                 ),
               );
             }
+
+            // Auto-persist uploaded file or image to user Library
+            libraryApi
+              .createItem({
+                title: file.name,
+                type: 'file',
+                url: fileUrl,
+                fileName: file.name,
+                mimeType:
+                  file.type ||
+                  (file.name.toLowerCase().endsWith('.pdf')
+                    ? 'application/pdf'
+                    : 'application/octet-stream'),
+                size: file.size,
+                summary: `Attached in chat: ${file.name}`,
+                category: isImage ? 'media' : 'documents',
+                tags: ['chat-attachment'],
+              })
+              .catch(() => {});
           })
           .catch((err) => {
-            // Gracefully ignore background sync errors; local dataUrl remains available for immediate AI prompt
+            // Even if cloud upload failed, persist with local dataUrl
+            libraryApi
+              .createItem({
+                title: file.name,
+                type: 'file',
+                url: dataUrl,
+                fileName: file.name,
+                mimeType:
+                  file.type ||
+                  (file.name.toLowerCase().endsWith('.pdf')
+                    ? 'application/pdf'
+                    : 'application/octet-stream'),
+                size: file.size,
+                summary: `Attached in chat: ${file.name}`,
+                category: isImage ? 'media' : 'documents',
+                tags: ['chat-attachment'],
+              })
+              .catch(() => {});
             console.warn('Background cloud upload notice:', err?.message || err);
           });
       };

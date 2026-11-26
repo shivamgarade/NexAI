@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -14,6 +14,8 @@ import {
   X,
   ArrowUpDown,
   FileText,
+  Zap,
+  Terminal,
 } from 'lucide-react';
 import { WorkspaceHeader } from '@/components/common/WorkspaceHeader';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -37,12 +39,15 @@ import { cn } from '@/lib/utils/cn';
 import { FilterPopover } from './FilterPopover';
 import styles from './LibraryPage.module.scss';
 
+const PromptsPage = lazy(() => import('@/pages/Prompts/PromptsPage'));
+const SkillsPage = lazy(() => import('@/pages/Skills/SkillsPage'));
+
 const TABS = [
   { id: 'all', label: 'All Items', icon: <Layers size={15} /> },
-  { id: 'notes', label: 'Notes', icon: <FileText size={15} /> },
-  { id: 'bookmarks', label: 'Bookmarks', icon: <Bookmark size={15} /> },
-  { id: 'documents', label: 'Documents', icon: <BookOpen size={15} /> },
-  { id: 'files', label: 'Cloud Files', icon: <Paperclip size={15} /> },
+  { id: 'notes', label: 'Notes & Docs', icon: <FileText size={15} /> },
+  { id: 'files', label: 'Files & Media', icon: <Paperclip size={15} /> },
+  { id: 'prompts', label: 'Prompt Vault', icon: <Terminal size={15} /> },
+  { id: 'skills', label: 'Agent Skills', icon: <Zap size={15} /> },
   { id: 'interviews', label: 'Interviews', icon: <Mic size={15} /> },
 ];
 
@@ -305,58 +310,60 @@ export default function LibraryPage() {
         }))}
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        search={localSearch}
-        onSearchChange={(e) => setLocalSearch(e.target.value)}
-        onSearchClear={handleClearSearch}
+        search={activeTab === 'prompts' || activeTab === 'skills' ? undefined : localSearch}
+        onSearchChange={activeTab === 'prompts' || activeTab === 'skills' ? undefined : (e) => setLocalSearch(e.target.value)}
+        onSearchClear={activeTab === 'prompts' || activeTab === 'skills' ? undefined : handleClearSearch}
         searchPlaceholder="Search notes, files, docs..."
         actions={
-          <>
-            <Dropdown
-              align="right"
-              trigger={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<ArrowUpDown size={13} />}
-                  rightIcon={<ChevronDown size={12} />}
-                  className={styles.sortBtn}
-                  title="Sort items"
-                  aria-label="Sort items"
-                >
-                  {sortLabel}
-                </Button>
-              }
-              items={sortDropdownItems}
-            />
-
-            {tags && tags.length > 0 && (
-              <FilterPopover
-                tags={tags}
-                activeTag={activeTag}
-                onSelectTag={setActiveTag}
+          activeTab === 'prompts' || activeTab === 'skills' ? null : (
+            <>
+              <Dropdown
+                align="right"
+                trigger={
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<ArrowUpDown size={13} />}
+                    rightIcon={<ChevronDown size={12} />}
+                    className={styles.sortBtn}
+                    title="Sort items"
+                    aria-label="Sort items"
+                  >
+                    {sortLabel}
+                  </Button>
+                }
+                items={sortDropdownItems}
               />
-            )}
 
-            <Dropdown
-              align="right"
-              trigger={
-                <Button
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<Plus size={14} />}
-                  rightIcon={<ChevronDown size={12} />}
-                  aria-label="Add new item"
-                  title="Add new item"
-                >
-                  Add
-                </Button>
-              }
-              items={actionDropdownItems}
-            />
-          </>
+              {tags && tags.length > 0 && (
+                <FilterPopover
+                  tags={tags}
+                  activeTag={activeTag}
+                  onSelectTag={setActiveTag}
+                />
+              )}
+
+              <Dropdown
+                align="right"
+                trigger={
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<Plus size={14} />}
+                    rightIcon={<ChevronDown size={12} />}
+                    aria-label="Add new item"
+                    title="Add new item"
+                  >
+                    Add
+                  </Button>
+                }
+                items={actionDropdownItems}
+              />
+            </>
+          )
         }
         subFilters={
-          (activeTag || isSearchActive) && (
+          activeTab === 'prompts' || activeTab === 'skills' ? null : (activeTag || isSearchActive) && (
             <div className={styles.filterBanner}>
               {activeTag && (
                 <div className={styles.activeTagBadge}>
@@ -391,8 +398,38 @@ export default function LibraryPage() {
         }
       />
 
-      {/* Loading Skeletons */}
-      {(isLoading || isSearching) && items.length === 0 ? (
+      {/* Tab Content: Prompts, Skills, or Knowledge Hub Items */}
+      {activeTab === 'prompts' ? (
+        <Suspense
+          fallback={
+            <div className={styles.grid}>
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className={styles.skeletonCard}>
+                  <Skeleton width="60%" height={20} radius="sm" />
+                  <Skeleton width="100%" height={14} radius="sm" />
+                </div>
+              ))}
+            </div>
+          }
+        >
+          <PromptsPage hideHeader />
+        </Suspense>
+      ) : activeTab === 'skills' ? (
+        <Suspense
+          fallback={
+            <div className={styles.grid}>
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className={styles.skeletonCard}>
+                  <Skeleton width="60%" height={20} radius="sm" />
+                  <Skeleton width="100%" height={14} radius="sm" />
+                </div>
+              ))}
+            </div>
+          }
+        >
+          <SkillsPage hideHeader />
+        </Suspense>
+      ) : (isLoading || isSearching) && items.length === 0 ? (
         <div className={styles.grid}>
           {Array.from({ length: 6 }).map((_, idx) => (
             <div key={idx} className={styles.skeletonCard}>

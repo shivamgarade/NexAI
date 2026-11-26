@@ -12,6 +12,7 @@ import {
   ZoomIn,
   ZoomOut,
   Hand,
+  Loader2,
 } from 'lucide-react';
 import { toast } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
@@ -36,10 +37,12 @@ export function DiagramLightbox({
 
   // Sync or compile SVG whenever lightbox opens or content updates
   useEffect(() => {
-    if (initialSvg) {
+    if (!isOpen) return;
+
+    if (initialSvg && initialSvg.trim()) {
       setRenderedSvg(initialSvg);
-    } else if (isOpen && rawChart) {
-      const renderId = `nexai-lightbox-${Date.now()}`;
+    } else if (rawChart && rawChart.trim()) {
+      const renderId = `nexai-lb-${Date.now()}`;
       mermaid
         .render(renderId, rawChart.trim())
         .then(({ svg }) => {
@@ -312,14 +315,21 @@ export function DiagramLightbox({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div
-          className={styles.diagramCanvas}
-          style={{
-            transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom})`,
-            transformOrigin: 'center center',
-          }}
-          dangerouslySetInnerHTML={{ __html: renderedSvg || initialSvg || '' }}
-        />
+        {renderedSvg || initialSvg ? (
+          <div
+            className={styles.diagramCanvas}
+            style={{
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom})`,
+              transformOrigin: 'center center',
+            }}
+            dangerouslySetInnerHTML={{ __html: renderedSvg || initialSvg || '' }}
+          />
+        ) : (
+          <div className={styles.loadingPlaceholder}>
+            <Loader2 className={styles.loadingSpinner} size={26} />
+            <span>Loading Architecture Diagram...</span>
+          </div>
+        )}
       </div>
 
       {/* Bottom Floating Status & Navigation Guide */}

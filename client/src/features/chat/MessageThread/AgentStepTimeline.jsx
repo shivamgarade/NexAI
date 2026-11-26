@@ -74,7 +74,12 @@ export function AgentStepTimeline({
   const [isExpanded, setIsExpanded] = useState(isStreaming);
 
   const sources = useMemo(() => {
-    return groundingMetadata?.sources || [];
+    const rawSources = groundingMetadata?.sources || [];
+    const blacklist = ['surfshark', 'nordvpn', 'expressvpn', 'cyberghost', 'ipvanish', 'purevpn'];
+    return rawSources.filter((s) => {
+      const text = `${s.url || s.uri || ''} ${s.title || ''}`.toLowerCase();
+      return !blacklist.some((b) => text.includes(b));
+    });
   }, [groundingMetadata]);
 
   // Deduplicate steps by id (or title) so running + completed pairs merge cleanly
@@ -185,18 +190,24 @@ export function AgentStepTimeline({
               <div className={styles.citationsList}>
                 {sources.map((src, idx) => {
                   const url = src.url || src.uri || '#';
-                  let domain = 'web';
+                  let domain = src.domain || 'web';
                   let label = src.title || '';
-                  try {
-                    const u = new URL(url);
-                    domain = u.hostname.replace(/^www\./, '');
-                    if (!label || label.startsWith('http')) {
+                  if (!src.domain) {
+                    try {
+                      const u = new URL(url);
+                      domain = u.hostname.replace(/^www\./, '');
+                    } catch {
+                      domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] || 'web';
+                    }
+                  }
+                  if (!label || label.startsWith('http')) {
+                    try {
+                      const u = new URL(url);
                       const pathEnd = u.pathname.replace(/\/$/, '').split('/').pop() || '';
                       label = pathEnd ? pathEnd.replace(/[-_]/g, ' ') : domain;
+                    } catch {
+                      label = domain;
                     }
-                  } catch {
-                    domain = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] || 'web';
-                    if (!label) label = domain;
                   }
 
                   return (

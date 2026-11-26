@@ -36,7 +36,7 @@ const PRIMARY_TABS = [
   { id: 'automations', label: 'Automations', icon: <Clock size={15} /> },
 ];
 
-export default function SkillsPage() {
+export default function SkillsPage({ hideHeader = false }) {
   const navigate = useNavigate();
   const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -163,80 +163,116 @@ export default function SkillsPage() {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={cn(styles.page, hideHeader && styles.pageEmbedded)}>
       {/* Higher-Order Workspace Header: Unified Layout Skeleton */}
-      <WorkspaceHeader
-        titleIcon={<Zap size={15} />}
-        titleText="Studio"
-        tabs={PRIMARY_TABS.map((tab) => ({
-          id: tab.id,
-          label: tab.label,
-          icon: tab.icon,
-          count:
-            tab.id === 'skills'
-              ? skills.length
-              : tab.id === 'automations'
-                ? schedules.length
-                : undefined,
-        }))}
-        activeTab={activePrimaryTab}
-        onTabChange={handleTabChange}
-        search={activePrimaryTab === 'skills' ? search : ''}
-        onSearchChange={activePrimaryTab === 'skills' ? (e) => setSearch(e.target.value) : undefined}
-        onSearchClear={activePrimaryTab === 'skills' ? () => setSearch('') : undefined}
-        searchPlaceholder="Search skills or tools..."
-        actions={
-          activePrimaryTab === 'skills' ? (
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<Plus size={14} />}
-              onClick={() => {
-                setEditingSkill(null);
-                setIsFormOpen(true);
-              }}
-            >
-              Create Skill
-            </Button>
-          ) : null
-        }
-        subFilters={
-          activePrimaryTab === 'skills' ? (
-            <>
-              <div className={styles.subTabs}>
-                {[
-                  { id: 'all', label: `All (${skills.length})` },
-                  { id: 'system', label: 'Built-in' },
-                  { id: 'custom', label: 'Custom' },
-                  { id: 'favorites', label: 'Favorites' },
-                ].map((sub) => (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    className={cn(styles.subTabBtn, activeSubTab === sub.id && styles.activeSubTab)}
-                    onClick={() => setActiveSubTab(sub.id)}
-                  >
-                    {sub.label}
-                  </button>
-                ))}
-              </div>
+      {!hideHeader && (
+        <WorkspaceHeader
+          titleIcon={<Zap size={15} />}
+          titleText="Studio"
+          tabs={PRIMARY_TABS.map((tab) => ({
+            id: tab.id,
+            label: tab.label,
+            icon: tab.icon,
+            count:
+              tab.id === 'skills'
+                ? skills.length
+                : tab.id === 'automations'
+                  ? schedules.length
+                  : undefined,
+          }))}
+          activeTab={activePrimaryTab}
+          onTabChange={handleTabChange}
+          search={activePrimaryTab === 'skills' ? search : ''}
+          onSearchChange={activePrimaryTab === 'skills' ? (e) => setSearch(e.target.value) : undefined}
+          onSearchClear={activePrimaryTab === 'skills' ? () => setSearch('') : undefined}
+          searchPlaceholder="Search skills or tools..."
+          actions={
+            activePrimaryTab === 'skills' ? (
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Plus size={14} />}
+                onClick={() => {
+                  setEditingSkill(null);
+                  setIsFormOpen(true);
+                }}
+              >
+                Create Skill
+              </Button>
+            ) : null
+          }
+          subFilters={
+            activePrimaryTab === 'skills' ? (
+              <>
+                <div className={styles.subTabs}>
+                  {[
+                    { id: 'all', label: `All (${skills.length})` },
+                    { id: 'system', label: 'Built-in' },
+                    { id: 'custom', label: 'Custom' },
+                    { id: 'favorites', label: 'Favorites' },
+                  ].map((sub) => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      className={cn(styles.subTabBtn, activeSubTab === sub.id && styles.activeSubTab)}
+                      onClick={() => setActiveSubTab(sub.id)}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
+                </div>
 
-              <div className={styles.categoryChips}>
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    className={cn(styles.categoryChip, selectedCategory === cat && styles.active)}
-                    onClick={() => setSelectedCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null
-        }
-      />
+                <div className={styles.categoryChips}>
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={cn(styles.categoryChip, selectedCategory === cat && styles.active)}
+                      onClick={() => setSelectedCategory(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null
+          }
+        />
+      )}
+
+      {hideHeader && (
+        <div className={styles.embeddedControls}>
+          <div className={styles.subTabs}>
+            {[
+              { id: 'all', label: `All (${skills.length})` },
+              { id: 'system', label: 'Built-in' },
+              { id: 'custom', label: 'Custom' },
+              { id: 'favorites', label: 'Favorites' },
+            ].map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                className={cn(styles.subTabBtn, activeSubTab === sub.id && styles.activeSubTab)}
+                onClick={() => setActiveSubTab(sub.id)}
+              >
+                {sub.label}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Plus size={14} />}
+            onClick={() => {
+              setEditingSkill(null);
+              setIsFormOpen(true);
+            }}
+          >
+            Create Skill
+          </Button>
+        </div>
+      )}
 
       {/* Tab 1: Agent Skills Content */}
       {activePrimaryTab === 'skills' && (

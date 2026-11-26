@@ -16,13 +16,20 @@ import { logger } from '../utils/logger.js';
  * @param {string} snippet
  * @returns {boolean}
  */
-export function isResultRelevant(query, title = '', snippet = '') {
+export function isResultRelevant(query, title = '', snippet = '', url = '') {
   if (!title && !snippet) return false;
 
-  const textToSearch = `${title} ${snippet}`.toLowerCase();
+  const textToSearch = `${title} ${snippet} ${url}`.toLowerCase();
 
-  // Known bot-deflection filler domains or pages returned by challenged search endpoints
+  // Known bot-deflection filler domains, VPN ad portals, and crawler traps
   const botDeflectionPatterns = [
+    'surfshark',
+    'nordvpn',
+    'expressvpn',
+    'cyberghost',
+    'purevpn',
+    'ipvanish',
+    'privateinternetaccess',
     'khan academy',
     'log into facebook',
     'facebook login',
@@ -52,7 +59,7 @@ export function isResultRelevant(query, title = '', snippet = '') {
     return true;
   }
 
-  // At least one significant query keyword must be present in the title or snippet
+  // At least one significant query keyword must be present in the title, snippet, or url
   const matchingKeywords = queryKeywords.filter((word) => textToSearch.includes(word));
   return matchingKeywords.length > 0;
 }
@@ -118,7 +125,7 @@ export async function performWebSearch(query) {
 
   // Tier 1.5: Google Real-Time Live Feed Search (100% Free, live real-time articles & news, zero 429 quota exhaustion)
   try {
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(cleanQuery)}&hl=en-IN&gl=IN&ceid=IN:en`;
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(cleanQuery)}&hl=en-US&gl=US&ceid=US:en`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4500);
     const rssRes = await fetch(rssUrl, {
@@ -139,15 +146,21 @@ export async function performWebSearch(query) {
         const title = $(el).find('title').text().trim();
         const link = $(el).find('link').text().trim();
         const pubDate = $(el).find('pubDate').text().trim();
+        const sourceName = $(el).find('source').text().trim();
+        const sourceUrl = $(el).find('source').attr('url') || '';
         const descRaw = $(el).find('description').text();
         const descText = descRaw.replace(/<[^>]+>/g, '').trim();
 
-        if (title && link) {
+        // Extract real destination link if available from sourceUrl or use link
+        const finalUrl = sourceUrl && isValidUrl(sourceUrl) ? sourceUrl : link;
+
+        if (title && finalUrl && isResultRelevant(cleanQuery, title, descText, finalUrl)) {
           googleResults.push({
-            title,
+            title: sourceName ? `${title.replace(/\s+-\s+.*$/, '')} (${sourceName})` : title,
             snippet: descText ? `${title} — ${descText}` : `${title} (${pubDate})`,
-            url: link,
+            url: finalUrl,
             publishedAt: pubDate,
+            domain: sourceName || (sourceUrl ? new URL(sourceUrl).hostname : 'news.google.com'),
           });
         }
       });
@@ -307,69 +320,6 @@ export async function performWebSearch(query) {
     }
   } catch (wikiErr) {
     logger.warn({ error: wikiErr.message, query: cleanQuery }, 'Wikipedia search fallback failed');
-  }
-
-  // 4. Tier 4: Bing Web Search with strict relevance gating
-  try {
-    const url = `https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}&setlang=en`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-    });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const html = await response.text();
-      const $ = cheerio.load(html);
-      const results = [];
-
-      $('li.b_algo').each((_, el) => {
-        if (results.length >= 6) return;
-        const title = $(el).find('h2').text().trim();
-        const snippet = $(el).find('.b_caption p, .b_lineclamp2, .b_snippet, p').first().text().trim();
-        const rawHref = $(el).find('h2 a').attr('href') || '';
-
-        let finalUrl = rawHref;
-        const match = rawHref.match(/u=a1([A-Za-z0-9_-]+)/);
-        if (match) {
-          try {
-            finalUrl = Buffer.from(
-              match[1].replace(/-/g, '+').replace(/_/g, '/'),
-              'base64',
-            ).toString('utf8');
-          } catch {
-            finalUrl = rawHref;
-          }
-        }
-
-        if (title && (snippet || finalUrl) && isResultRelevant(cleanQuery, title, snippet)) {
-          results.push({
-            title,
-            snippet: snippet || title,
-            url: finalUrl.startsWith('http') ? finalUrl : `https://${finalUrl}`,
-          });
-        }
-      });
-
-      if (results.length > 0) {
-        return {
-          query: cleanQuery,
-          source: 'Bing Search',
-          resultsCount: results.length,
-          results,
-        };
-      }
-    }
-  } catch (bingErr) {
-    logger.warn({ error: bingErr.message, query: cleanQuery }, 'Bing search fallback failed');
   }
 
   return {

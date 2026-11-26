@@ -8,7 +8,10 @@ import {
   ExternalLink,
   Download,
   Maximize2,
+  Bookmark,
 } from 'lucide-react';
+import { libraryApi } from '@/lib/api/library.api';
+import { toast } from '@/store/uiStore';
 import { AttachmentLightbox } from '../AttachmentLightbox';
 import { cn } from '@/lib/utils/cn';
 import styles from './MessageAttachments.module.scss';
@@ -34,6 +37,30 @@ export function MessageAttachments({ attachments, className }) {
   if (!Array.isArray(attachments) || attachments.length === 0) {
     return null;
   }
+
+  const handleSaveToLibrary = async (att, srcUrl, e) => {
+    e?.stopPropagation?.();
+    const isImage =
+      att.type === 'image' ||
+      att.mimeType?.startsWith('image/') ||
+      att.name?.match(/\.(jpe?g|png|gif|webp|svg|bmp)$/i);
+    try {
+      await libraryApi.createItem({
+        title: att.name || 'Chat Attachment',
+        type: 'file',
+        url: srcUrl || att.url || '',
+        fileName: att.name || 'attachment',
+        mimeType: att.mimeType || (isImage ? 'image/png' : 'application/octet-stream'),
+        size: att.size || 0,
+        summary: `Saved from chat: ${att.name || 'Attachment'}`,
+        category: isImage ? 'media' : 'documents',
+        tags: ['chat-saved'],
+      });
+      toast.success(`Saved "${att.name || 'attachment'}" to Library`);
+    } catch {
+      toast.error('Failed to save to Library');
+    }
+  };
 
   const handleOpenPdf = (srcUrl, fileName) => {
     try {
@@ -107,6 +134,15 @@ export function MessageAttachments({ attachments, className }) {
                 <span className={styles.srOnly}>{att.name || 'Attached image'}</span>
                 {att.size ? <span className={styles.srOnly}>{formatBytes(att.size)}</span> : null}
                 <div className={styles.imageHoverOverlay} aria-hidden="true">
+                  <button
+                    type="button"
+                    className={styles.overlayActionBtn}
+                    onClick={(e) => handleSaveToLibrary(att, srcUrl, e)}
+                    title="Save image to Library"
+                    aria-label="Save image to Library"
+                  >
+                    <Bookmark size={15} />
+                  </button>
                   <Maximize2 size={16} className={styles.expandIcon} />
                 </div>
               </div>
@@ -159,6 +195,15 @@ export function MessageAttachments({ attachments, className }) {
                 </div>
 
                 <div className={styles.pdfActions}>
+                  <button
+                    type="button"
+                    className={styles.pdfActionBtn}
+                    onClick={(e) => handleSaveToLibrary(att, srcUrl, e)}
+                    title="Save PDF to Library"
+                    aria-label="Save PDF to Library"
+                  >
+                    <Bookmark size={15} />
+                  </button>
                   {srcUrl && (
                     <button
                       type="button"
@@ -233,17 +278,28 @@ export function MessageAttachments({ attachments, className }) {
                 </div>
               </div>
 
-              {srcUrl && (
-                <a
-                  href={srcUrl}
-                  download={att.name || 'file'}
+              <div className={styles.genericActions}>
+                <button
+                  type="button"
                   className={styles.pdfActionBtn}
-                  title="Download file"
-                  aria-label="Download file"
+                  onClick={(e) => handleSaveToLibrary(att, srcUrl, e)}
+                  title="Save file to Library"
+                  aria-label="Save file to Library"
                 >
-                  <Download size={15} />
-                </a>
-              )}
+                  <Bookmark size={15} />
+                </button>
+                {srcUrl && (
+                  <a
+                    href={srcUrl}
+                    download={att.name || 'file'}
+                    className={styles.pdfActionBtn}
+                    title="Download file"
+                    aria-label="Download file"
+                  >
+                    <Download size={15} />
+                  </a>
+                )}
+              </div>
             </div>
           );
         })}

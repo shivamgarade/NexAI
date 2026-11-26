@@ -138,8 +138,13 @@ export async function speakText(
           : new Blob([rawData], { type: 'audio/mpeg' })
         : new Blob([rawData], { type: 'audio/mpeg' });
 
-    if (!audioBlob || (audioBlob.size !== undefined && audioBlob.size === 0)) {
-      throw new Error('Empty audio stream received from Edge Neural TTS');
+    if (!audioBlob || (audioBlob.size !== undefined && audioBlob.size < 100)) {
+      throw new Error('Empty or invalid audio stream received from Edge Neural TTS');
+    }
+
+    if (audioBlob.type && audioBlob.type.includes('json')) {
+      const errorJson = await audioBlob.text();
+      throw new Error(`TTS server error: ${errorJson}`);
     }
 
     const audioUrl = URL.createObjectURL(audioBlob);
@@ -247,13 +252,27 @@ export function cancelSpeech() {
     }
     activeAudio = null;
   }
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    try {
-      window.speechSynthesis.cancel();
-    } catch {
-      // ignore
+  if (typeof window !== 'undefined') {
+    if (window.__nexaiTtsAudio) {
+      try {
+        window.__nexaiTtsAudio.pause();
+        if (window.__nexaiTtsAudio.src) {
+          URL.revokeObjectURL(window.__nexaiTtsAudio.src);
+        }
+        window.__nexaiTtsAudio.src = '';
+      } catch {
+        // ignore
+      }
+      window.__nexaiTtsAudio = null;
     }
-    window.__nexaiActiveUtterance = null;
+    if (window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
+      }
+      window.__nexaiActiveUtterance = null;
+    }
   }
 }
 

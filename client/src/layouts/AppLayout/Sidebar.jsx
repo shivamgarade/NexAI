@@ -149,23 +149,14 @@ export function Sidebar({ onItemClick, isMobile = false }) {
     fetchProjects();
   }, [fetchChats, fetchProjects]);
 
-  // Primary visible navigation sections
+  // Primary visible navigation: 3 core essentials (Interview, Chat, Library)
   const navSections = [
     {
-      id: 'workspace',
-      title: 'Workspace',
+      id: 'core',
       items: [
+        { to: ROUTES.INTERVIEW, label: 'Interview', icon: <Mic size={16} /> },
         { to: ROUTES.CHAT, label: 'Chat', icon: <MessageSquare size={16} /> },
         { to: ROUTES.LIBRARY, label: 'Library', icon: <Bookmark size={16} /> },
-      ],
-    },
-    {
-      id: 'studio',
-      title: 'Studio & Tools',
-      items: [
-        { to: ROUTES.SKILLS, label: 'Skills & Prompts', icon: <Zap size={16} /> },
-        { to: ROUTES.INTERVIEW, label: 'Interview Arena', icon: <Mic size={16} /> },
-        { to: ROUTES.SCHEMA, label: 'Data Modeling', icon: <Database size={16} /> },
       ],
     },
   ];
@@ -537,21 +528,19 @@ export function Sidebar({ onItemClick, isMobile = false }) {
       <nav className={styles.navSection} aria-label="Main Navigation">
         {navSections.map((section) => (
           <div key={section.id} className={styles.navGroup}>
-            {!isCollapsed && <span className={styles.navGroupTitle}>{section.title}</span>}
-            {section.items
-              .filter((item) => !isCollapsed || item.to !== ROUTES.CHAT)
-              .map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={onItemClick}
-                  title={isCollapsed ? item.label : undefined}
-                  className={({ isActive }) => cn(styles.navItem, isActive && styles.active)}
-                >
-                  <span className={styles.navIcon}>{item.icon}</span>
-                  <span className={styles.navLabel}>{item.label}</span>
-                </NavLink>
-              ))}
+            {section.title && !isCollapsed && <span className={styles.navGroupTitle}>{section.title}</span>}
+            {section.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={onItemClick}
+                title={isCollapsed ? item.label : undefined}
+                className={({ isActive }) => cn(styles.navItem, isActive && styles.active)}
+              >
+                <span className={styles.navIcon}>{item.icon}</span>
+                <span className={styles.navLabel}>{item.label}</span>
+              </NavLink>
+            ))}
           </div>
         ))}
       </nav>
