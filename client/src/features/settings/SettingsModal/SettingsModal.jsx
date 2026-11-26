@@ -855,7 +855,7 @@ export function SettingsModal() {
                             <span>(tokens, rate) &#123;</span>
                           </div>
                           <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
-                            <span style={{ opacity: 0.6 }}>// Real-time utility billing computation</span>
+                            <span style={{ opacity: 0.6 }}>{'// Real-time utility billing computation'}</span>
                           </div>
                           <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
                             <span style={{ color: lightAccent, fontWeight: 600 }}>const</span> credits = Math.ceil(tokens / rate);
@@ -956,7 +956,7 @@ export function SettingsModal() {
                             <span>(tokens, rate) &#123;</span>
                           </div>
                           <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
-                            <span style={{ opacity: 0.6 }}>// Real-time utility billing computation</span>
+                            <span style={{ opacity: 0.6 }}>{'// Real-time utility billing computation'}</span>
                           </div>
                           <div className={styles.codePreviewLine} style={{ paddingLeft: 16 }}>
                             <span style={{ color: darkAccent, fontWeight: 600 }}>const</span> credits = Math.ceil(tokens / rate);

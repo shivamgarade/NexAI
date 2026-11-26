@@ -38,7 +38,6 @@ const PRIMARY_TABS = [
 
 export default function SkillsPage({ hideHeader = false }) {
   const navigate = useNavigate();
-  const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'skills';
 

@@ -53,7 +53,6 @@ const TABS = [
 
 export default function LibraryPage() {
   const navigate = useNavigate();
-  const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get('tab');
 

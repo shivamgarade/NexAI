@@ -389,7 +389,7 @@ export function InterviewCodeEditor({
                 </div>
               </div>
             ) : (
-              <p className={styles.emptyConsoleNotice}>Click "Run Code" to test and evaluate your solution.</p>
+              <p className={styles.emptyConsoleNotice}>Click &quot;Run Code&quot; to test and evaluate your solution.</p>
             )}
           </div>
         </div>

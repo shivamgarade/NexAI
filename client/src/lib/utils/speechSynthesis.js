@@ -26,7 +26,7 @@ export function sanitizeForSpeech(raw) {
     .replace(/\\\[[\s\S]*?\\\]/g, ' ') // Strip LaTeX display formulas
     .replace(/\\\([\s\S]*?\\\)/g, ' ') // Strip LaTeX inline formulas
     .replace(/\$\$[\s\S]*?\$\$/g, ' ')
-    .replace(/\$([^\$]+)\$/g, '$1')
+    .replace(/\$([^$]+)\$/g, '$1')
     .replace(/#{1,6}\s+/g, '') // Strip markdown heading markers
     .replace(/(\*\*|__)(.*?)\1/g, '$2') // Strip bold
     .replace(/(\*|_)(.*?)\1/g, '$2') // Strip italics

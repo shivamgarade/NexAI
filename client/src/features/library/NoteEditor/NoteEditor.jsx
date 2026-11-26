@@ -473,7 +473,7 @@ export function NoteEditor({
             <MarkdownRenderer content={value} />
           ) : (
             <div className={styles.emptyPreviewNotice}>
-              <p>Nothing to preview yet. Switch to Write mode or use "/" to start writing.</p>
+              <p>Nothing to preview yet. Switch to Write mode or use &quot;/&quot; to start writing.</p>
             </div>
           )}
         </div>
