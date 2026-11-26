@@ -608,54 +608,9 @@ export const useInterviewStore = create((set, get) => ({
     const spokenText = sanitizeForSpeech(text);
     if (!spokenText) return;
 
-    const isSimulation = Boolean(get().isSimulation || get().currentSession?.isSimulation);
-
-    // 1. Simulation Mode: Use zero-quota client-side Web Speech API
-    if (isSimulation) {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-
-      try {
-        const utterance = new SpeechSynthesisUtterance(spokenText);
-        const voice = getBestSpeechVoice();
-        if (voice) {
-          utterance.voice = voice;
-        }
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-
-        utterance.onstart = () => {
-          set({ isSpeaking: true, speakingSource: 'interviewer' });
-        };
-
-        utterance.onend = () => {
-          set((state) => ({
-            isSpeaking: state.isListening ? true : false,
-            speakingSource: state.isListening ? 'candidate' : null,
-          }));
-        };
-
-        utterance.onerror = () => {
-          set((state) => ({
-            isSpeaking: state.isListening ? true : false,
-            speakingSource: state.isListening ? 'candidate' : null,
-          }));
-        };
-
-        // Keep reference to prevent garbage collection cutting off long speech turns
-        window.__nexaiSpeechUtterance = utterance;
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        // Speech synthesis unsupported or failed silently
-      }
-      return;
-    }
-
-    // 2. Live Mode: Generate realistic audio via Edge Neural TTS or Gemini 3.8 Flash-Lite TTS
-    const engine = get().voiceEngine || 'edge';
-    const voice =
-      engine === 'edge'
-        ? get().voiceName || 'en-US-ChristopherNeural'
-        : 'Kore';
+    // Generate realistic, crystal-clear audio via Microsoft Edge Neural TTS
+    const voice = get().voiceName || 'en-US-ChristopherNeural';
+    const engine = 'edge';
 
     set({ isTtsLoading: true });
     try {

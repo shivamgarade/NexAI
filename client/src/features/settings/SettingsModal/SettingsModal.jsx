@@ -54,8 +54,6 @@ export function SettingsModal() {
   const { governance, wallet, fetchWallet } = useWalletStore();
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [previewLightOpen, setPreviewLightOpen] = useState(false);
-  const [previewDarkOpen, setPreviewDarkOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -510,21 +508,331 @@ export function SettingsModal() {
               </div>
             )}
 
-            {/* 2. APPEARANCE TAB - EXACT REPLICA OF USER DESIGN SPEC */}
+            {/* 2. APPEARANCE TAB - CONSUMER-GRADE MODERN THEMES & TYPOGRAPHY */}
             {activeTab === 'appearance' && (
               <div className={styles.appearanceContainer}>
                 {/* Header */}
                 <div className={styles.appearanceHeader}>
-                  <h3 className={styles.appearanceTitle}>Appearance</h3>
+                  <h3 className={styles.appearanceTitle}>Appearance & Display</h3>
                   <p className={styles.appearanceSubtitle}>
-                    Configure the agent's visual theme and display preferences.
+                    Configure theme mode, designer color palettes, typography, and reading width.
                   </p>
                 </div>
 
-                {/* Section 1: Chat */}
+                {/* Section 1: Interface Theme */}
                 <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Chat</h4>
+                  <h4 className={styles.sectionHeading}>Interface Theme</h4>
+                  <div className={styles.themeGrid}>
+                    <button
+                      type="button"
+                      className={cn(
+                        styles.themeChoiceCard,
+                        user?.settings?.theme === 'system' && styles.themeChoiceCardActive,
+                      )}
+                      onClick={() => updateSettings({ theme: 'system' })}
+                    >
+                      <div className={styles.themeIconWrap}>
+                        <Monitor size={18} />
+                      </div>
+                      <div className={styles.themeTextWrap}>
+                        <span className={styles.themeChoiceTitle}>System</span>
+                        <span className={styles.themeChoiceDesc}>Match your OS preference</span>
+                      </div>
+                      {user?.settings?.theme === 'system' && <Check size={16} className={styles.themeCheckIcon} />}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={cn(
+                        styles.themeChoiceCard,
+                        (!isDark && user?.settings?.theme !== 'system') && styles.themeChoiceCardActive,
+                      )}
+                      onClick={() => {
+                        if (isDark) toggleTheme();
+                        updateSettings({ theme: 'light' });
+                      }}
+                    >
+                      <div className={styles.themeIconWrap}>
+                        <Sun size={18} />
+                      </div>
+                      <div className={styles.themeTextWrap}>
+                        <span className={styles.themeChoiceTitle}>Light Mode</span>
+                        <span className={styles.themeChoiceDesc}>Crisp daylight contrast</span>
+                      </div>
+                      {(!isDark && user?.settings?.theme !== 'system') && <Check size={16} className={styles.themeCheckIcon} />}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={cn(
+                        styles.themeChoiceCard,
+                        (isDark && user?.settings?.theme !== 'system') && styles.themeChoiceCardActive,
+                      )}
+                      onClick={() => {
+                        if (!isDark) toggleTheme();
+                        updateSettings({ theme: 'dark' });
+                      }}
+                    >
+                      <div className={styles.themeIconWrap}>
+                        <Moon size={18} />
+                      </div>
+                      <div className={styles.themeTextWrap}>
+                        <span className={styles.themeChoiceTitle}>Dark Mode</span>
+                        <span className={styles.themeChoiceDesc}>Deep OLED obsidian</span>
+                      </div>
+                      {(isDark && user?.settings?.theme !== 'system') && <Check size={16} className={styles.themeCheckIcon} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section 2: Curated Color Palettes */}
+                <div className={styles.appearanceSection}>
+                  <h4 className={styles.sectionHeading}>
+                    {isDark ? 'Dark Theme Palette' : 'Light Theme Palette'}
+                  </h4>
+                  <div className={styles.paletteGrid}>
+                    {isDark ? (
+                      <>
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.paletteCard,
+                            (user?.settings?.themePresetDark === 'Obsidian Noir' ||
+                              !user?.settings?.themePresetDark) &&
+                              styles.paletteCardActive,
+                          )}
+                          onClick={() => {
+                            updateSettings({
+                              themePresetDark: 'Obsidian Noir',
+                              customColors: {
+                                darkBg: '#09090b',
+                                darkAccent: '#10b981',
+                              },
+                            });
+                          }}
+                        >
+                          <div className={styles.paletteSwatches}>
+                            <span className={styles.swatchDot} style={{ background: '#09090b', border: '1px solid #27272a' }} />
+                            <span className={styles.swatchDot} style={{ background: '#10b981' }} />
+                          </div>
+                          <div className={styles.paletteInfo}>
+                            <span className={styles.paletteName}>Obsidian Noir</span>
+                            <span className={styles.paletteDesc}>Minimalist deep black with emerald accents</span>
+                          </div>
+                          {(user?.settings?.themePresetDark === 'Obsidian Noir' ||
+                            !user?.settings?.themePresetDark) && <Check size={14} className={styles.paletteCheck} />}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.paletteCard,
+                            user?.settings?.themePresetDark === 'Cyberpunk Glow' &&
+                              styles.paletteCardActive,
+                          )}
+                          onClick={() => {
+                            updateSettings({
+                              themePresetDark: 'Cyberpunk Glow',
+                              customColors: {
+                                darkBg: '#070708',
+                                darkAccent: '#a2ff00',
+                              },
+                            });
+                          }}
+                        >
+                          <div className={styles.paletteSwatches}>
+                            <span className={styles.swatchDot} style={{ background: '#070708', border: '1px solid #27272a' }} />
+                            <span className={styles.swatchDot} style={{ background: '#a2ff00' }} />
+                          </div>
+                          <div className={styles.paletteInfo}>
+                            <span className={styles.paletteName}>Cyberpunk Glow</span>
+                            <span className={styles.paletteDesc}>High-contrast carbon with electric lime</span>
+                          </div>
+                          {user?.settings?.themePresetDark === 'Cyberpunk Glow' && <Check size={14} className={styles.paletteCheck} />}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.paletteCard,
+                            user?.settings?.themePresetDark === 'Nordic Slate' &&
+                              styles.paletteCardActive,
+                          )}
+                          onClick={() => {
+                            updateSettings({
+                              themePresetDark: 'Nordic Slate',
+                              customColors: {
+                                darkBg: '#0f172a',
+                                darkAccent: '#6366f1',
+                              },
+                            });
+                          }}
+                        >
+                          <div className={styles.paletteSwatches}>
+                            <span className={styles.swatchDot} style={{ background: '#0f172a', border: '1px solid #334155' }} />
+                            <span className={styles.swatchDot} style={{ background: '#6366f1' }} />
+                          </div>
+                          <div className={styles.paletteInfo}>
+                            <span className={styles.paletteName}>Nordic Slate</span>
+                            <span className={styles.paletteDesc}>Slate navy base with electric indigo</span>
+                          </div>
+                          {user?.settings?.themePresetDark === 'Nordic Slate' && <Check size={14} className={styles.paletteCheck} />}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.paletteCard,
+                            (user?.settings?.themePresetLight === 'Clean Daylight' ||
+                              !user?.settings?.themePresetLight) &&
+                              styles.paletteCardActive,
+                          )}
+                          onClick={() => {
+                            updateSettings({
+                              themePresetLight: 'Clean Daylight',
+                              customColors: {
+                                lightBg: '#f8fafc',
+                                lightAccent: '#4f46e5',
+                              },
+                            });
+                          }}
+                        >
+                          <div className={styles.paletteSwatches}>
+                            <span className={styles.swatchDot} style={{ background: '#ffffff', border: '1px solid #cbd5e1' }} />
+                            <span className={styles.swatchDot} style={{ background: '#4f46e5' }} />
+                          </div>
+                          <div className={styles.paletteInfo}>
+                            <span className={styles.paletteName}>Clean Daylight</span>
+                            <span className={styles.paletteDesc}>Pure crisp white with royal indigo</span>
+                          </div>
+                          {(user?.settings?.themePresetLight === 'Clean Daylight' ||
+                            !user?.settings?.themePresetLight) && <Check size={14} className={styles.paletteCheck} />}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={cn(
+                            styles.paletteCard,
+                            user?.settings?.themePresetLight === 'Warm Minimal' &&
+                              styles.paletteCardActive,
+                          )}
+                          onClick={() => {
+                            updateSettings({
+                              themePresetLight: 'Warm Minimal',
+                              customColors: {
+                                lightBg: '#fbfbfb',
+                                lightAccent: '#059669',
+                              },
+                            });
+                          }}
+                        >
+                          <div className={styles.paletteSwatches}>
+                            <span className={styles.swatchDot} style={{ background: '#fbfbfb', border: '1px solid #cbd5e1' }} />
+                            <span className={styles.swatchDot} style={{ background: '#059669' }} />
+                          </div>
+                          <div className={styles.paletteInfo}>
+                            <span className={styles.paletteName}>Warm Minimal</span>
+                            <span className={styles.paletteDesc}>Warm cream paper with emerald green</span>
+                          </div>
+                          {user?.settings?.themePresetLight === 'Warm Minimal' && <Check size={14} className={styles.paletteCheck} />}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section 3: Typography & Fonts */}
+                <div className={styles.appearanceSection}>
+                  <h4 className={styles.sectionHeading}>Typography</h4>
                   <div className={styles.groupCard}>
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Font Family</span>
+                        <span className={styles.rowSubtitle}>
+                          Primary typeface across the entire workspace and UI.
+                        </span>
+                      </div>
+                      <select
+                        className={styles.nativeDropdown}
+                        value={user?.settings?.font || 'Plus Jakarta Sans'}
+                        onChange={(e) => updateSettings({ font: e.target.value })}
+                        aria-label="Font family"
+                      >
+                        <option value="Plus Jakarta Sans">Plus Jakarta Sans (Recommended • Modern AI)</option>
+                        <option value="Inter">Inter (Clean Neutral)</option>
+                        <option value="JetBrains Mono">JetBrains Mono (Developer Mono)</option>
+                        <option value="System Default">System Default</option>
+                      </select>
+                    </div>
+
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Font Size</span>
+                        <span className={styles.rowSubtitle}>
+                          Base font size for reading messages and editor text.
+                        </span>
+                      </div>
+                      <div className={styles.segmentedPill}>
+                        {[
+                          { id: '13px', label: '13px' },
+                          { id: '14px', label: '14px' },
+                          { id: '15px', label: '15px' },
+                          { id: '16px', label: '16px' },
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            className={cn(
+                              styles.segmentedPillBtn,
+                              (user?.settings?.fontSize || '14px') === s.id &&
+                                styles.segmentedPillBtnActive,
+                            )}
+                            onClick={() => updateSettings({ fontSize: s.id })}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 4: Chat & Reading Layout */}
+                <div className={styles.appearanceSection}>
+                  <h4 className={styles.sectionHeading}>Chat & Reading Layout</h4>
+                  <div className={styles.groupCard}>
+                    <div className={styles.rowItem}>
+                      <div className={styles.rowText}>
+                        <span className={styles.rowTitle}>Conversation Width</span>
+                        <span className={styles.rowSubtitle}>
+                          Maximum width of chat messages and markdown blocks.
+                        </span>
+                      </div>
+                      <div className={styles.segmentedPill}>
+                        {[
+                          { id: 'narrow', label: 'Narrow' },
+                          { id: 'default', label: 'Default' },
+                          { id: 'wide', label: 'Wide' },
+                          { id: 'fill', label: 'Full Width' },
+                        ].map((w) => (
+                          <button
+                            key={w.id}
+                            type="button"
+                            className={cn(
+                              styles.segmentedPillBtn,
+                              (user?.settings?.conversationWidth || 'wide') === w.id &&
+                                styles.segmentedPillBtnActive,
+                            )}
+                            onClick={() => updateSettings({ conversationWidth: w.id })}
+                          >
+                            {w.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className={styles.rowItem}>
                       <div className={styles.rowText}>
                         <span className={styles.rowTitle}>Conversation steps</span>
@@ -552,470 +860,7 @@ export function SettingsModal() {
                   </div>
                 </div>
 
-                {/* Section 2: Appearance */}
-                <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Appearance</h4>
-                  <div className={styles.groupCard}>
-                    {/* Row 1: Theme */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Theme</span>
-                      <div className={styles.segmentedIcons}>
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.segmentedIconBtn,
-                            user?.settings?.theme === 'system' && styles.segmentedIconBtnActive,
-                          )}
-                          onClick={() => {
-                            updateSettings({ theme: 'dark' });
-                          }}
-                          title="System"
-                          aria-label="System theme"
-                        >
-                          <Monitor size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.segmentedIconBtn,
-                            !isDark && styles.segmentedIconBtnActive,
-                          )}
-                          onClick={() => {
-                            if (isDark) toggleTheme();
-                            updateSettings({ theme: 'light' });
-                          }}
-                          title="Light"
-                          aria-label="Light theme"
-                        >
-                          <Sun size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            styles.segmentedIconBtn,
-                            isDark && styles.segmentedIconBtnActive,
-                          )}
-                          onClick={() => {
-                            if (!isDark) toggleTheme();
-                            updateSettings({ theme: 'dark' });
-                          }}
-                          title="Dark"
-                          aria-label="Dark theme"
-                        >
-                          <Moon size={15} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Row 2: Contrast */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Contrast</span>
-                      <div className={styles.segmentedPill}>
-                        {['default', 'strong'].map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            className={cn(
-                              styles.segmentedPillBtn,
-                              (user?.settings?.contrast || 'default') === c &&
-                                styles.segmentedPillBtnActive,
-                            )}
-                            onClick={() => updateSettings({ contrast: c })}
-                          >
-                            {c.charAt(0).toUpperCase() + c.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Row 3: Font */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Font</span>
-                      <select
-                        className={styles.nativeDropdown}
-                        value={user?.settings?.font || 'Google Sans'}
-                        onChange={(e) => updateSettings({ font: e.target.value })}
-                        aria-label="Font family"
-                      >
-                        <option value="Google Sans">Google Sans</option>
-                        <option value="Inter">Inter</option>
-                        <option value="Roboto">Roboto</option>
-                        <option value="JetBrains Mono">JetBrains Mono</option>
-                        <option value="System Default">System Default</option>
-                      </select>
-                    </div>
-
-                    {/* Row 4: Font size */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Font size</span>
-                      <select
-                        className={styles.nativeDropdown}
-                        value={user?.settings?.fontSize || '14px'}
-                        onChange={(e) => updateSettings({ fontSize: e.target.value })}
-                        aria-label="Font size"
-                      >
-                        <option value="12px">12px</option>
-                        <option value="13px">13px</option>
-                        <option value="14px">14px</option>
-                        <option value="15px">15px</option>
-                        <option value="16px">16px</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 3: Light Theme */}
-                <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Light Theme</h4>
-                  <div className={styles.groupCard}>
-                    {/* Preset */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Preset</span>
-                      <select
-                        className={styles.nativeDropdown}
-                        value={user?.settings?.themePresetLight || 'Legacy Light'}
-                        onChange={(e) => updateSettings({ themePresetLight: e.target.value })}
-                        aria-label="Light theme preset"
-                      >
-                        <option value="Legacy Light">Legacy Light</option>
-                        <option value="Clean Minimal">Clean Minimal</option>
-                        <option value="Paper Light">Paper Light</option>
-                      </select>
-                    </div>
-
-                    {/* Background */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Background</span>
-                      <div className={styles.colorSwatchWrap}>
-                        <input
-                          type="color"
-                          className={styles.hiddenColorInput}
-                          id="lightBgPicker"
-                          value={user?.settings?.customColors?.lightBg || '#F9F9F9'}
-                          onChange={(e) => {
-                            updateSettings({
-                              customColors: {
-                                ...(user?.settings?.customColors || {}),
-                                lightBg: e.target.value,
-                              },
-                            });
-                          }}
-                        />
-                        <label htmlFor="lightBgPicker" className={styles.colorPillLabel}>
-                          <span
-                            className={styles.colorBox}
-                            style={{
-                              backgroundColor:
-                                user?.settings?.customColors?.lightBg || '#F9F9F9',
-                            }}
-                          />
-                          <span className={styles.colorHex}>
-                            {user?.settings?.customColors?.lightBg || '#F9F9F9'}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Foreground */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Foreground</span>
-                      <div className={styles.colorSwatchWrap}>
-                        <input
-                          type="color"
-                          className={styles.hiddenColorInput}
-                          id="lightFgPicker"
-                          value={user?.settings?.customColors?.lightFg || '#101010'}
-                          onChange={(e) => {
-                            updateSettings({
-                              customColors: {
-                                ...(user?.settings?.customColors || {}),
-                                lightFg: e.target.value,
-                              },
-                            });
-                          }}
-                        />
-                        <label htmlFor="lightFgPicker" className={styles.colorPillLabel}>
-                          <span
-                            className={styles.colorBox}
-                            style={{
-                              backgroundColor:
-                                user?.settings?.customColors?.lightFg || '#101010',
-                            }}
-                          />
-                          <span className={styles.colorHex}>
-                            {user?.settings?.customColors?.lightFg || '#101010'}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Accent */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Accent</span>
-                      <div className={styles.colorSwatchWrap}>
-                        <input
-                          type="color"
-                          className={styles.hiddenColorInput}
-                          id="lightAccentPicker"
-                          value={user?.settings?.customColors?.lightAccent || '#007ACC'}
-                          onChange={(e) => {
-                            updateSettings({
-                              customColors: {
-                                ...(user?.settings?.customColors || {}),
-                                lightAccent: e.target.value,
-                              },
-                            });
-                          }}
-                        />
-                        <label htmlFor="lightAccentPicker" className={styles.colorPillLabel}>
-                          <span
-                            className={styles.colorBox}
-                            style={{
-                              backgroundColor:
-                                user?.settings?.customColors?.lightAccent || '#007ACC',
-                            }}
-                          />
-                          <span className={styles.colorHex}>
-                            {user?.settings?.customColors?.lightAccent || '#007ACC'}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Expandable Code Preview */}
-                    <div className={styles.previewAccordion}>
-                      <button
-                        type="button"
-                        className={styles.previewToggle}
-                        onClick={() => setPreviewLightOpen(!previewLightOpen)}
-                      >
-                        <span>Code Preview</span>
-                        {previewLightOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </button>
-                      {previewLightOpen && (
-                        <div className={styles.codeSnippetBoxLight}>
-                          <code>
-                            <span style={{ color: '#007ACC' }}>const</span> greeting ={' '}
-                            <span style={{ color: '#0d9488' }}>"Hello NexAI"</span>;
-                            <br />
-                            <span style={{ color: '#007ACC' }}>function</span>{' '}
-                            <span style={{ color: '#6366f1' }}>render</span>() &#123;
-                            <br />
-                            &nbsp;&nbsp;console.log(greeting);
-                            <br />
-                            &#125;
-                          </code>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 4: Dark Theme */}
-                <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Dark Theme</h4>
-                  <div className={styles.groupCard}>
-                    {/* Preset */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Preset</span>
-                      <div className={styles.presetSelectGroup}>
-                        <button
-                          type="button"
-                          className={styles.resetBtn}
-                          title="Reset to default dark"
-                          onClick={() => {
-                            updateSettings({
-                              themePresetDark: 'Default Dark',
-                              customColors: {
-                                ...(user?.settings?.customColors || {}),
-                                darkBg: '#070708',
-                                darkFg: '#FFFFFF',
-                                darkAccent: '#A2FF00',
-                              },
-                            });
-                          }}
-                        >
-                          <RotateCcw size={13} />
-                        </button>
-                        <select
-                          className={styles.nativeDropdown}
-                          value={user?.settings?.themePresetDark || 'Default Dark'}
-                          onChange={(e) => updateSettings({ themePresetDark: e.target.value })}
-                          aria-label="Dark theme preset"
-                        >
-                          <option value="Default Dark">Default Dark</option>
-                          <option value="Midnight Navy">Midnight Navy</option>
-                          <option value="OLED Black">OLED Black</option>
-                          <option value="Cyberpunk Neon">Cyberpunk Neon</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Background */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Background</span>
-                      <div className={styles.colorSwatchWrap}>
-                        <input
-                          type="color"
-                          className={styles.hiddenColorInput}
-                          id="darkBgPicker"
-                          value={user?.settings?.customColors?.darkBg || '#070708'}
-                          onChange={(e) => {
-                            updateSettings({
-                              customColors: {
-                                ...(user?.settings?.customColors || {}),
-                                darkBg: e.target.value,
-                              },
-                            });
-                          }}
-                        />
-                        <label htmlFor="darkBgPicker" className={styles.colorPillLabel}>
-                          <span
-                            className={styles.colorBox}
-                            style={{
-                              backgroundColor:
-                                user?.settings?.customColors?.darkBg || '#070708',
-                            }}
-                          />
-                          <span className={styles.colorHex}>
-                            {user?.settings?.customColors?.darkBg || '#070708'}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Foreground */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Foreground</span>
-                      <div className={styles.colorSwatchWrap}>
-                        <input
-                          type="color"
-                          className={styles.hiddenColorInput}
-                          id="darkFgPicker"
-                          value={user?.settings?.customColors?.darkFg || '#FFFFFF'}
-                          onChange={(e) => {
-                            updateSettings({
-                              customColors: {
-                                ...(user?.settings?.customColors || {}),
-                                darkFg: e.target.value,
-                              },
-                            });
-                          }}
-                        />
-                        <label htmlFor="darkFgPicker" className={styles.colorPillLabel}>
-                          <span
-                            className={styles.colorBox}
-                            style={{
-                              backgroundColor:
-                                user?.settings?.customColors?.darkFg || '#FFFFFF',
-                            }}
-                          />
-                          <span className={styles.colorHex}>
-                            {user?.settings?.customColors?.darkFg || '#FFFFFF'}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Accent */}
-                    <div className={styles.rowItem}>
-                      <span className={styles.rowTitle}>Accent</span>
-                      <div className={styles.colorSwatchWrap}>
-                        <input
-                          type="color"
-                          className={styles.hiddenColorInput}
-                          id="darkAccentPicker"
-                          value={user?.settings?.customColors?.darkAccent || '#A2FF00'}
-                          onChange={(e) => {
-                            updateSettings({
-                              customColors: {
-                                ...(user?.settings?.customColors || {}),
-                                darkAccent: e.target.value,
-                              },
-                            });
-                          }}
-                        />
-                        <label htmlFor="darkAccentPicker" className={styles.colorPillLabel}>
-                          <span
-                            className={styles.colorBox}
-                            style={{
-                              backgroundColor:
-                                user?.settings?.customColors?.darkAccent || '#A2FF00',
-                            }}
-                          />
-                          <span className={styles.colorHex}>
-                            {user?.settings?.customColors?.darkAccent || '#A2FF00'}
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Expandable Code Preview */}
-                    <div className={styles.previewAccordion}>
-                      <button
-                        type="button"
-                        className={styles.previewToggle}
-                        onClick={() => setPreviewDarkOpen(!previewDarkOpen)}
-                      >
-                        <span>Code Preview</span>
-                        {previewDarkOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </button>
-                      {previewDarkOpen && (
-                        <div className={styles.codeSnippetBoxDark}>
-                          <code>
-                            <span style={{ color: '#A2FF00' }}>const</span> greeting ={' '}
-                            <span style={{ color: '#38bdf8' }}>"Hello NexAI"</span>;
-                            <br />
-                            <span style={{ color: '#A2FF00' }}>function</span>{' '}
-                            <span style={{ color: '#c084fc' }}>render</span>() &#123;
-                            <br />
-                            &nbsp;&nbsp;console.log(greeting);
-                            <br />
-                            &#125;
-                          </code>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 5: Chat Layout */}
-                <div className={styles.appearanceSection}>
-                  <h4 className={styles.sectionHeading}>Chat Layout</h4>
-                  <div className={styles.groupCard}>
-                    <div className={styles.rowItem}>
-                      <div className={styles.rowText}>
-                        <span className={styles.rowTitle}>Conversation width</span>
-                        <span className={styles.rowSubtitle}>
-                          Configure the maximum width of the conversation panel.
-                        </span>
-                      </div>
-                      <div className={styles.segmentedPill}>
-                        {[
-                          { id: 'narrow', label: 'Narrow' },
-                          { id: 'default', label: 'Default' },
-                          { id: 'wide', label: 'Wide' },
-                          { id: 'fill', label: 'Fill' },
-                        ].map((w) => (
-                          <button
-                            key={w.id}
-                            type="button"
-                            className={cn(
-                              styles.segmentedPillBtn,
-                              (user?.settings?.conversationWidth || 'wide') === w.id &&
-                                styles.segmentedPillBtnActive,
-                            )}
-                            onClick={() => updateSettings({ conversationWidth: w.id })}
-                          >
-                            {w.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 6: Accessibility */}
+                {/* Section 5: Accessibility */}
                 <div className={styles.appearanceSection}>
                   <h4 className={styles.sectionHeading}>Accessibility</h4>
                   <div className={styles.groupCard}>

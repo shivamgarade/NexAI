@@ -23,14 +23,20 @@ export function sanitizeForSpeech(raw) {
   return raw
     .replace(/```[\s\S]*?```/g, ' Code snippet omitted. ') // Don't speak raw code blocks
     .replace(/`([^`]+)`/g, '$1') // Strip inline backticks
+    .replace(/\\\[[\s\S]*?\\\]/g, ' ') // Strip LaTeX display formulas
+    .replace(/\\\([\s\S]*?\\\)/g, ' ') // Strip LaTeX inline formulas
+    .replace(/\$\$[\s\S]*?\$\$/g, ' ')
+    .replace(/\$([^\$]+)\$/g, '$1')
     .replace(/#{1,6}\s+/g, '') // Strip markdown heading markers
     .replace(/(\*\*|__)(.*?)\1/g, '$2') // Strip bold
     .replace(/(\*|_)(.*?)\1/g, '$2') // Strip italics
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Strip markdown links
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Strip markdown links, speak link text
+    .replace(/https?:\/\/\S+/g, 'link') // Don't spell out full URLs
     .replace(/^\s*[-*+]\s+/gm, '') // Strip bullet points
     .replace(/^\s*\d+\.\s+/gm, '') // Strip list numbers
     .replace(/^\s*>\s+/gm, '') // Strip blockquote markers
     .replace(/\|.*?\|/g, '') // Strip raw table cells
+    .replace(/[~^_]/g, ' ') // Strip stray markdown operators
     .replace(/\s+/g, ' ')
     .trim();
 }

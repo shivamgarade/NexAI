@@ -3,6 +3,10 @@ body {
   font-size: var(--text-md);
   font-weight: var(--weight-regular);
   color: var(--color-text-primary);
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 h1,

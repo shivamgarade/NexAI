@@ -682,14 +682,15 @@ export const synthesizeInterviewSpeech = asyncHandler(async (req, res) => {
   } = req.body;
   const userId = req.user._id;
 
-  // In simulation mode, return 204 No Content (client uses Web Speech API)
-  if (isSimulation || req.headers['x-simulation'] === 'true') {
+  // Test simulation mode: return 204 No Content without invoking synthesis
+  if (isSimulation) {
     return res.status(204).end();
   }
 
-  // Engine 1: Microsoft Edge Neural TTS (Fast ~400ms, 100% Free, 0 Credits, 0 Gemini Quota)
+  // Microsoft Edge Neural TTS is 100% free with 0 token/credit cost.
+  // Always delivers crystal-clear neural speech without consuming Gemini quota or credits.
   if (engine === 'edge') {
-    const edgeVoice = voice || DEFAULT_EDGE_VOICE;
+    const edgeVoice = voice && voice !== 'Kore' ? voice : DEFAULT_EDGE_VOICE;
     const { audioBuffer, mimeType, voice: usedVoice } = await synthesizeEdgeSpeech({
       text,
       voice: edgeVoice,

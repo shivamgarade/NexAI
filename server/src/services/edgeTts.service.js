@@ -27,6 +27,33 @@ function resolveEdgeVoice(text, requestedVoice) {
 }
 
 /**
+ * Strips code blocks, LaTeX formulas, markdown formatting, and raw URLs
+ * so Microsoft Edge Neural TTS reads natural human speech with crystal-clear pronunciation.
+ */
+export function cleanTextForSpeech(raw) {
+  if (!raw) return '';
+  return raw
+    .replace(/```[\s\S]*?```/g, ' Code snippet omitted. ') // Don't speak raw code blocks
+    .replace(/`([^`]+)`/g, '$1') // Strip inline backticks
+    .replace(/\\\[[\s\S]*?\\\]/g, ' ') // Strip LaTeX display formulas
+    .replace(/\\\([\s\S]*?\\\)/g, ' ') // Strip LaTeX inline formulas
+    .replace(/\$\$[\s\S]*?\$\$/g, ' ')
+    .replace(/\$([^\$]+)\$/g, '$1')
+    .replace(/#{1,6}\s+/g, '') // Strip markdown heading markers
+    .replace(/(\*\*|__)(.*?)\1/g, '$2') // Strip bold
+    .replace(/(\*|_)(.*?)\1/g, '$2') // Strip italics
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Strip markdown links, speak link text
+    .replace(/https?:\/\/\S+/g, 'link') // Don't spell out full URLs
+    .replace(/^\s*[-*+]\s+/gm, '') // Strip bullet points
+    .replace(/^\s*\d+\.\s+/gm, '') // Strip list numbers
+    .replace(/^\s*>\s+/gm, '') // Strip blockquote markers
+    .replace(/\|.*?\|/g, '') // Strip raw table cells
+    .replace(/[~^_]/g, ' ') // Strip stray markdown operators
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Safely escapes characters that break SSML XML parsing in Microsoft Edge TTS.
  * Handles &, <, >, ", and ' without double-escaping valid XML entities.
  */
@@ -55,7 +82,8 @@ export async function synthesizeEdgeSpeech({ text, voice = DEFAULT_EDGE_VOICE } 
     throw new Error('Text is required for Edge TTS synthesis');
   }
 
-  const selectedVoice = resolveEdgeVoice(text, voice);
+  const cleaned = cleanTextForSpeech(text).slice(0, 1500);
+  const selectedVoice = resolveEdgeVoice(cleaned, voice);
   const tts = new MsEdgeTTS();
 
   try {
@@ -64,7 +92,7 @@ export async function synthesizeEdgeSpeech({ text, voice = DEFAULT_EDGE_VOICE } 
       OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3,
     );
 
-    const sanitizedText = escapeXmlForSsml(text.trim());
+    const sanitizedText = escapeXmlForSsml(cleaned);
     const { audioStream } = tts.toStream(sanitizedText);
 
     const chunks = [];

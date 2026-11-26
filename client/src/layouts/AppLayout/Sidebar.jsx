@@ -149,13 +149,25 @@ export function Sidebar({ onItemClick, isMobile = false }) {
     fetchProjects();
   }, [fetchChats, fetchProjects]);
 
-  // Primary visible navigation links
-  const primaryNavItems = [
-    { to: ROUTES.CHAT, label: 'Chat', icon: <MessageSquare size={17} /> },
-    { to: ROUTES.LIBRARY, label: 'Library', icon: <Bookmark size={17} /> },
-    { to: ROUTES.SKILLS, label: 'Skills', icon: <Zap size={17} /> },
-    { to: ROUTES.INTERVIEW, label: 'Interview', icon: <Mic size={17} /> },
-    { to: ROUTES.SCHEMA, label: 'Data Modeling', icon: <Database size={17} /> },
+  // Primary visible navigation sections
+  const navSections = [
+    {
+      id: 'workspace',
+      title: 'Workspace',
+      items: [
+        { to: ROUTES.CHAT, label: 'Chat', icon: <MessageSquare size={16} /> },
+        { to: ROUTES.LIBRARY, label: 'Library', icon: <Bookmark size={16} /> },
+      ],
+    },
+    {
+      id: 'studio',
+      title: 'Studio & Tools',
+      items: [
+        { to: ROUTES.SKILLS, label: 'Skills & Prompts', icon: <Zap size={16} /> },
+        { to: ROUTES.INTERVIEW, label: 'Interview Arena', icon: <Mic size={16} /> },
+        { to: ROUTES.SCHEMA, label: 'Data Modeling', icon: <Database size={16} /> },
+      ],
+    },
   ];
 
 
@@ -523,20 +535,24 @@ export function Sidebar({ onItemClick, isMobile = false }) {
 
       {/* Primary Navigation Links */}
       <nav className={styles.navSection} aria-label="Main Navigation">
-        {(isCollapsed
-          ? primaryNavItems.filter((item) => item.to !== ROUTES.CHAT)
-          : primaryNavItems
-        ).map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onItemClick}
-            title={isCollapsed ? item.label : undefined}
-            className={({ isActive }) => cn(styles.navItem, isActive && styles.active)}
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span className={styles.navLabel}>{item.label}</span>
-          </NavLink>
+        {navSections.map((section) => (
+          <div key={section.id} className={styles.navGroup}>
+            {!isCollapsed && <span className={styles.navGroupTitle}>{section.title}</span>}
+            {section.items
+              .filter((item) => !isCollapsed || item.to !== ROUTES.CHAT)
+              .map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={onItemClick}
+                  title={isCollapsed ? item.label : undefined}
+                  className={({ isActive }) => cn(styles.navItem, isActive && styles.active)}
+                >
+                  <span className={styles.navIcon}>{item.icon}</span>
+                  <span className={styles.navLabel}>{item.label}</span>
+                </NavLink>
+              ))}
+          </div>
         ))}
       </nav>
 
@@ -894,38 +910,76 @@ export function Sidebar({ onItemClick, isMobile = false }) {
       {/* Merged Settings & Profile Footer Card */}
       <div className={styles.footerSection}>
         {!isCollapsed ? (
-          <div
-            className={styles.unifiedFooterCard}
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              onItemClick?.();
-              openSettingsModal('profile');
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onItemClick?.();
-                openSettingsModal('profile');
-              }
-            }}
-            title={`Settings & Profile (${userDisplayName} - ${userPlan})`}
-            aria-label="Settings and Profile"
-          >
-            <Avatar name={userDisplayName} size="sm" />
-            <div className={styles.userInfo}>
-              <span className={styles.userName}>{userDisplayName}</span>
-              <span className={styles.userPlan}>{userPlan}</span>
-            </div>
+          <div className={styles.footerCard}>
+            {/* Quota Row */}
             <div
-              className={styles.creditChip}
-              title={`⚡ Daily Quota: ${quotaRemaining.toLocaleString()} / ${quotaLimit.toLocaleString()} calls left`}
+              className={styles.quotaRow}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                onItemClick?.();
+                navigate(ROUTES.WALLET);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onItemClick?.();
+                  navigate(ROUTES.WALLET);
+                }
+              }}
+              title={`⚡ Daily Quota: ${quotaRemaining.toLocaleString()} / ${quotaLimit.toLocaleString()} calls remaining. Click to view usage.`}
+              aria-label="Daily Quota Status"
             >
-              <Zap size={11} className={styles.creditIcon} />
-              <span>{quotaRemaining.toLocaleString()}</span>
+              <div className={styles.quotaStatus}>
+                <span className={styles.quotaPulseDot} />
+                <span className={styles.quotaTitle}>Daily Quota</span>
+              </div>
+              <div className={styles.quotaCountWrap}>
+                <Zap size={11} className={styles.quotaZap} />
+                <span className={styles.quotaCount}>{quotaRemaining.toLocaleString()}</span>
+              </div>
             </div>
-            <div className={styles.footerSettingsIconWrap} title="Settings & Preferences">
-              <Settings size={16} />
+
+            {/* Profile & Settings Row */}
+            <div className={styles.profileRow}>
+              <div
+                className={styles.profileClickArea}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  onItemClick?.();
+                  openSettingsModal('profile');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onItemClick?.();
+                    openSettingsModal('profile');
+                  }
+                }}
+                title={`Profile & Account (${userDisplayName})`}
+                aria-label="View Profile"
+              >
+                <Avatar name={userDisplayName} size="sm" />
+                <div className={styles.profileInfo}>
+                  <span className={styles.profileName}>{userDisplayName}</span>
+                  <span className={styles.profileRole}>{userPlan}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className={styles.settingsBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onItemClick?.();
+                  openSettingsModal('general');
+                }}
+                title="Settings & Preferences"
+                aria-label="Settings"
+              >
+                <Settings size={15} />
+              </button>
             </div>
           </div>
         ) : (
