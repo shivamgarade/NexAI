@@ -9,10 +9,13 @@ import {
   Clock,
   Layers,
   Sliders,
+  Menu,
+  X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
@@ -30,6 +33,7 @@ import { useSkillStore } from '@/store/skillStore';
 import { useChatStore } from '@/store/chatStore';
 import { useScheduleStore } from '@/store/scheduleStore';
 import { useConnectedAppStore } from '@/store/connectedAppStore';
+import { useUiStore } from '@/store/uiStore';
 import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils/cn';
 import styles from './SkillsPage.module.scss';
@@ -44,6 +48,7 @@ const PRIMARY_TABS = [
 
 export default function SkillsPage() {
   const navigate = useNavigate();
+  const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'skills';
 
@@ -158,62 +163,92 @@ export default function SkillsPage() {
 
   return (
     <div className={styles.page}>
-      {/* Sleek Integrated Command Toolbar */}
-      <div className={styles.topToolbar}>
-        <div className={styles.segmentedTabs} role="tablist">
-          {PRIMARY_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activePrimaryTab === tab.id}
-              className={cn(
-                styles.segmentedTabBtn,
-                activePrimaryTab === tab.id && styles.segmentedTabActive,
-              )}
-              onClick={() => handleTabChange(tab.id)}
-            >
-              <span className={styles.tabIcon}>{tab.icon}</span>
-              <span className={styles.tabLabel}>{tab.label}</span>
-              {tab.id === 'skills' && skills.length > 0 && (
-                <span className={styles.tabBadge}>{skills.length}</span>
-              )}
-              {tab.id === 'automations' && schedules.length > 0 && (
-                <span className={styles.tabBadge}>{schedules.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {activePrimaryTab === 'skills' && (
-          <div className={styles.toolbarActions}>
-            <div className={styles.searchWrapper}>
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search skills or tools..."
-                leftIcon={<Search size={14} />}
+      {/* Pinned Sticky Command Header: Compact, Minimal, Zero Bloat */}
+      <header className={styles.stickyHeader}>
+        <div className={styles.commandRow}>
+          {/* Left: Mobile Menu + Studio Title + Primary Segmented Tabs */}
+          <div className={styles.navLeft}>
+            <div className={styles.mobileMenuBtn}>
+              <IconButton
+                icon={<Menu size={18} />}
+                label="Open menu"
+                size="sm"
+                variant="ghost"
+                onClick={() => setDrawerOpen(true)}
               />
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<Plus size={15} />}
-              onClick={() => {
-                setEditingSkill(null);
-                setIsFormOpen(true);
-              }}
-            >
-              Create Skill
-            </Button>
-          </div>
-        )}
-      </div>
 
-      {/* Tab 1: Agent Skills */}
-      {activePrimaryTab === 'skills' && (
-        <div className={styles.tabContent}>
-          <div className={styles.filterStrip}>
+            <div className={styles.titleBadge}>
+              <Zap size={15} className={styles.titleIcon} />
+              <span className={styles.titleText}>Studio</span>
+            </div>
+
+            <div className={styles.segmentedTabs} role="tablist">
+              {PRIMARY_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activePrimaryTab === tab.id}
+                  className={cn(
+                    styles.segmentedTabBtn,
+                    activePrimaryTab === tab.id && styles.segmentedTabActive,
+                  )}
+                  onClick={() => handleTabChange(tab.id)}
+                >
+                  <span className={styles.tabIcon}>{tab.icon}</span>
+                  <span className={styles.tabLabel}>{tab.label}</span>
+                  {tab.id === 'skills' && skills.length > 0 && (
+                    <span className={styles.tabBadge}>{skills.length}</span>
+                  )}
+                  {tab.id === 'automations' && schedules.length > 0 && (
+                    <span className={styles.tabBadge}>{schedules.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Search & Create Action */}
+          {activePrimaryTab === 'skills' && (
+            <div className={styles.actionsGroup}>
+              <div className={styles.searchWrapper}>
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search skills or tools..."
+                  size="sm"
+                  leftIcon={<Search size={14} />}
+                  rightIcon={
+                    search ? (
+                      <X
+                        size={13}
+                        className={styles.clearIcon}
+                        onClick={() => setSearch('')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    ) : null
+                  }
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Plus size={14} />}
+                onClick={() => {
+                  setEditingSkill(null);
+                  setIsFormOpen(true);
+                }}
+              >
+                Create Skill
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Sub-Filter Strip (Only on Skills tab) */}
+        {activePrimaryTab === 'skills' && (
+          <div className={styles.subFilterRow}>
             <div className={styles.subTabs}>
               {[
                 { id: 'all', label: `All (${skills.length})` },
@@ -245,6 +280,12 @@ export default function SkillsPage() {
               ))}
             </div>
           </div>
+        )}
+      </header>
+
+      {/* Tab 1: Agent Skills Content */}
+      {activePrimaryTab === 'skills' && (
+        <div className={styles.tabContent}>
 
           {isLoading ? (
             <div className={styles.loadingGrid}>

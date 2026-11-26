@@ -14,15 +14,17 @@ import {
   X,
   ArrowUpDown,
   FileText,
+  Menu,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { SearchBar } from '@/components/common/SearchBar';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { toast } from '@/store/uiStore';
+import { useUiStore, toast } from '@/store/uiStore';
 import {
   LibraryCard,
   EditItemModal,
@@ -49,6 +51,7 @@ const TABS = [
 
 export default function LibraryPage() {
   const navigate = useNavigate();
+  const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get('tab');
 
@@ -282,18 +285,94 @@ export default function LibraryPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="Knowledge Hub & Library"
-        description="Unified personal repository for notes, bookmarks, custom files, AI-generated documents, and interview transcripts."
-        actions={
-          <div className={styles.headerActions}>
+      {/* Pinned Sticky Command Header: Compact, Minimal, Zero Bloat */}
+      <header className={styles.stickyHeader}>
+        <div className={styles.commandRow}>
+          {/* Left: Mobile Menu + Library Title + Segmented Tabs */}
+          <div className={styles.navLeft}>
+            <div className={styles.mobileMenuBtn}>
+              <IconButton
+                icon={<Menu size={18} />}
+                label="Open menu"
+                size="sm"
+                variant="ghost"
+                onClick={() => setDrawerOpen(true)}
+              />
+            </div>
+
+            <div className={styles.titleBadge}>
+              <Bookmark size={15} className={styles.titleIcon} />
+              <span className={styles.titleText}>Library</span>
+            </div>
+
+            <div className={styles.segmentedTabs} role="tablist">
+              {TABS.map((tab) => {
+                const count = counts?.[tab.id] ?? 0;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    role="tab"
+                    aria-selected={isActive}
+                    type="button"
+                    className={cn(styles.tabBtn, isActive && styles.activeTab)}
+                    onClick={() => handleTabChange(tab.id)}
+                  >
+                    <span className={styles.tabIconWrap}>{tab.icon}</span>
+                    <span className={styles.tabLabel}>{tab.label}</span>
+                    {count > 0 && <span className={styles.tabCount}>{count}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right: Search + Sort + Filter + Add Dropdown */}
+          <div className={styles.actionsGroup}>
+            <div className={styles.searchWrapper}>
+              <SearchBar
+                value={localSearch}
+                onChange={setLocalSearch}
+                onClear={handleClearSearch}
+                placeholder="Search library..."
+                size="sm"
+              />
+            </div>
+
+            <Dropdown
+              align="right"
+              trigger={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<ArrowUpDown size={13} />}
+                  rightIcon={<ChevronDown size={12} />}
+                  className={styles.sortBtn}
+                  title="Sort items"
+                  aria-label="Sort items"
+                >
+                  {sortLabel}
+                </Button>
+              }
+              items={sortDropdownItems}
+            />
+
+            {tags && tags.length > 0 && (
+              <FilterPopover
+                tags={tags}
+                activeTag={activeTag}
+                onSelectTag={setActiveTag}
+              />
+            )}
+
             <Dropdown
               align="right"
               trigger={
                 <Button
                   variant="primary"
-                  leftIcon={<Plus size={16} />}
-                  rightIcon={<ChevronDown size={14} />}
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  rightIcon={<ChevronDown size={12} />}
                   aria-label="Add new item"
                   title="Add new item"
                 >
@@ -303,103 +382,42 @@ export default function LibraryPage() {
               items={actionDropdownItems}
             />
           </div>
-        }
-      />
-
-      {/* Tabbed Content Filtering */}
-      <div className={styles.tabNav} role="tablist">
-        {TABS.map((tab) => {
-          const count = counts?.[tab.id] ?? 0;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={isActive}
-              type="button"
-              className={cn(styles.tabBtn, isActive && styles.activeTab)}
-              onClick={() => handleTabChange(tab.id)}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-              {count > 0 && <span className={styles.tabCount}>{count}</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className={styles.toolbar}>
-        <div className={styles.searchRow}>
-          <div className={styles.searchWrapper}>
-            <SearchBar
-              value={localSearch}
-              onChange={setLocalSearch}
-              onClear={handleClearSearch}
-              placeholder="Search by meaning or keywords across notes, documents, and files..."
-            />
-          </div>
-
-          <Dropdown
-            align="right"
-            trigger={
-              <Button
-                variant="secondary"
-                size="md"
-                leftIcon={<ArrowUpDown size={14} />}
-                rightIcon={<ChevronDown size={14} />}
-                className={styles.sortBtn}
-                title="Sort items"
-                aria-label="Sort items"
-              >
-                {sortLabel}
-              </Button>
-            }
-            items={sortDropdownItems}
-          />
-
-          {tags && tags.length > 0 && (
-            <FilterPopover
-              tags={tags}
-              activeTag={activeTag}
-              onSelectTag={setActiveTag}
-            />
-          )}
         </div>
 
-        {/* Clean active tag indicator chip */}
-        {activeTag && (
-          <div className={styles.activeFilterRow}>
-            <span className={styles.activeFilterLabel}>Active Filter:</span>
-            <span className={styles.activeTagBadge}>
-              #{activeTag}
-              <button
-                type="button"
-                className={styles.activeTagRemoveBtn}
-                onClick={() => setActiveTag(null)}
-                aria-label="Remove filter"
-                title="Remove filter"
-              >
-                <X size={12} />
-              </button>
-            </span>
+        {/* Active Tag or Semantic Search Banner (Only when active) */}
+        {(activeTag || isSearchActive) && (
+          <div className={styles.filterBanner}>
+            {activeTag && (
+              <div className={styles.activeTagBadge}>
+                <span className={styles.activeTagText}>#{activeTag}</span>
+                <button
+                  type="button"
+                  className={styles.activeTagRemoveBtn}
+                  onClick={() => setActiveTag(null)}
+                  aria-label="Remove filter"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            )}
+            {isSearchActive && (
+              <div className={styles.semanticIndicator}>
+                <Sparkles size={13} className={styles.semanticIcon} />
+                <span>
+                  Semantic search for <span className={styles.semanticQuery}>&ldquo;{debouncedSearch}&rdquo;</span>
+                </span>
+                <button
+                  type="button"
+                  className={styles.clearSearchBtn}
+                  onClick={handleClearSearch}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
         )}
-
-        {isSearchActive && (
-          <div className={styles.semanticIndicator}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={14} className={styles.semanticQuery} />
-              <span>
-                Semantic search results for{' '}
-                <span className={styles.semanticQuery}>&ldquo;{debouncedSearch}&rdquo;</span>
-              </span>
-            </div>
-            <Button variant="ghost" size="sm" onClick={handleClearSearch}>
-              Clear
-            </Button>
-          </div>
-        )}
-      </div>
+      </header>
 
       {/* Loading Skeletons */}
       {(isLoading || isSearching) && items.length === 0 ? (

@@ -76,18 +76,27 @@
     padding-bottom: 0;
   }
 
-  &.wideContent {
+  &.wideContent,
+  &.skillsContent {
     max-width: 1540px;
+    padding-top: 0;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+
+    @include up(md) {
+      padding-left: var(--space-6);
+      padding-right: var(--space-6);
+    }
   }
 
   &.fullWidthContent {
     max-width: 1720px;
     width: 100%;
     margin: 0 auto;
-    padding: var(--space-4) var(--space-8);
+    padding: 0 var(--space-8) var(--space-4);
 
     @media (max-width: 1400px) {
-      padding: var(--space-3) var(--space-5);
+      padding: 0 var(--space-5) var(--space-3);
     }
   }
 }

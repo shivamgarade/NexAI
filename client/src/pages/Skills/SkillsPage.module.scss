@@ -3,58 +3,100 @@
 .page {
   display: flex;
   flex-direction: column;
-  padding: var(--space-2) var(--space-4);
+  width: 100%;
   max-width: 1540px;
   margin: 0 auto;
-  width: 100%;
+}
+
+/* Pinned Sticky Command Header */
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky, 100);
+  background: color-mix(in srgb, var(--color-bg-app) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
 }
 
-.topToolbar {
+.commandRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
   flex-wrap: wrap;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--color-border);
 }
 
-.toolbarActions {
+.navLeft {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
 }
 
-.searchWrapper {
-  width: 240px;
-  max-width: 100%;
+.mobileMenuBtn {
+  display: flex;
+  align-items: center;
+
+  @include up(md) {
+    display: none;
+  }
+}
+
+.titleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+
+  .titleIcon {
+    flex-shrink: 0;
+  }
+
+  .titleText {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
 }
 
 .segmentedTabs {
   display: inline-flex;
   align-items: center;
   background: var(--color-bg-surface);
-  padding: 3px;
-  border-radius: var(--radius-md, 8px);
   border: 1px solid var(--color-border);
-  gap: 3px;
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  gap: 2px;
+  overflow-x: auto;
+  @include custom-scrollbar;
 }
 
 .segmentedTabBtn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px 14px;
-  border-radius: var(--radius-sm, 6px);
-  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-secondary);
   background: transparent;
   border: none;
   cursor: pointer;
   transition: all var(--duration-fast, 150ms) ease;
+  white-space: nowrap;
 
   &:hover {
     color: var(--color-text-primary);
@@ -64,8 +106,14 @@
   &.segmentedTabActive {
     color: var(--color-text-primary);
     background: var(--color-bg-elevated);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     font-weight: 600;
+
+    .tabBadge {
+      background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+      color: var(--color-accent);
+      border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    }
   }
 }
 
@@ -75,12 +123,38 @@
 }
 
 .tabBadge {
-  font-size: 11px;
-  padding: 1px 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  padding: 0 5px;
   border-radius: var(--radius-full);
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--color-accent, #6366f1);
-  font-weight: 600;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.actionsGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.searchWrapper {
+  width: 220px;
+
+  @include down(sm) {
+    width: 150px;
+  }
+}
+
+.subFilterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: 2px;
 }
 
 .tabContent {

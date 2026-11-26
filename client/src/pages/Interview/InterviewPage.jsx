@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, Mic, Menu } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
+import { IconButton } from '@/components/ui/IconButton';
 import {
   InterviewSetup,
   InterviewArena,
@@ -9,12 +10,14 @@ import {
 } from '@/features/interview';
 import { useInterviewStore } from '@/store/interviewStore';
 import { useAuthStore } from '@/store/authStore';
+import { useUiStore } from '@/store/uiStore';
 import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils/cn';
 import styles from './InterviewPage.module.scss';
 
 export default function InterviewPage() {
   const navigate = useNavigate();
+  const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const user = useAuthStore((state) => state.user);
   const creditsRemaining = user?.wallet?.creditsRemaining ?? 0;
 
@@ -88,18 +91,38 @@ export default function InterviewPage() {
   return (
     <div className={cn(styles.pageContainer, isArenaActive && styles.arenaPageContainer)}>
       {!currentSession && (
-        <PageHeader
-          title="AI Mock Interview Platform"
-          subtitle="Simulate technical screenings and viva defense with real-time speech visualizer and automated competency scorecards."
-          actions={
-            <div className={styles.headerActions}>
-              <div className={styles.creditPill} onClick={handleRechargeClick} role="button" tabIndex={0}>
-                <CreditCard size={14} />
+        <header className={styles.stickyHeader}>
+          <div className={styles.commandRow}>
+            <div className={styles.navLeft}>
+              <div className={styles.mobileMenuBtn}>
+                <IconButton
+                  icon={<Menu size={18} />}
+                  label="Open menu"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDrawerOpen(true)}
+                />
+              </div>
+              <div className={styles.titleBadge}>
+                <Mic size={15} className={styles.titleIcon} />
+                <span className={styles.titleText}>Interview Arena</span>
+              </div>
+            </div>
+
+            <div className={styles.actionsGroup}>
+              <div
+                className={styles.creditPill}
+                onClick={handleRechargeClick}
+                role="button"
+                tabIndex={0}
+                title="Wallet Credits"
+              >
+                <CreditCard size={13} />
                 <span>{creditsRemaining} credits</span>
               </div>
             </div>
-          }
-        />
+          </div>
+        </header>
       )}
 
 

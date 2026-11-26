@@ -71,6 +71,11 @@ export function AppLayout() {
   const isInterviewRoute = location.pathname.startsWith('/interview');
   const isWideRoute = location.pathname.startsWith('/library');
   const isFullWidthRoute = location.pathname.startsWith('/schema');
+  const isSkillsRoute = location.pathname.startsWith('/skills');
+
+  // Pages with their own dedicated, pinned sticky headers sit flush at top: 0
+  const hasDedicatedHeader =
+    isWideRoute || isSkillsRoute || isInterviewRoute || isFullWidthRoute;
 
   return (
     <div className={styles.layout}>
@@ -92,7 +97,7 @@ export function AppLayout() {
       </Drawer>
 
       <div className={styles.mainWrapper}>
-        <Topbar />
+        {!hasDedicatedHeader && <Topbar />}
         <PWAInstallBanner />
         <main
           className={cn(
@@ -101,6 +106,7 @@ export function AppLayout() {
             isSearchRoute && styles.searchContent,
             isInterviewRoute && styles.interviewContent,
             isWideRoute && styles.wideContent,
+            isSkillsRoute && styles.skillsContent,
             isFullWidthRoute && styles.fullWidthContent,
           )}
         >
