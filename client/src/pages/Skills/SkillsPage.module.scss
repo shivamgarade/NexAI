@@ -3,54 +3,67 @@
 .page {
   display: flex;
   flex-direction: column;
-  padding: var(--space-6);
-  max-width: 1300px;
+  padding: var(--space-4) var(--space-6);
+  max-width: 1440px;
   margin: 0 auto;
   width: 100%;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 
-.segmentedNavRow {
+.topToolbar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-2);
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.searchWrapper {
+  width: 260px;
+  max-width: 100%;
 }
 
 .segmentedTabs {
   display: inline-flex;
   align-items: center;
-  background: var(--color-surface-subtle, rgba(255, 255, 255, 0.04));
-  padding: 4px;
-  border-radius: var(--radius-lg, 12px);
-  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.06));
-  gap: 4px;
+  background: var(--color-bg-surface);
+  padding: 3px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border);
+  gap: 3px;
 }
 
 .segmentedTabBtn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 8px 16px;
-  border-radius: var(--radius-md, 8px);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm, 6px);
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-text-secondary, #94a3b8);
+  color: var(--color-text-secondary);
   background: transparent;
   border: none;
   cursor: pointer;
   transition: all var(--duration-fast, 150ms) ease;
 
   &:hover {
-    color: var(--color-text-primary, #ffffff);
-    background: var(--color-surface-hover, rgba(255, 255, 255, 0.06));
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
   }
 
   &.segmentedTabActive {
-    color: var(--color-text-primary, #ffffff);
-    background: var(--color-surface-elevated, rgba(255, 255, 255, 0.12));
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     font-weight: 600;
   }
@@ -65,7 +78,7 @@
   font-size: 11px;
   padding: 1px 6px;
   border-radius: var(--radius-full);
-  background: rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.15);
   color: var(--color-accent, #6366f1);
   font-weight: 600;
 }
@@ -73,7 +86,94 @@
 .tabContent {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
+}
+
+.filterStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.subTabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-surface);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.subTabBtn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &.activeSubTab {
+    background: var(--color-bg-elevated);
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+}
+
+.categoryChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.categoryChip {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  &.active {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: var(--space-3);
+}
+
+.loadingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: var(--space-3);
+}
+
+.skeletonCard {
+  height: 150px;
+  border-radius: var(--radius-md);
 }
 
 .embeddedTabWrapper {
@@ -83,78 +183,11 @@
 .automationsWrapper {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 
 .automationsSubTabs {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-}
-
-.controlsBar {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-4);
-}
-
-.topRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.searchWrapper {
-  flex: 1;
-  max-width: 400px;
-  min-width: 240px;
-}
-
-.categoryChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.categoryChip {
-  padding: 5px 12px;
-  border-radius: var(--radius-full);
-  font-size: 12px;
-  font-weight: 500;
-  background: var(--color-surface-subtle, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.08));
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all var(--duration-fast);
-
-  &:hover {
-    background: var(--color-surface-hover, rgba(255, 255, 255, 0.08));
-    color: var(--color-text-primary);
-  }
-
-  &.active {
-    background: rgba(99, 102, 241, 0.15);
-    border-color: var(--color-accent, #6366f1);
-    color: var(--color-accent);
-  }
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-4);
-}
-
-.loadingGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-4);
-}
-
-.skeletonCard {
-  height: 190px;
-  border-radius: var(--radius-xl, 16px);
 }

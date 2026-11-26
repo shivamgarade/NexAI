@@ -68,9 +68,8 @@ export function AppLayout() {
   const isChatRoute =
     location.pathname === '/chat' || location.pathname.startsWith('/chat/');
   const isSearchRoute = location.pathname === '/search';
-  const isWideRoute =
-    location.pathname.startsWith('/interview') ||
-    location.pathname.startsWith('/library');
+  const isInterviewRoute = location.pathname.startsWith('/interview');
+  const isWideRoute = location.pathname.startsWith('/library');
   const isFullWidthRoute = location.pathname.startsWith('/schema');
 
   return (
@@ -100,6 +99,7 @@ export function AppLayout() {
             styles.content,
             isChatRoute && styles.chatContent,
             isSearchRoute && styles.searchContent,
+            isInterviewRoute && styles.interviewContent,
             isWideRoute && styles.wideContent,
             isFullWidthRoute && styles.fullWidthContent,
           )}

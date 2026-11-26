@@ -34,7 +34,7 @@ import { STARTER_PROMPTS, PROMPT_CATEGORIES } from '@/constants/starterPrompts';
 import { cn } from '@/lib/utils/cn';
 import styles from './PromptsPage.module.scss';
 
-export default function PromptsPage() {
+export default function PromptsPage({ hideHeader = false }) {
   const navigate = useNavigate();
   const {
     prompts,
@@ -183,19 +183,21 @@ export default function PromptsPage() {
 
   return (
     <div className={styles.pageContainer} data-testid="prompts-page">
-      <PageHeader
-        title="Prompt Vault"
-        description="Reusable, variable-driven prompt templates with one-click filling and instant chat injection."
-        actions={
-          <Button
-            variant="primary"
-            leftIcon={<Plus size={16} />}
-            onClick={handleOpenCreate}
-          >
-            New Prompt
-          </Button>
-        }
-      />
+      {!hideHeader && (
+        <PageHeader
+          title="Prompt Vault"
+          description="Reusable, variable-driven prompt templates with one-click filling and instant chat injection."
+          actions={
+            <Button
+              variant="primary"
+              leftIcon={<Plus size={16} />}
+              onClick={handleOpenCreate}
+            >
+              New Prompt
+            </Button>
+          }
+        />
+      )}
 
       {/* Top View Selector Tabs */}
       <div className={styles.viewTabsRow}>

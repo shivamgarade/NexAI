@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Menu, Sun, Moon, MessageSquareDashed, Check } from 'lucide-react';
+import { Menu, MessageSquareDashed, Check } from 'lucide-react';
 import { useUiStore } from '@/store/uiStore';
-import { useTheme } from '@/hooks/useTheme';
 import { useChatStore } from '@/store/chatStore';
 import { IconButton } from '@/components/ui/IconButton';
 import { cn } from '@/lib/utils/cn';
 import styles from './Topbar.module.scss';
 
 export function Topbar() {
-  const { isDark, toggleTheme } = useTheme();
   const setDrawerOpen = useUiStore((state) => state.setDrawerOpen);
   const location = useLocation();
   const {
@@ -224,7 +222,7 @@ export function Topbar() {
         )}
       </div>
 
-      {/* Floating Separate Round Icons on the right */}
+      {/* Right Group */}
       <div className={styles.rightGroup}>
         {(isTemporaryChat || (!targetChatId && (isChatRoute || location.pathname === '/'))) && (
           <button
@@ -237,16 +235,6 @@ export function Topbar() {
             <MessageSquareDashed size={16} />
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className={styles.roundFloatingBtn}
-          title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-          aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-        >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
       </div>
     </header>
   );

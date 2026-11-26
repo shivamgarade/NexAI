@@ -158,8 +158,8 @@ export default function SkillsPage() {
 
   return (
     <div className={styles.page}>
-      {/* Unified Segmented Primary Navigation */}
-      <div className={styles.segmentedNavRow}>
+      {/* Sleek Integrated Command Toolbar */}
+      <div className={styles.topToolbar}>
         <div className={styles.segmentedTabs} role="tablist">
           {PRIMARY_TABS.map((tab) => (
             <button
@@ -184,50 +184,52 @@ export default function SkillsPage() {
             </button>
           ))}
         </div>
+
+        {activePrimaryTab === 'skills' && (
+          <div className={styles.toolbarActions}>
+            <div className={styles.searchWrapper}>
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search skills or tools..."
+                leftIcon={<Search size={14} />}
+              />
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus size={15} />}
+              onClick={() => {
+                setEditingSkill(null);
+                setIsFormOpen(true);
+              }}
+            >
+              Create Skill
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tab 1: Agent Skills */}
       {activePrimaryTab === 'skills' && (
         <div className={styles.tabContent}>
-          <PageHeader
-            title="AI Agent Skills"
-            description="Autonomous capabilities equipped with web search, deep link scraping, code execution, and database modeling."
-            icon={<Zap size={22} />}
-            actions={
-              <Button
-                variant="primary"
-                leftIcon={<Plus size={16} />}
-                onClick={() => {
-                  setEditingSkill(null);
-                  setIsFormOpen(true);
-                }}
-              >
-                Create Skill
-              </Button>
-            }
-          />
-
-          <div className={styles.controlsBar}>
-            <div className={styles.topRow}>
-              <Tabs
-                activeTab={activeSubTab}
-                onChange={setActiveSubTab}
-                tabs={[
-                  { id: 'all', label: `All Skills (${skills.length})` },
-                  { id: 'system', label: 'Built-in Systems' },
-                  { id: 'custom', label: 'My Skills' },
-                  { id: 'favorites', label: 'Favorites' },
-                ]}
-              />
-
-              <div className={styles.searchWrapper}>
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search skills, tools, or tags..."
-                  leftIcon={<Search size={15} />}
-                />
-              </div>
+          <div className={styles.filterStrip}>
+            <div className={styles.subTabs}>
+              {[
+                { id: 'all', label: `All (${skills.length})` },
+                { id: 'system', label: 'Built-in' },
+                { id: 'custom', label: 'Custom' },
+                { id: 'favorites', label: 'Favorites' },
+              ].map((sub) => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  className={cn(styles.subTabBtn, activeSubTab === sub.id && styles.activeSubTab)}
+                  onClick={() => setActiveSubTab(sub.id)}
+                >
+                  {sub.label}
+                </button>
+              ))}
             </div>
 
             <div className={styles.categoryChips}>
@@ -296,18 +298,13 @@ export default function SkillsPage() {
       {/* Tab 2: Prompt Vault */}
       {activePrimaryTab === 'prompts' && (
         <div className={styles.embeddedTabWrapper}>
-          <PromptsPage />
+          <PromptsPage hideHeader />
         </div>
       )}
 
       {/* Tab 3: Automations & Schedules */}
       {activePrimaryTab === 'automations' && (
         <div className={styles.automationsWrapper}>
-          <PageHeader
-            title="Automations & Routines"
-            description="Scheduled background tickers and connected workspace apps executing AI workflows automatically."
-            icon={<Clock size={22} />}
-          />
           <div className={styles.automationsSubTabs}>
             <SchedulesTab />
             <div style={{ marginTop: 'var(--space-6)' }}>
